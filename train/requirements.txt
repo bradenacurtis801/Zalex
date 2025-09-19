@@ -1,0 +1,19 @@
+# Training-specific dependencies
+# Core ML libraries
+torch>=2.1.0
+torchvision>=0.16.0
+transformers>=4.35.2
+datasets>=2.14.6
+accelerate>=0.26.0
+
+# Data processing
+numpy>=1.24.3
+pandas>=2.0.3
+scikit-learn>=1.3.2
+
+# Evaluation
+evaluate>=0.4.1
+
+# Optional: For advanced training features
+# wandb  # Uncomment for experiment tracking
+# tensorboard  # Uncomment for tensorboard logging
