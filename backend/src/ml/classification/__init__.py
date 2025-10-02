@@ -1,1 +1,0 @@
-# Classification module for document type prediction
