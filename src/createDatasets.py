@@ -5,12 +5,24 @@ import easyocr
 import os
 import wonderwords
 import faker
+import csv
 
 def main():
-    set = makeClassifierDataset('../data/templates/CompoundPhysical.txt', 100,0.05)
-    print(set)
+    if os.path.exists('test_data.csv'):
+        os.remove('test_data.csv')
+    makeClassifierDataset('../data/templates/CompoundPhysical.txt', 'Compound Parameters', 100,0.05)
+    makeClassifierDataset('../data/templates/CouponCode.txt', 'Coupon Code', 100,0.05)
+    makeClassifierDataset('../data/templates/FinalReport.txt', 'Final Report', 100,0.05)
+    makeClassifierDataset('../data/templates/LobbyistReport.txt', 'Lobbyist Report', 100,0.05)
+    makeClassifierDataset('../data/templates/Mutagenicity.txt', 'Mutagenicity', 100,0.05)
+    makeClassifierDataset('../data/templates/SalesPromotion.txt', 'Sales Promotion', 100,0.05)
+    makeClassifierDataset('../data/templates/Sample.txt', 'Sample', 100,0.05)
+    makeClassifierDataset('../data/templates/TestSubstance.txt', 'TestSubstance', 100,0.05)
+    makeClassifierDataset('../data/templates/Tobacco.txt', 'Tobacco', 100,0.05)
+    makeClassifierDataset('../data/templates/UrbanCenter.txt', 'Urban Center', 100,0.05)
+    
 
-def makeClassifierDataset(dir,num, OCRMisidentificationChance):
+def makeClassifierDataset(dir, docType, num, OCRMisidentificationChance):
     rword = wonderwords.RandomWord()
     rsent = wonderwords.RandomSentence()
     fake = faker.Faker()
@@ -18,7 +30,7 @@ def makeClassifierDataset(dir,num, OCRMisidentificationChance):
     template = open(dir, 'r')
     line = template.readline()
     segmants = line.split(" ")
-    copies = []
+    data = []
 
     for i in range(num):
         genCopy = ""
@@ -61,9 +73,10 @@ def makeClassifierDataset(dir,num, OCRMisidentificationChance):
             else:
                 finalString += char
 
-        copies.append(finalString)
-
-    return copies
+        data.append([finalString, docType])
+    with open('test_data.csv', 'a', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerows(data)
 
 def extractText(dir):
     reader = easyocr.Reader(['en'], gpu=False)
