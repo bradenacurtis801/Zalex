@@ -8,6 +8,6 @@ class NamedEntityRecognizer:
 	def nameEntities(self, document_text) -> List:
 		doc = self.nlp(document_text)
 		entities = []
-		for entity in doc.ents:
+		for ent in doc.ents:
 			entities.append(ent.label_, ent.text)
 		return entities
