@@ -10,19 +10,33 @@ import csv
 def main():
     if os.path.exists('test_data.csv'):
         os.remove('test_data.csv')
-    makeClassifierDataset('../data/templates/CompoundPhysical.txt', 'Compound Parameters', 100,0.05)
-    makeClassifierDataset('../data/templates/CouponCode.txt', 'Coupon Code', 100,0.05)
-    makeClassifierDataset('../data/templates/FinalReport.txt', 'Final Report', 100,0.05)
-    makeClassifierDataset('../data/templates/LobbyistReport.txt', 'Lobbyist Report', 100,0.05)
-    makeClassifierDataset('../data/templates/Mutagenicity.txt', 'Mutagenicity', 100,0.05)
-    makeClassifierDataset('../data/templates/SalesPromotion.txt', 'Sales Promotion', 100,0.05)
-    makeClassifierDataset('../data/templates/Sample.txt', 'Sample', 100,0.05)
-    makeClassifierDataset('../data/templates/TestSubstance.txt', 'TestSubstance', 100,0.05)
-    makeClassifierDataset('../data/templates/Tobacco.txt', 'Tobacco', 100,0.05)
-    makeClassifierDataset('../data/templates/UrbanCenter.txt', 'Urban Center', 100,0.05)
     
+    templates = {
+        'Compound Parameters': '../data/templates/CompoundPhysical.txt',
+        'Coupon Code': '../data/templates/CouponCode.txt',
+        'Final Report': '../data/templates/FinalReport.txt',
+        'Lobbyist Report': '../data/templates/LobbyistReport.txt',
+        'Mutagenicity': '../data/templates/Mutagenicity.txt',
+        'Sales Promotion': '../data/templates/SalesPromotion.txt',
+        'Sample': '../data/templates/Sample.txt',
+        'TestSubstance': '../data/templates/TestSubstance.txt',
+        'Tobacco': '../data/templates/Tobacco.txt',
+        'Urban Center': '../data/templates/UrbanCenter.txt',
+    }
 
-def makeClassifierDataset(dir, docType, num, OCRMisidentificationChance):
+    for label, path in templates.items():
+        makeClassifierDataset(path, label, 100, 0.05, list(templates.values()))
+    
+def get_sentence_fragment(template, min_length=5, max_length=20):
+    tokens = template.split(" ")
+    if len(tokens) < min_length:
+        return template
+    framgent_range = random.randint(min_length, min(max_length, len(tokens)))
+    start_index = random.randint(0, len(tokens) - framgent_range)
+    fragment = tokens[start_index:start_index + framgent_range]
+    return " ".join(fragment)
+
+def makeClassifierDataset(dir, docType, num, OCRMisidentificationChance, all_templates):
     rword = wonderwords.RandomWord()
     rsent = wonderwords.RandomSentence()
     fake = faker.Faker()
@@ -34,6 +48,13 @@ def makeClassifierDataset(dir, docType, num, OCRMisidentificationChance):
 
     for i in range(num):
         genCopy = ""
+        if random.random() < 0.1:
+            other_template_path = random.choice(all_templates)
+            if other_template_path != dir:
+                with open(other_template_path, 'r') as other_file:
+                    other_text = other_file.readline()
+                    other_fragment = get_sentence_fragment(other_text)
+                    genCopy += other_fragment
         for segment in segmants:
             if segment == "{ID}":
                 genCopy += str(random.randrange(0,9999))
@@ -74,8 +95,13 @@ def makeClassifierDataset(dir, docType, num, OCRMisidentificationChance):
                 finalString += char
 
         data.append([finalString, docType])
+    
+    file_exists = os.path.exists('test_data.csv')
+
     with open('test_data.csv', 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
+        if not file_exists:
+            writer.writerow(['text', 'label'])
         writer.writerows(data)
 
 def extractText(dir):
