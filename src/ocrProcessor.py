@@ -2,11 +2,19 @@ import easyocr
 from typing import List, Tuple, Union
 import os
 
+_reader = None
+
+def get_ocr_reader(languages: List[str], gpu: bool) -> easyocr.Reader:
+    global _reader
+    if _reader is None:
+        _reader = easyocr.Reader(languages, gpu=gpu)
+    return _reader
+
 class OCRProcessor:
     
     def __init__(self, languages: List[str] = ['en'], gpu: bool = False) -> None:
 
-        self.reader = easyocr.Reader(languages, gpu=gpu)
+        self.reader = get_ocr_reader(languages, gpu)
         self.languages = languages
         self.gpu = gpu
 
