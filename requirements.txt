@@ -1,0 +1,9 @@
+sentence-transformers
+pandas
+scikit-learn
+faiss-cpu
+numpy
+easyocr
+wonderwords
+faker
+easyocr
