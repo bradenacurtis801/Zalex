@@ -58,7 +58,7 @@ app = FastAPI(
 # Add CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_origins=config.settings.cors_origins,  # Frontend URL from settings
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -67,6 +67,12 @@ app.add_middleware(
 # Include routers
 app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(query.router, prefix="/api", tags=["query"])
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Docker and load balancers."""
+    return {"status": "healthy", "service": "ScanPro API"}
 
 # Development redirect
 @app.get("/")
@@ -79,4 +85,9 @@ async def root():
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True)
+    uvicorn.run(
+        "main:app", 
+        host=config.settings.backend_host, 
+        port=config.settings.backend_port, 
+        reload=config.settings.debug
+    )

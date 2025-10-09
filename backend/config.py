@@ -1,3 +1,6 @@
+from pydantic_settings import BaseSettings
+from pydantic import Field
+from typing import Literal
 import os
 from pathlib import Path
 import platform
@@ -5,21 +8,51 @@ import sys
 
 from src.utils import _platform
 
-#######################################################
-###################### CONSTANTS ######################
-#######################################################
 
-is_development = os.getenv('NODE_ENV', 'dev') == 'dev'
-is_production = os.getenv('NODE_ENV', 'dev') == 'prod'
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+    
+    # Environment (maps NODE_ENV to internal values)
+    node_env: Literal["dev", "prod"] = Field(default="dev")
+    
+    # Server configuration
+    backend_port: int = Field(default=5000, env="BACKEND_PORT")
+    backend_host: str = Field(default="0.0.0.0", env="BACKEND_HOST")
+    
+    # Debug mode
+    debug: bool = Field(default=True, env="DEBUG")
+    
+    # CORS settings
+    cors_origins: list[str] = Field(default=["http://localhost:3000"])
+    
+    class Config:
+        case_sensitive = False
+    
+    @property
+    def node_env_value(self) -> str:
+        """Map NODE_ENV environment variable to internal values."""
+        import os
+        env_value = os.getenv("NODE_ENV", "development")
+        if env_value in ["production", "prod"]:
+            return "prod"
+        return "dev"
 
-# Application name used across all components
+
+# Application name (hardcoded)
 APP_NAME = "ScanPro"
 
+# Create settings instance
+settings = Settings()
+
+# Environment checks
+is_development = settings.node_env_value == "dev"
+is_production = settings.node_env_value == "prod"
+
+# Application directory logic
 APP_DIR: Path = Path("")
 
 if is_development:
     APP_DIR = Path(sys.argv[0]).resolve().parent / "APP_DATA"
-
 elif _platform.WINDOWS:
     _basedir = os.environ.get("APPDATA", os.path.expanduser("~"))
     APP_DIR = Path(_basedir) / APP_NAME
