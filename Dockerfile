@@ -55,7 +55,7 @@ EXPOSE 3000 5000
 ENV NODE_ENV=production \
     BACKEND_PORT=5000 \
     BACKEND_HOST=0.0.0.0 \
-    DEBUG=false \
+    DEBUG=0 \
     CORS_ORIGINS="http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"
 
 # Health check

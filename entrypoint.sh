@@ -7,6 +7,15 @@ set -e
 
 echo "🚀 Starting ScanPro Services..."
 
+# Normalize NODE_ENV for Next.js compatibility
+if [ "$NODE_ENV" = "dev" ]; then
+    export NODE_ENV=development
+    echo "📝 Normalized NODE_ENV: dev → development"
+elif [ "$NODE_ENV" = "prod" ]; then
+    export NODE_ENV=production
+    echo "📝 Normalized NODE_ENV: prod → production"
+fi
+
 # Function to handle shutdown
 cleanup() {
     echo "🛑 Shutting down services..."
@@ -20,7 +29,18 @@ trap cleanup SIGTERM SIGINT
 # Start backend
 echo "📡 Starting FastAPI backend on port ${BACKEND_PORT:-5000}..."
 cd /app/backend
-python3 main.py &
+
+# Check DEBUG mode
+if [ "$DEBUG" = "1" ]; then
+    echo "🐛 Starting backend in DEBUG mode with debugpy (waiting for client) on port 5678..."
+    python -m debugpy --listen 0.0.0.0:5678 --wait-for-client main.py &
+elif [ "$DEBUG" = "2" ]; then
+    echo "🐛 Starting backend in DEBUG mode with debugpy (no wait) on port 5678..."
+    python -m debugpy --listen 0.0.0.0:5678 main.py &
+else
+    echo "🚀 Starting backend in production mode..."
+    python main.py &
+fi
 BACKEND_PID=$!
 
 # Start frontend in background
