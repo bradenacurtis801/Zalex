@@ -4,7 +4,8 @@ import {
   Configuration,
 } from "@/generated";
 
-let apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+// Use relative URLs to leverage Next.js proxy
+let apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
 // Create a central configuration
 let sharedConfig = new Configuration({

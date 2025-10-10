@@ -6,24 +6,27 @@
 # 3. Run the script: uvicorn main:app --reload --host 127.0.0.1 --port 5000
 # 4. Open your web browser to http://127.0.0.1:5000
 
-import os
 import logging
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+import os
 from contextlib import asynccontextmanager
 
 import config as config
-from src.routers import upload, query
 from app_state import get_app_state
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from src.routers import query, upload
 
 # --- Configuration ---
 # Set up basic logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Define the base directory where the script is expected to run
 os.chdir(config.APP_DIR)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,32 +38,40 @@ async def lifespan(app: FastAPI):
     logger.debug(f"Upload directory: {config.UPLOAD_DIR}")
     logger.debug(f"Index file: {config.INDEX_FILE}")
     logger.debug(f"Metadata file: {config.METADATA_FILE}")
-    
+
     app_state = get_app_state()
     logger.debug("Initializing app state...")
     app_state.initialize()
     logger.debug("App state initialization complete")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down application...")
     logger.debug("Application shutdown complete")
+
 
 # --- FastAPI App Initialization ---
 app = FastAPI(
     title="ScriptNinja AI Document Agent",
     description="A self-contained FastAPI application for document ingestion, OCR, indexing, and retrieval.",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Add CORS middleware for frontend
+# Parse CORS origins from environment variable (comma-separated)
+cors_origins = [origin.strip() for origin in config.settings.cors_origins.split(",")]
+
+# In development, allow all origins for easier debugging
+if config.is_development:
+    cors_origins = ["*"]  # Allow all origins in development
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=config.settings.cors_origins,  # Frontend URL from settings
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -68,11 +79,13 @@ app.add_middleware(
 app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(query.router, prefix="/api", tags=["query"])
 
+
 # Health check endpoint
 @app.get("/health")
 async def health_check():
     """Health check endpoint for Docker and load balancers."""
     return {"status": "healthy", "service": "ScanPro API"}
+
 
 # Development redirect
 @app.get("/")
@@ -83,11 +96,13 @@ async def root():
     else:
         return {"message": "ScanPro API is running"}
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
-        "main:app", 
-        host=config.settings.backend_host, 
-        port=config.settings.backend_port, 
-        reload=config.settings.debug
+        "main:app",
+        host=config.settings.backend_host,
+        port=config.settings.backend_port,
+        reload=config.settings.debug,
     )

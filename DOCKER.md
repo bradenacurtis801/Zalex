@@ -22,24 +22,26 @@ docker-compose up -d --build
 docker-compose down
 ```
 
-### Option 2: Using Docker directly
+### Option 2: Using Docker directly (Current Method)
 
 ```bash
 # Build for your current architecture
-docker build -t scanpro:latest .
+docker build -t bradenacurtis801/scanpro:latest .
 
 # Run the container
-docker run -p 3000:3000 -p 5000:5000 scanpro:latest
+docker run -p 3000:3000 -p 5000:5000 bradenacurtis801/scanpro:latest
 ```
 
-### Option 3: Multi-Architecture Build
+### Option 3: Multi-Architecture Build (Work in Progress)
+
+> **Note**: The multi-platform build script (`build-and-push.sh`) is currently under development. For now, use the simple build command above.
 
 ```bash
-# Build for both Intel and Apple M1 (requires Docker Buildx)
-./build-local-multiarch.sh
+# Multi-platform build (experimental)
+./build-and-push.sh
 
-# Or build and push to registry
-./build-multiarch.sh
+# This will build for both Intel and Apple M1 architectures
+# and push to Docker Hub when ready
 ```
 
 ## 🌐 Accessing the Application
@@ -64,7 +66,6 @@ You can customize the following environment variables:
 | `BACKEND_HOST` | `0.0.0.0` | Backend server host |
 | `DEBUG` | `false` | Enable debug mode |
 | `CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Allowed CORS origins |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:5000` | Frontend API URL |
 
 ### Custom Configuration
 
@@ -76,7 +77,6 @@ BACKEND_PORT=5000
 BACKEND_HOST=0.0.0.0
 DEBUG=false
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
 
 Then run with docker-compose:
@@ -101,24 +101,24 @@ docker volume inspect scanpro_data
 
 ```bash
 # Build with development settings
-docker build --build-arg NODE_ENV=development -t scanpro:dev .
+docker build --build-arg NODE_ENV=development -t bradenacurtis801/scanpro:dev .
 
 # Run with development settings
 docker run -p 3000:3000 -p 5000:5000 \
   -e NODE_ENV=development \
   -e DEBUG=true \
-  scanpro:dev
+  bradenacurtis801/scanpro:dev
 ```
 
-### Multi-Architecture Development
+### Multi-Architecture Development (Work in Progress)
+
+> **Note**: Multi-architecture builds are currently under development. Use the simple build command for now.
 
 ```bash
-# Build for both architectures locally
-./build-local-multiarch.sh
+# Multi-platform build (experimental)
+./build-and-push.sh
 
-# Run specific architecture
-docker run -p 3000:3000 -p 5000:5000 scanpro:amd64    # Intel
-docker run -p 3000:3000 -p 5000:5000 scanpro:arm64    # Apple M1
+# This will create architecture-specific tags when ready
 ```
 
 ### Viewing Logs
@@ -144,13 +144,11 @@ docker run -p 3001:3000 -p 5001:5000 scanpro:latest
 
 ### Frontend Can't Reach Backend
 
-Make sure the `NEXT_PUBLIC_API_URL` environment variable is set correctly:
+The frontend uses a Next.js proxy to communicate with the backend. If you're having issues:
 
-```bash
-docker run -p 3000:3000 -p 5000:5000 \
-  -e NEXT_PUBLIC_API_URL=http://localhost:5000 \
-  scanpro:latest
-```
+1. **Check the proxy configuration** in `frontend/next.config.js`
+2. **Ensure the backend is running** on port 5000
+3. **Check CORS settings** in the backend configuration
 
 ### Health Check Failing
 
@@ -169,7 +167,7 @@ docker run -p 3000:3000 -p 5000:5000 \
 docker-compose down
 
 # Remove the image
-docker rmi scanpro:latest
+docker rmi bradenacurtis801/scanpro:latest
 
 # Remove volumes (WARNING: This will delete all data)
 docker volume rm scanpro_data

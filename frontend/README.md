@@ -36,6 +36,45 @@ Create a `.env.local` file:
 NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
 
+## Next.js Configuration
+
+The frontend uses Next.js with a custom configuration in `next.config.js`:
+
+### API Proxy Setup
+
+The configuration includes a rewrite rule that creates a proxy between the frontend and backend:
+
+```javascript
+async rewrites() {
+  return [
+    {
+      source: '/api/:path*',
+      destination: 'http://localhost:5000/api/:path*',
+    },
+  ]
+}
+```
+
+**How it works:**
+- **Frontend requests** to `http://localhost:3000/api/query` are automatically forwarded to `http://localhost:5000/api/query`
+- **Solves CORS issues** - No need to configure cross-origin headers
+- **Seamless integration** - Frontend can use relative URLs like `/api/query` instead of hardcoded backend URLs
+- **Development convenience** - Works transparently in development and production
+
+**Example usage:**
+```typescript
+// This request to the frontend:
+fetch('/api/query', { method: 'POST', body: data })
+
+// Gets automatically rewritten to:
+fetch('http://localhost:5000/api/query', { method: 'POST', body: data })
+```
+
+### Other Configuration
+
+- **`reactStrictMode: true`** - Enables React's Strict Mode for better development experience
+- **`swcMinify: true`** - Uses SWC for faster JavaScript minification
+
 ## Project Structure
 
 ```

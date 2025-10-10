@@ -67,19 +67,33 @@ construct_image_urls() {
 
 # Function to build the image
 build_image() {
-    echo "🏗️  Building multi-architecture image..."
-    echo "   Platforms: $PLATFORMS"
-    echo "   Repository: $DOCKER_USERNAME/$REPOSITORY_NAME"
-    echo "   Tag: $IMAGE_TAG"
-    echo ""
-    
-    docker buildx build \
-        --platform $PLATFORMS \
-        --tag $FULL_IMAGE_NAME \
-        --tag $AMD64_TAG \
-        --tag $ARM64_TAG \
-        --push \
-        .
+    if [ "$1" = "--build-only" ]; then
+        echo "🏗️  Building image for local architecture only..."
+        echo "   Platform: $(docker version --format '{{.Server.Arch}}')"
+        echo "   Repository: $DOCKER_USERNAME/$REPOSITORY_NAME"
+        echo "   Tag: $IMAGE_TAG"
+        echo ""
+        
+        docker buildx build \
+            --platform linux/amd64 \
+            --tag scanpro:latest \
+            --load \
+            .
+    else
+        echo "🏗️  Building multi-architecture image..."
+        echo "   Platforms: $PLATFORMS"
+        echo "   Repository: $DOCKER_USERNAME/$REPOSITORY_NAME"
+        echo "   Tag: $IMAGE_TAG"
+        echo ""
+        
+        docker buildx build \
+            --platform $PLATFORMS \
+            --tag $FULL_IMAGE_NAME \
+            --tag $AMD64_TAG \
+            --tag $ARM64_TAG \
+            --push \
+            .
+    fi
 }
 
 # Function to ask for confirmation
@@ -125,6 +139,14 @@ echo "🐳 ScanPro Docker Hub Build and Push Script"
 echo "=============================================="
 echo ""
 
+# Check for build-only flag
+BUILD_ONLY=false
+if [ "$1" = "--build-only" ]; then
+    BUILD_ONLY=true
+    echo "🔧 Build-only mode: Will not push to Docker Hub"
+    echo ""
+fi
+
 # Check prerequisites
 check_docker
 check_buildx
@@ -143,18 +165,27 @@ construct_image_urls
 # Setup buildx builder
 setup_builder
 
-# Ask for confirmation before building
-echo "🔨 Ready to build and push the image."
-ask_confirmation
+# Ask for confirmation before building (unless build-only mode)
+if [ "$BUILD_ONLY" = false ]; then
+    echo "🔨 Ready to build and push the image."
+    ask_confirmation
+else
+    echo "🔨 Ready to build the image locally."
+fi
 
 # Build and push the image
-echo "🚀 Starting build and push process..."
-build_image
-
-echo "✅ Build and push completed successfully!"
-echo ""
-
-# Show usage instructions
-show_usage
-
-echo "🎉 Done! Your ScanPro image is now available on Docker Hub."
+echo "🚀 Starting build process..."
+if [ "$BUILD_ONLY" = true ]; then
+    build_image --build-only
+    echo "✅ Build completed successfully!"
+    echo ""
+    echo "📖 You can now run the image locally with:"
+    echo "   docker run -p 3000:3000 -p 5000:5000 scanpro:latest"
+else
+    build_image
+    echo "✅ Build and push completed successfully!"
+    echo ""
+    # Show usage instructions
+    show_usage
+    echo "🎉 Done! Your ScanPro image is now available on Docker Hub."
+fi

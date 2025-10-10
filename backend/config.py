@@ -1,37 +1,38 @@
-from pydantic_settings import BaseSettings
-from pydantic import Field
-from typing import Literal
 import os
-from pathlib import Path
 import platform
 import sys
+from pathlib import Path
+from typing import Literal
 
+from pydantic import Field
+from pydantic_settings import BaseSettings
 from src.utils import _platform
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
-    
+
     # Environment (maps NODE_ENV to internal values)
     node_env: Literal["dev", "prod"] = Field(default="dev")
-    
+
     # Server configuration
     backend_port: int = Field(default=5000, env="BACKEND_PORT")
     backend_host: str = Field(default="0.0.0.0", env="BACKEND_HOST")
-    
+
     # Debug mode
     debug: bool = Field(default=True, env="DEBUG")
-    
+
     # CORS settings
-    cors_origins: list[str] = Field(default=["http://localhost:3000"])
-    
+    cors_origins: str = Field(default="http://localhost:3000", env="CORS_ORIGINS")
+
     class Config:
         case_sensitive = False
-    
+
     @property
     def node_env_value(self) -> str:
         """Map NODE_ENV environment variable to internal values."""
         import os
+
         env_value = os.getenv("NODE_ENV", "development")
         if env_value in ["production", "prod"]:
             return "prod"
@@ -64,13 +65,13 @@ else:
     raise BaseException(f"Unsupported platform: {platform.system()}")
 
 # Core application paths
-UPLOAD_DIR = APP_DIR / 'uploads'
-INDEX_FILE = APP_DIR / 'document_index.faiss'
-METADATA_FILE = APP_DIR / 'document_metadata.json'
+UPLOAD_DIR = APP_DIR / "uploads"
+INDEX_FILE = APP_DIR / "document_index.faiss"
+METADATA_FILE = APP_DIR / "document_metadata.json"
 
 # ML model paths (for inference only)
-ML_MODELS_DIR = APP_DIR / 'ml_models'
-SPANISH_CLASSIFIER_MODEL = ML_MODELS_DIR / 'spanish_doc_classifier_model'
+ML_MODELS_DIR = APP_DIR / "ml_models"
+SPANISH_CLASSIFIER_MODEL = ML_MODELS_DIR / "spanish_doc_classifier_model"
 
 # Create all directories
 APP_DIR.mkdir(parents=True, exist_ok=True)
