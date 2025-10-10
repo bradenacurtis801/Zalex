@@ -39,6 +39,13 @@ async def lifespan(app: FastAPI):
     logger.debug(f"Index file: {config.INDEX_FILE}")
     logger.debug(f"Metadata file: {config.METADATA_FILE}")
 
+    # Create all required directories
+    logger.debug("Creating application directories...")
+    config.APP_DIR.mkdir(parents=True, exist_ok=True)
+    config.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    config.ML_MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    logger.debug("Application directories created successfully")
+
     app_state = get_app_state()
     logger.debug("Initializing app state...")
     app_state.initialize()

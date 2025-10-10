@@ -73,10 +73,5 @@ METADATA_FILE = APP_DIR / "document_metadata.json"
 ML_MODELS_DIR = APP_DIR / "ml_models"
 SPANISH_CLASSIFIER_MODEL = ML_MODELS_DIR / "spanish_doc_classifier_model"
 
-# Create all directories
-APP_DIR.mkdir(parents=True, exist_ok=True)
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-ML_MODELS_DIR.mkdir(parents=True, exist_ok=True)
-
 #######################################################
 #######################################################
