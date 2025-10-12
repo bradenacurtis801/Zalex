@@ -10,7 +10,7 @@ import os
 import config as config
 import faiss
 from sentence_transformers import SentenceTransformer
-from src.services.document_processor import DocumentProcessor
+from src.utils.document_processor import DocumentProcessor
 
 logger = logging.getLogger(__name__)
 

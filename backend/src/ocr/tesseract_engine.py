@@ -8,6 +8,7 @@ import tempfile
 from typing import List
 
 import pytesseract
+from pytesseract import TesseractNotFoundError
 from PIL import Image
 
 from .base import OCREngine
@@ -36,6 +37,9 @@ class TesseractEngine(OCREngine):
             logger.info(
                 f"Tesseract OCR initialized successfully with languages: {lang_string}"
             )
+        except TesseractNotFoundError as e:
+            logger.error(f"Tesseract OCR is not available: {e}")
+            raise
         except Exception as e:
             logger.error(f"Failed to initialize Tesseract: {e}")
             raise
@@ -50,9 +54,12 @@ class TesseractEngine(OCREngine):
                 text = pytesseract.image_to_string(img, config=self._tesseract_config)
             logger.debug(f"Successfully extracted {len(text)} characters")
             return text.strip()
+        except TesseractNotFoundError as e:
+            logger.error(f"Tesseract OCR is not available: {e}")
+            raise
         except Exception as e:
             logger.error(f"Tesseract OCR extraction failed: {e}")
-            return ""
+            raise
 
     def extract_text_from_bytes(
         self, image_bytes: bytes, image_format: str = "png"
@@ -75,9 +82,12 @@ class TesseractEngine(OCREngine):
             os.unlink(temp_path)
 
             return text
+        except TesseractNotFoundError as e:
+            logger.error(f"Tesseract OCR is not available: {e}")
+            raise
         except Exception as e:
             logger.error(f"Tesseract OCR extraction from bytes failed: {e}")
-            return ""
+            raise
 
     def get_supported_languages(self) -> List[str]:
         """Get list of supported language codes for Tesseract."""
@@ -86,6 +96,9 @@ class TesseractEngine(OCREngine):
             available_langs = pytesseract.get_languages()
             logger.debug(f"Tesseract available languages: {available_langs}")
             return available_langs
+        except TesseractNotFoundError as e:
+            logger.warning(f"Tesseract OCR is not available: {e}")
+            raise
         except Exception as e:
             logger.warning(f"Could not get Tesseract languages: {e}")
-            return ["eng"]  # Default fallback
+            raise

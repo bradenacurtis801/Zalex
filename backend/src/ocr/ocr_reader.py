@@ -8,6 +8,8 @@ from typing import List
 
 from .base import OCREngine
 from .factory import get_default_ocr_engine
+from pytesseract import TesseractNotFoundError
+from src.core.exceptions import OCRNotAvailableException, DocumentProcessingException
 
 logger = logging.getLogger(__name__)
 
@@ -39,19 +41,28 @@ def extract_text_from_image(image_path: str, languages: str = "eng+spa") -> str:
 
     Returns:
         Extracted text as string
+        
+    Raises:
+        OCRNotAvailableException: If Tesseract OCR is not available
+        DocumentProcessingException: If document processing fails
     """
-    engine = get_ocr_reader()
+    try:
+        engine = get_ocr_reader()
 
-    # Convert language string to list
-    lang_list = [lang.strip() for lang in languages.split("+")]
+        # Convert language string to list
+        lang_list = [lang.strip() for lang in languages.split("+")]
 
-    # Create a new engine instance with the specified languages if different
-    if set(lang_list) != set(engine.languages):
-        from .factory import create_ocr_engine
+        # Create a new engine instance with the specified languages if different
+        if set(lang_list) != set(engine.languages):
+            from .factory import create_ocr_engine
 
-        engine = create_ocr_engine(languages=lang_list)
+            engine = create_ocr_engine(languages=lang_list)
 
-    return engine.extract_text(image_path)
+        return engine.extract_text(image_path)
+    except TesseractNotFoundError as e:
+        raise OCRNotAvailableException(f"Tesseract OCR is not available: {str(e)}")
+    except Exception as e:
+        raise DocumentProcessingException(f"OCR extraction failed: {str(e)}")
 
 
 def extract_text_from_bytes(
@@ -67,16 +78,25 @@ def extract_text_from_bytes(
 
     Returns:
         Extracted text as string
+        
+    Raises:
+        OCRNotAvailableException: If Tesseract OCR is not available
+        DocumentProcessingException: If document processing fails
     """
-    engine = get_ocr_reader()
+    try:
+        engine = get_ocr_reader()
 
-    # Convert language string to list
-    lang_list = [lang.strip() for lang in languages.split("+")]
+        # Convert language string to list
+        lang_list = [lang.strip() for lang in languages.split("+")]
 
-    # Create a new engine instance with the specified languages if different
-    if set(lang_list) != set(engine.languages):
-        from .factory import create_ocr_engine
+        # Create a new engine instance with the specified languages if different
+        if set(lang_list) != set(engine.languages):
+            from .factory import create_ocr_engine
 
-        engine = create_ocr_engine(languages=lang_list)
+            engine = create_ocr_engine(languages=lang_list)
 
-    return engine.extract_text_from_bytes(image_bytes, image_format)
+        return engine.extract_text_from_bytes(image_bytes, image_format)
+    except TesseractNotFoundError as e:
+        raise OCRNotAvailableException(f"Tesseract OCR is not available: {str(e)}")
+    except Exception as e:
+        raise DocumentProcessingException(f"OCR extraction failed: {str(e)}")

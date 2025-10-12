@@ -5,13 +5,44 @@ A FastAPI-based document processing and search backend that provides OCR, text e
 ## 🚀 Features
 
 - **Document Upload & Processing**: Support for PDF and image files (JPG, PNG, JPEG)
-- **OCR Text Extraction**: EasyOCR integration for accurate text recognition
+- **OCR Text Extraction**: Tesseract and EasyOCR integration for accurate text recognition
 - **Document Classification**: AI-powered document type classification (birth certificates, marriage certificates, property deeds)
 - **Semantic Search**: FAISS-based vector search using SentenceTransformer embeddings
 - **Document Indexing**: Persistent storage of document metadata and search indices
 - **Image Preprocessing**: Advanced image preprocessing for better OCR accuracy
 - **RESTful API**: Clean FastAPI endpoints with automatic OpenAPI documentation
+- **Layered Architecture**: Service layer with dependency injection for maintainable code
+- **Centralized Exception Handling**: Global exception mapping with proper HTTP status codes
 - **Comprehensive Logging**: Debug-level logging for troubleshooting and monitoring
+
+## 🏗️ Architecture
+
+The backend follows a clean layered architecture pattern:
+
+### **API Layer** (`routers/`)
+- Thin FastAPI route handlers
+- No business logic, only request/response handling
+- Uses dependency injection for service access
+
+### **Service Layer** (`services/`)
+- Contains all business logic
+- `QueryService`: Handles document search operations
+- `UploadService`: Handles file upload and processing
+
+### **Core Layer** (`core/`)
+- Centralized exception handling
+- Custom exception types with HTTP status mapping
+- Global exception handler for consistent error responses
+
+### **Utils Layer** (`utils/`)
+- Document processing pipeline
+- Utility functions and helpers
+- Moved from services for better separation of concerns
+
+### **Dependency Injection** (`dependencies.py`)
+- Centralized service instantiation
+- Easy testing and mocking
+- Clean separation of concerns
 
 ## 📁 Project Structure
 
@@ -27,22 +58,31 @@ backend/
 │   ├── document_metadata.json       # Document metadata storage
 │   └── ml_models/                   # Pre-trained models
 └── src/
+    ├── core/                        # Core application modules
+    │   └── exceptions.py            # Centralized exception handling
     ├── models/                      # Pydantic models for API requests/responses
     │   ├── query.py                 # Query-related models
     │   └── upload.py                # Upload-related models
-    ├── routers/                     # FastAPI route handlers
+    ├── routers/                     # FastAPI route handlers (thin API layer)
     │   ├── query.py                 # Search/query endpoints
     │   └── upload.py                # File upload endpoints
     ├── services/                    # Business logic services
-    │   └── document_processor.py    # Document processing pipeline
+    │   ├── query_service.py         # Query/search business logic
+    │   └── upload_service.py        # Upload processing business logic
+    ├── dependencies.py              # Dependency injection functions
     ├── ocr/                         # OCR-related modules
-    │   └── ocr_reader.py            # EasyOCR wrapper
+    │   ├── base.py                  # OCR engine base classes
+    │   ├── tesseract_engine.py      # Tesseract OCR implementation
+    │   ├── easyocr_engine.py        # EasyOCR implementation
+    │   ├── factory.py               # OCR engine factory
+    │   └── ocr_reader.py            # Legacy OCR reader interface
     ├── ml/                          # Machine learning modules (inference only)
     │   ├── classification/          # Document classification
     │   │   └── inference_classifier.py # Inference-only classifier
     │   └── preprocessing/           # Image preprocessing
     │       └── adaptive_pre_processing.py
     └── utils/                       # Utility functions
+        ├── document_processor.py    # Document processing pipeline
         ├── path_utils.py
         └── viz_tools.py
 ```
@@ -113,9 +153,15 @@ Upload and process documents for indexing.
 **Response:**
 ```json
 {
-  "message": "Enrollment process finished. Successfully indexed 2 file(s)."
+  "message": "Successfully processed 2 file(s)."
 }
 ```
+
+**Error Responses:**
+- **503 Service Unavailable**: OCR service not available
+- **500 Internal Server Error**: Document processing failed
+- **400 Bad Request**: Invalid request or file validation error
+- **413 Payload Too Large**: File too large
 
 ### Query Endpoints
 

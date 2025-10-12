@@ -24,10 +24,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Define the base directory where the script is expected to run
-os.chdir(config.APP_DIR)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan - startup and shutdown events."""
@@ -81,6 +77,20 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Exception handlers
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from src.core.exceptions import map_to_http_exception
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler for all unhandled exceptions."""
+    http_exc = map_to_http_exception(exc)
+    return JSONResponse(
+        status_code=http_exc.status_code,
+        content={"detail": http_exc.detail}
+    )
 
 # Include routers
 app.include_router(upload.router, prefix="/api", tags=["upload"])
