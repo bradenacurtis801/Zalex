@@ -27,7 +27,7 @@ cleanup() {
 trap cleanup SIGTERM SIGINT
 
 # Start backend
-echo "📡 Starting FastAPI backend on port ${BACKEND_PORT:-5000}..."
+echo "📡 Starting FastAPI backend on port 5000..."
 cd /app/backend
 
 # Check DEBUG mode
@@ -50,9 +50,9 @@ npm start &
 FRONTEND_PID=$!
 
 echo "✅ Both services started!"
-echo "   Backend: http://localhost:${BACKEND_PORT:-5000}"
+echo "   Backend: http://localhost:5000"
 echo "   Frontend: http://localhost:3000"
-echo "   API Docs: http://localhost:${BACKEND_PORT:-5000}/docs"
+echo "   API Docs: http://localhost:5000/docs"
 
 # Wait for backend process - if it dies, container exits
 wait $BACKEND_PID

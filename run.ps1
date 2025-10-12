@@ -86,11 +86,11 @@ function Start-Container {
     $runCommand = @(
         "run", "-d",
         "--name", $ContainerName,
-        "-p", "${FrontendPort}:${FrontendPort}",
-        "-p", "${BackendPort}:${BackendPort}",
+        "-p", "${FrontendPort}:3000",
+        "-p", "${BackendPort}:5000",
         "-v", "scanpro_data:/app/backend/APP_DATA",
         "-e", "NODE_ENV=prod",
-        "-e", "DEBUG=false",
+        "-e", "DEBUG=0",
         "-e", "NEXT_PUBLIC_API_URL=http://localhost:$BackendPort",
         "--rm",
         $ImageName

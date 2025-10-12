@@ -16,17 +16,18 @@ class Settings(BaseSettings):
     node_env: Literal["dev", "prod"] = Field(default="dev")
 
     # Server configuration
-    backend_port: int = Field(default=5000, env="BACKEND_PORT")
-    backend_host: str = Field(default="0.0.0.0", env="BACKEND_HOST")
+    backend_host: str = Field(default="127.0.0.1", env="BACKEND_HOST")
 
     # Debug mode
-    debug: bool = Field(default=True, env="DEBUG")
+    debug: int = Field(default=0, env="DEBUG")
 
     # CORS settings
-    cors_origins: str = Field(default="http://localhost:3000", env="CORS_ORIGINS")
+    cors_origins: str = Field(default="http://127.0.0.1:3000", env="CORS_ORIGINS")
 
     class Config:
         case_sensitive = False
+        env_file = ".env"
+        env_file_encoding = "utf-8"
 
     @property
     def node_env_value(self) -> str:
@@ -41,6 +42,10 @@ class Settings(BaseSettings):
 
 # Application name (hardcoded)
 APP_NAME = "ScanPro"
+
+# Fixed ports inside container
+BACKEND_PORT = 5000
+FRONTEND_PORT = 3000
 
 # Create settings instance
 settings = Settings()

@@ -48,15 +48,17 @@ WORKDIR /app
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-# Expose ports
+# UI and backend ports that are bound within the container
 EXPOSE 3000 5000
 
-# Set environment variables
+# Set environment variables for containerized environment
+# These override the defaults in config.py for Docker containers
+# This is just for documentation purposes (These are all the default values when not set)
 ENV NODE_ENV=production \
-    BACKEND_PORT=5000 \
-    BACKEND_HOST=0.0.0.0 \
+    BACKEND_HOST=127.0.0.1 \
     DEBUG=0 \
-    CORS_ORIGINS="http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"
+    CORS_ORIGINS="http://127.0.0.1:3000" \
+    NEXT_PUBLIC_API_URL=http://127.0.0.1:5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

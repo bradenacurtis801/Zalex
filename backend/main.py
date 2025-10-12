@@ -110,6 +110,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host=config.settings.backend_host,
-        port=config.settings.backend_port,
-        reload=config.settings.debug,
+        port=config.BACKEND_PORT,
+        reload=bool(config.is_development),
     )

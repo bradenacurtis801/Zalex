@@ -50,8 +50,8 @@ run_container() {
     echo "🐳 Starting ScanPro container..."
     docker run -d \
         --name $CONTAINER_NAME \
-        -p $FRONTEND_PORT:$FRONTEND_PORT \
-        -p $BACKEND_PORT:$BACKEND_PORT \
+        -p $FRONTEND_PORT:3000 \
+        -p $BACKEND_PORT:5000 \
         -v scanpro_data:/app/backend/APP_DATA \
         --restart unless-stopped \
         $IMAGE_NAME
