@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import DocumentUpload from '@/components/features/upload/DocumentUpload'
 import ChatInterface from '@/components/features/chat/ChatInterface'
+import { StatusMessage } from '@/components/ui'
 
 export default function Home() {
   const [uploadStatus, setUploadStatus] = useState<string>('')
+  const [uploadStatusType, setUploadStatusType] = useState<'success' | 'error' | 'warning'>('success')
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
@@ -22,12 +24,16 @@ export default function Home() {
         {/* Left Panel: Document Enrollment */}
         <div className="md:w-1/3 w-full bg-white p-6 rounded-lg shadow-lg flex flex-col">
           <h2 className="text-xl font-semibold mb-4 border-b pb-2 text-violet-800">Document Enrollment</h2>
-          <DocumentUpload onUploadStatus={setUploadStatus} />
+          <DocumentUpload onUploadStatus={(status, type = 'success') => {
+            setUploadStatus(status)
+            setUploadStatusType(type)
+          }} />
           {uploadStatus && (
             <div className="mt-4 text-center">
-              <div className="p-2 rounded-md text-sm bg-green-100 text-green-800">
-                {uploadStatus}
-              </div>
+              <StatusMessage 
+                message={uploadStatus} 
+                type={uploadStatusType}
+              />
             </div>
           )}
         </div>

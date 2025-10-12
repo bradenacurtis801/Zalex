@@ -6,6 +6,7 @@ A modern React/Next.js frontend for the ScanPro AI Document Agent.
 
 - **Document Upload**: Drag & drop interface for PDF, JPG, PNG files
 - **Real-time Search**: Chat interface for querying documents
+- **Error Handling**: Color-coded status messages with proper error feedback
 - **Modern UI**: Built with Tailwind CSS and Next.js
 
 ## Getting Started
@@ -89,6 +90,7 @@ frontend/
 │   ├── ui/                      # Basic UI components
 │   │   ├── Button.tsx
 │   │   ├── Input.tsx
+│   │   ├── StatusMessage.tsx    # Color-coded status messages
 │   │   ├── Modal.tsx
 │   │   └── index.ts
 │   ├── features/                # Feature-specific components
@@ -166,3 +168,31 @@ import { DefaultApi } from '@/generated'
 const api = new DefaultApi()
 const result = await api.uploadFiles(files)
 ```
+
+## Error Handling
+
+The frontend provides comprehensive error handling with visual feedback:
+
+### Status Message Types
+
+- **Success** (Green): Successful operations
+- **Error** (Red): System errors, OCR failures, server errors
+- **Warning** (Yellow): Validation warnings, user input issues
+
+### Error Categories
+
+- **503 Service Unavailable**: OCR service not available
+- **500 Internal Server Error**: Server processing errors
+- **400 Bad Request**: Invalid requests or file validation
+- **413 Payload Too Large**: File size exceeded
+
+### StatusMessage Component
+
+```typescript
+<StatusMessage 
+  message="Error: OCR service is not available" 
+  type="error" 
+/>
+```
+
+The component automatically applies appropriate styling based on the message type.

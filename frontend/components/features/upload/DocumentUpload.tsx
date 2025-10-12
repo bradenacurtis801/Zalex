@@ -5,7 +5,7 @@ import { uploadApi } from '@/api'
 import { Button } from '@/components/ui'
 
 interface DocumentUploadProps {
-  onUploadStatus: (status: string) => void
+  onUploadStatus: (status: string, type?: 'success' | 'error' | 'warning') => void
 }
 
 export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) {
@@ -37,20 +37,37 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (files.length === 0) {
-      onUploadStatus('Please select files to enroll.')
+      onUploadStatus('Please select files to enroll.', 'warning')
       return
     }
 
     setIsUploading(true)
     try {
       const result = await uploadApi.uploadFilesApiUploadPost({ files })
-      onUploadStatus(result.message)
+      onUploadStatus(result.message, 'success')
       setFiles([])
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
-    } catch (error) {
-      onUploadStatus(`Error: ${error instanceof Error ? error.message : 'Upload failed'}`)
+    } catch (error: any) {
+      let errorMessage = 'Upload failed'
+      
+      // Handle different error types based on HTTP status codes
+      if (error?.response?.status === 503) {
+        errorMessage = 'OCR service is not available. Please ensure Tesseract is installed on the server.'
+      } else if (error?.response?.status === 500) {
+        errorMessage = 'Server error occurred while processing your files. Please try again.'
+      } else if (error?.response?.status === 400) {
+        errorMessage = 'Invalid request. Please check your files and try again.'
+      } else if (error?.response?.status === 413) {
+        errorMessage = 'File too large. Please select smaller files.'
+      } else if (error?.response?.data?.detail) {
+        errorMessage = error.response.data.detail
+      } else if (error instanceof Error) {
+        errorMessage = error.message
+      }
+      
+      onUploadStatus(`Error: ${errorMessage}`, 'error')
     } finally {
       setIsUploading(false)
     }
