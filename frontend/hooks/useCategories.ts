@@ -36,10 +36,13 @@ export function useCategories() {
       }
       
       // Convert the categories object to an array of CategorySummary
+      // response.categories is now typed as Dict[str, Dict[str, Any]] (category_name -> {filename -> document_data})
       const categoriesArray: CategorySummary[] = Object.entries(response.categories).map(([categoryName, documents]) => {
-        const docsArray = Array.isArray(documents) ? documents : []
+        // documents is Dict[str, Any] where keys are filenames and values are document metadata
+        const docsArray = Object.values(documents || {})
+        
         const lastUpdated = docsArray.length > 0 
-          ? docsArray.reduce((latest, doc) => {
+          ? docsArray.reduce((latest: any, doc: any) => {
               const docTime = new Date(doc.timestamp || 0).getTime()
               const latestTime = new Date(latest.timestamp || 0).getTime()
               return docTime > latestTime ? doc : latest

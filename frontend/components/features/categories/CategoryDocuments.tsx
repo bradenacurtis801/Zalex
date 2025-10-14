@@ -2,18 +2,31 @@
 
 import { useState, useEffect } from 'react'
 import { useCategories, CategoryDocument } from '@/hooks/useCategories'
+import { useFeedback } from '@/hooks/useFeedback'
 import { Button } from '@/components/ui'
 import { StatusMessage } from '@/components/ui'
+import ReclassificationModal from './ReclassificationModal'
+import DocumentViewerModal from './DocumentViewerModal'
 
 interface CategoryDocumentsProps {
   category: string
   onError: (message: string) => void
+  availableCategories?: string[]
 }
 
-export default function CategoryDocuments({ category, onError }: CategoryDocumentsProps) {
+export default function CategoryDocuments({ category, onError, availableCategories = [] }: CategoryDocumentsProps) {
   const { fetchDocumentsByCategory } = useCategories()
+  const { getFeedbackSummary } = useFeedback()
   const [documents, setDocuments] = useState<CategoryDocument[]>([])
   const [loading, setLoading] = useState(false)
+  const [reclassifyModal, setReclassifyModal] = useState<{
+    isOpen: boolean
+    document: CategoryDocument | null
+  }>({ isOpen: false, document: null })
+  const [viewerModal, setViewerModal] = useState<{
+    isOpen: boolean
+    document: CategoryDocument | null
+  }>({ isOpen: false, document: null })
 
   useEffect(() => {
     loadDocuments()
@@ -40,6 +53,27 @@ export default function CategoryDocuments({ category, onError }: CategoryDocumen
     return new Date(timestamp).toLocaleString()
   }
 
+  const handleReclassify = (document: CategoryDocument) => {
+    setReclassifyModal({ isOpen: true, document })
+  }
+
+  const handleReclassifySuccess = () => {
+    // Reload documents after successful reclassification
+    loadDocuments()
+  }
+
+  const handleCloseModal = () => {
+    setReclassifyModal({ isOpen: false, document: null })
+  }
+
+  const handleViewDocument = (document: CategoryDocument) => {
+    setViewerModal({ isOpen: true, document })
+  }
+
+  const handleCloseViewer = () => {
+    setViewerModal({ isOpen: false, document: null })
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-32">
@@ -62,42 +96,86 @@ export default function CategoryDocuments({ category, onError }: CategoryDocumen
   }
 
   return (
-    <div className="space-y-3">
-      <div className="text-sm text-gray-600 mb-4">
-        Showing {documents.length} document{documents.length !== 1 ? 's' : ''} in {category}
-      </div>
-      
-      {documents.map((doc, index) => (
-        <div
-          key={`${doc.filename}-${index}`}
-          className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-gray-900 truncate">
-                {doc.filename}
-              </h4>
-              <p className="text-sm text-gray-600 mt-1">
-                {doc.filePath}
-              </p>
-              <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                  Confidence: {formatConfidence(doc.confidence)}
+    <>
+      <div className="space-y-3">
+        <div className="text-sm text-gray-600 mb-4">
+          Showing {documents.length} document{documents.length !== 1 ? 's' : ''} in {category}
+        </div>
+        
+        {documents.map((doc, index) => (
+          <div
+            key={`${doc.filename}-${index}`}
+            className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <h4 className="font-medium text-gray-900 truncate">
+                  {doc.filename}
+                </h4>
+                <p className="text-sm text-gray-600 mt-1">
+                  {doc.filePath}
+                </p>
+                <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                    Confidence: {formatConfidence(doc.confidence)}
+                  </span>
+                  <span>
+                    Added: {formatDate(doc.timestamp)}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 ml-4">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-800">
+                  {doc.category}
                 </span>
-                <span>
-                  Added: {formatDate(doc.timestamp)}
-                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleViewDocument(doc)}
+                  className="text-xs"
+                >
+                  View
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleReclassify(doc)}
+                  className="text-xs"
+                >
+                  Reclassify
+                </Button>
               </div>
             </div>
-            <div className="flex items-center gap-2 ml-4">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-800">
-                {doc.category}
-              </span>
-            </div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+
+      {/* Reclassification Modal */}
+      {reclassifyModal.document && (
+        <ReclassificationModal
+          isOpen={reclassifyModal.isOpen}
+          onClose={handleCloseModal}
+          onSuccess={handleReclassifySuccess}
+          document={{
+            filename: reclassifyModal.document.filename,
+            category: reclassifyModal.document.category,
+            confidence: reclassifyModal.document.confidence
+          }}
+          availableCategories={availableCategories}
+        />
+      )}
+
+      {/* Document Viewer Modal */}
+      {viewerModal.document && (
+        <DocumentViewerModal
+          isOpen={viewerModal.isOpen}
+          onClose={handleCloseViewer}
+          document={viewerModal.document}
+          onReclassify={handleReclassify}
+          availableCategories={availableCategories}
+        />
+      )}
+    </>
   )
 }

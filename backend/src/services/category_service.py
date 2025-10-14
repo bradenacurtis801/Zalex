@@ -74,14 +74,14 @@ class CategoryService:
 
         # Get documents from both app_state and directory structure
         category_metadata = self.app_state.category_metadata
-        documents = category_metadata.get(category, [])
+        documents = category_metadata.get(category, {})
 
         # Convert to DocumentEntry objects
         document_entries = []
-        for doc in documents:
+        for filename, doc in documents.items():
             document_entries.append(
                 DocumentEntry(
-                    filename=doc.get("filename", ""),
+                    filename=filename,
                     file_path=doc.get("file_path", ""),
                     category=doc.get("category", "other"),
                     confidence=doc.get("confidence", 0.0),
@@ -122,9 +122,11 @@ class CategoryService:
                 merged_categories[category] = category_metadata[category]
             else:
                 # Create basic structure for categories found in model but not in app_state
-                merged_categories[category] = []
+                merged_categories[category] = {}
 
-        total_documents = sum(len(docs) for docs in merged_categories.values())
+        total_documents = sum(
+            len(docs) for docs in merged_categories.values() if isinstance(docs, dict)
+        )
 
         logger.info(
             f"Found {len(available_categories)} categories with {total_documents} total documents"

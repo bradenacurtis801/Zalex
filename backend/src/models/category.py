@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -19,5 +19,7 @@ class CategoryResponse(BaseModel):
 
 
 class CategoriesResponse(BaseModel):
-    categories: dict
+    categories: Dict[
+        str, Dict[str, Any]
+    ]  # category_name -> {filename -> document_data}
     total_documents: int

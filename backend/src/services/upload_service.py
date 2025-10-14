@@ -8,6 +8,7 @@ import config as config
 from app_state import get_app_state
 from fastapi import UploadFile
 from src.models.upload import DocumentClassification, UploadResponse
+from src.utils.file_hasher import calculate_file_hash, get_content_based_filename
 
 logger = logging.getLogger(__name__)
 
@@ -83,12 +84,42 @@ class UploadService:
         Raises:
             DocumentProcessingException: If document processing fails
         """
-        filename = file.filename
-        file_path = os.path.join(config.UPLOAD_DIR, filename)
-        logger.debug(f"File path: {file_path}")
+        original_filename = file.filename
 
-        # Save file
-        await self._save_file(file, file_path)
+        # First, save to a temporary location to calculate hash
+        temp_file_path = os.path.join(config.UPLOAD_DIR, f"temp_{original_filename}")
+        await self._save_file(file, temp_file_path)
+
+        # Calculate content hash
+        file_hash = calculate_file_hash(temp_file_path)
+        if not file_hash:
+            raise Exception(f"Failed to calculate hash for {original_filename}")
+
+        # Generate content-based filename
+        content_based_filename = get_content_based_filename(
+            original_filename, file_hash
+        )
+        final_file_path = os.path.join(config.UPLOAD_DIR, content_based_filename)
+
+        # Check if file already exists (deduplication)
+        if os.path.exists(final_file_path):
+            logger.info(
+                f"File with same content already exists: {content_based_filename}"
+            )
+            # Remove temp file
+            os.remove(temp_file_path)
+            filename = content_based_filename
+            file_path = final_file_path
+        else:
+            # Move temp file to final location
+            os.rename(temp_file_path, final_file_path)
+            filename = content_based_filename
+            file_path = final_file_path
+            logger.info(
+                f"Saved new file with content-based name: {content_based_filename}"
+            )
+
+        logger.debug(f"Final file path: {file_path}")
 
         # Process document - this will throw an exception if it fails
         logger.debug(f"Starting document processing for {filename}...")
@@ -114,11 +145,12 @@ class UploadService:
             most_recent_timestamp = None
 
             for cat_name, documents in processor.category_metadata.items():
-                logger.debug(
-                    f"Checking category '{cat_name}' with {len(documents)} documents"
-                )
-                for doc in documents:
-                    if doc.get("filename") == filename:
+                if isinstance(documents, dict):
+                    logger.debug(
+                        f"Checking category '{cat_name}' with {len(documents)} documents"
+                    )
+                    if filename in documents:
+                        doc = documents[filename]
                         timestamp = doc.get("timestamp", "")
                         logger.debug(
                             f"Found document in category '{cat_name}': category={doc.get('category', 'other')}, confidence={doc.get('confidence', 0.0)}, timestamp={timestamp}"

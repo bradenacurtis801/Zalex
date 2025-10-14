@@ -21,10 +21,10 @@ import { mapValues } from '../runtime';
 export interface CategoriesResponse {
     /**
      * 
-     * @type {{ [key: string]: any; }}
+     * @type {{ [key: string]: { [key: string]: any; }; }}
      * @memberof CategoriesResponse
      */
-    categories: { [key: string]: any; };
+    categories: { [key: string]: { [key: string]: any; }; };
     /**
      * 
      * @type {number}

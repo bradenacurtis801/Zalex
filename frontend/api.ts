@@ -2,6 +2,7 @@ import {
   UploadApi,
   QueryApi,
   CategoryApi,
+  FeedbackApi,
   Configuration,
 } from "@/generated";
 
@@ -17,6 +18,7 @@ let sharedConfig = new Configuration({
 export let uploadApi = new UploadApi(sharedConfig);
 export let queryApi = new QueryApi(sharedConfig);
 export let categoryApi = new CategoryApi(sharedConfig);
+export let feedbackApi = new FeedbackApi(sharedConfig);
 
 // Function to update the API Base URL dynamically
 export const setCurrentClientConfig = (url: string) => {
@@ -31,4 +33,5 @@ export const setCurrentClientConfig = (url: string) => {
   uploadApi = new UploadApi(sharedConfig);
   queryApi = new QueryApi(sharedConfig);
   categoryApi = new CategoryApi(sharedConfig);
+  feedbackApi = new FeedbackApi(sharedConfig);
 };

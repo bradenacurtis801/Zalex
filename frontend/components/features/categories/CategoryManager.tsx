@@ -108,6 +108,7 @@ export default function CategoryManager() {
               setStatusMessage(message)
               setStatusType('error')
             }}
+            availableCategories={categories.map(cat => cat.category)}
           />
         ) : (
           <CategoryList 

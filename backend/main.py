@@ -3,19 +3,20 @@
 # To run:
 # 1. Make sure you are in the directory '/Users/casamaio/ScanPro'
 # 2. Install dependencies: pip install fastapi uvicorn easyocr torch torchvision faiss-cpu sentence-transformers PyMuPDF numpy Pillow python-multipart
-# 3. Run the script: uvicorn main:app --reload --host 127.0.0.1 --port 5000
-# 4. Open your web browser to http://127.0.0.1:5000
+# 3. Run the script: uvicorn main:app --reload --host 127.0.0.1 --port 8000
+# 4. Open your web browser to http://127.0.0.1:8000
 
 import logging
 import os
 from contextlib import asynccontextmanager
 
-import config as config
-from app_state import get_app_state
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from src.routers import category, query, upload
+
+import config as config
+from app_state import get_app_state
+from src.routers import category, feedback, query, upload
 
 # --- Configuration ---
 # Set up basic logging
@@ -98,6 +99,7 @@ app.add_middleware(
 # Exception handlers
 from fastapi import Request
 from fastapi.responses import JSONResponse
+
 from src.core.exceptions import map_to_http_exception
 
 
@@ -114,6 +116,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(query.router, prefix="/api", tags=["query"])
 app.include_router(category.router, prefix="/api", tags=["category"])
+app.include_router(feedback.router, prefix="/api", tags=["feedback"])
 
 
 # Health check endpoint
@@ -136,9 +139,11 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
 
+    host = config.settings.backend_host if config.is_production else "0.0.0.0"
+
     uvicorn.run(
         "main:app",
-        host=config.settings.backend_host,
+        host=host,
         port=config.BACKEND_PORT,
         reload=bool(config.is_development),
     )

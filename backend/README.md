@@ -84,6 +84,7 @@ backend/
     │       └── adaptive_pre_processing.py
     └── utils/                       # Utility functions
         ├── document_processor.py    # Document processing pipeline
+        ├── model_updater.py         # Incremental model update helpers
         ├── path_utils.py
         └── viz_tools.py
 ```

@@ -62,7 +62,7 @@ is_production = settings.node_env_value == "prod"
 APP_DIR: Path = Path("")
 
 if is_development:
-    APP_DIR = Path(sys.argv[0]).resolve().parent.parent / "APP_DATA"
+    APP_DIR = Path(__file__).resolve().parent.parent / "APP_DATA"
 elif _platform.WINDOWS:
     _basedir = os.environ.get("APPDATA", os.path.expanduser("~"))
     APP_DIR = Path(_basedir) / APP_NAME

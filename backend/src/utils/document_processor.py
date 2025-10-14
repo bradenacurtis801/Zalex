@@ -46,7 +46,7 @@ class DocumentProcessor:
             model_categories = self.document_classifier.get_supported_categories()
             for category in model_categories:
                 if category not in self.category_metadata:
-                    self.category_metadata[category] = []
+                    self.category_metadata[category] = {}
 
     def process_document(self, file_path: str, filename: str) -> dict:
         """
@@ -338,12 +338,14 @@ class DocumentProcessor:
                 "timestamp": __import__("datetime").datetime.now().isoformat(),
             }
 
-            # Add to appropriate category list
+            # Add to appropriate category dict
             if category in self.category_metadata:
-                self.category_metadata[category].append(document_entry)
+                self.category_metadata[category][filename] = document_entry
             else:
                 # If category doesn't exist, add to 'other'
-                self.category_metadata.setdefault("other", []).append(document_entry)
+                if "other" not in self.category_metadata:
+                    self.category_metadata["other"] = {}
+                self.category_metadata["other"][filename] = document_entry
                 logger.warning(
                     f"Unknown category '{category}' for {filename}, added to 'other'"
                 )

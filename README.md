@@ -26,6 +26,9 @@ ScanPro is a full-stack application that allows users to upload documents, autom
 4. **Embedding Generation**: Create vector embeddings for semantic search
 5. **Index Storage**: Store documents in FAISS search index
 6. **Search API**: Provide semantic search capabilities
+7. **Feedback API**: Handle document reclassification and user corrections
+8. **Incremental Model Updates**: Automatically update model embeddings based on user feedback
+9. **PDF Processing**: Convert PDF pages to images for display and OCR
 
 ### 3. Frontend Interface
 **Location**: `frontend/` directory
@@ -36,6 +39,9 @@ ScanPro is a full-stack application that allows users to upload documents, autom
 4. **Search Interface**: Query interface for semantic search
 5. **Results Display**: Show search results with document metadata
 6. **Document Management**: View and manage uploaded documents by category
+7. **Feedback System**: Correct misclassifications and improve model accuracy through incremental updates
+8. **PDF Viewer**: View PDF documents with page-by-page image conversion
+9. **Reclassification**: Easy document reclassification with "Did we get this wrong?" interface
 
 ## 🛠️ Getting Started
 

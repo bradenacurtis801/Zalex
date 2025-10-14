@@ -6,7 +6,7 @@ from pathlib import Path
 ###################### CONSTANTS ######################
 #######################################################
 
-ROOT_DIR = Path(sys.argv[0]).resolve().parent.parent
+ROOT_DIR = Path(__file__).resolve().parent.parent
 # Application name used across all components
 APP_DIR = ROOT_DIR / "APP_DATA"
 
