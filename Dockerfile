@@ -49,7 +49,7 @@ COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # UI and backend ports that are bound within the container
-EXPOSE 3000 5000
+EXPOSE 3000 5000 5678
 
 # Set environment variables for containerized environment
 # These override the defaults in config.py for Docker containers

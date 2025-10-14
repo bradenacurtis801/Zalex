@@ -12,10 +12,14 @@ set -e
 # Docker Hub Configuration
 DOCKER_USERNAME="bradenacurtis801"
 REPOSITORY_NAME="scanpro"
-IMAGE_TAG="latest"
+
+# Get current git branch as tag
+IMAGE_TAG=$(git branch --show-current 2>/dev/null || echo "latest")
+if [ "$IMAGE_TAG" = "main" ] || [ "$IMAGE_TAG" = "master" ]; then
+    IMAGE_TAG="latest"
+fi
 
 # Build Configuration
-PLATFORMS="linux/amd64,linux/arm64"
 BUILDER_NAME="scanpro-hub-builder"
 
 # ===========================================
@@ -30,22 +34,13 @@ check_docker() {
     fi
 }
 
-# Function to check if buildx is available
-check_buildx() {
-    if ! docker buildx version > /dev/null 2>&1; then
-        echo "❌ Docker Buildx is not available. Please install Docker Desktop or enable buildx."
-        exit 1
-    fi
-}
-
-# Function to setup buildx builder
-setup_builder() {
-    if ! docker buildx inspect $BUILDER_NAME > /dev/null 2>&1; then
-        echo "🔧 Creating new buildx builder: $BUILDER_NAME"
-        docker buildx create --name $BUILDER_NAME --use
+# Function to check git status
+check_git() {
+    if ! git status > /dev/null 2>&1; then
+        echo "⚠️  Not in a git repository, using 'latest' as tag"
+        IMAGE_TAG="latest"
     else
-        echo "🔧 Using existing buildx builder: $BUILDER_NAME"
-        docker buildx use $BUILDER_NAME
+        echo "✅ Git repository detected, using branch: $IMAGE_TAG"
     fi
 }
 
@@ -54,14 +49,9 @@ construct_image_urls() {
     # Construct the full image name
     FULL_IMAGE_NAME="${DOCKER_USERNAME}/${REPOSITORY_NAME}:${IMAGE_TAG}"
     
-    # Construct additional tags
-    AMD64_TAG="${DOCKER_USERNAME}/${REPOSITORY_NAME}:amd64"
-    ARM64_TAG="${DOCKER_USERNAME}/${REPOSITORY_NAME}:arm64"
-    
-    echo "📋 Image URLs that will be created:"
-    echo "   Main: $FULL_IMAGE_NAME"
-    echo "   AMD64: $AMD64_TAG"
-    echo "   ARM64: $ARM64_TAG"
+    echo "📋 Image that will be created:"
+    echo "   Tag: $FULL_IMAGE_NAME"
+    echo "   Branch: $IMAGE_TAG"
     echo ""
 }
 
@@ -74,24 +64,18 @@ build_image() {
         echo "   Tag: $IMAGE_TAG"
         echo ""
         
-        docker buildx build \
-            --platform linux/amd64 \
+        docker build \
             --tag scanpro:latest \
-            --load \
             .
     else
-        echo "🏗️  Building multi-architecture image..."
-        echo "   Platforms: $PLATFORMS"
+        echo "🏗️  Building image..."
         echo "   Repository: $DOCKER_USERNAME/$REPOSITORY_NAME"
         echo "   Tag: $IMAGE_TAG"
+        echo "   Branch: $IMAGE_TAG"
         echo ""
         
-        docker buildx build \
-            --platform $PLATFORMS \
+        docker build \
             --tag $FULL_IMAGE_NAME \
-            --tag $AMD64_TAG \
-            --tag $ARM64_TAG \
-            --push \
             .
     fi
 }
@@ -119,13 +103,9 @@ ask_confirmation() {
 show_usage() {
     echo "📖 After pushing, you can pull and run the image with:"
     echo ""
-    echo "   # Pull and run the latest version"
+    echo "   # Pull and run the image"
     echo "   docker pull $FULL_IMAGE_NAME"
     echo "   docker run -p 3000:3000 -p 5000:5000 $FULL_IMAGE_NAME"
-    echo ""
-    echo "   # Or pull specific architecture"
-    echo "   docker pull $AMD64_TAG    # Intel"
-    echo "   docker pull $ARM64_TAG    # Apple M1"
     echo ""
     echo "   # Or use docker-compose with the image"
     echo "   # Update docker-compose.yml to use: image: $FULL_IMAGE_NAME"
@@ -149,43 +129,48 @@ fi
 
 # Check prerequisites
 check_docker
-check_buildx
+check_git
 
 # Show configuration
 echo "📋 Build Configuration:"
 echo "   Docker Hub User: $DOCKER_USERNAME"
 echo "   Repository: $REPOSITORY_NAME"
 echo "   Tag: $IMAGE_TAG"
-echo "   Platforms: $PLATFORMS"
+echo "   Branch: $IMAGE_TAG"
 echo ""
 
 # Construct and show image URLs
 construct_image_urls
 
-# Setup buildx builder
-setup_builder
-
-# Ask for confirmation before building (unless build-only mode)
-if [ "$BUILD_ONLY" = false ]; then
-    echo "🔨 Ready to build and push the image."
-    ask_confirmation
-else
-    echo "🔨 Ready to build the image locally."
-fi
-
-# Build and push the image
+# Build the image
 echo "🚀 Starting build process..."
+build_image
+
 if [ "$BUILD_ONLY" = true ]; then
-    build_image --build-only
     echo "✅ Build completed successfully!"
     echo ""
     echo "📖 You can now run the image locally with:"
     echo "   docker run -p 3000:3000 -p 5000:5000 scanpro:latest"
 else
-    build_image
-    echo "✅ Build and push completed successfully!"
+    echo "✅ Build completed successfully!"
     echo ""
-    # Show usage instructions
-    show_usage
-    echo "🎉 Done! Your ScanPro image is now available on Docker Hub."
+    
+    # Ask if user wants to push
+    echo "🔨 Ready to push the image to Docker Hub."
+    ask_confirmation
+    
+    # Push the image
+    echo "🚀 Pushing image to Docker Hub..."
+    docker push $FULL_IMAGE_NAME
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ Push completed successfully!"
+        echo ""
+        # Show usage instructions
+        show_usage
+        echo "🎉 Done! Your ScanPro image is now available on Docker Hub."
+    else
+        echo "❌ Push failed!"
+        exit 1
+    fi
 fi

@@ -10,8 +10,13 @@ REM ==========================================
 
 set "DOCKER_USERNAME=bradenacurtis801"
 set "REPOSITORY_NAME=scanpro"
-set "IMAGE_TAG=latest"
-set "PLATFORMS=linux/amd64,linux/arm64"
+
+REM Get current git branch as tag
+for /f "tokens=*" %%i in ('git branch --show-current 2^>nul') do set "IMAGE_TAG=%%i"
+if "%IMAGE_TAG%"=="" set "IMAGE_TAG=latest"
+if "%IMAGE_TAG%"=="main" set "IMAGE_TAG=latest"
+if "%IMAGE_TAG%"=="master" set "IMAGE_TAG=latest"
+
 set "BUILDER_NAME=scanpro-hub-builder"
 
 REM ==========================================
@@ -30,76 +35,43 @@ echo ✅ Docker is running
 goto :check_docker_end
 :check_docker_end
 
-:check_buildx
-echo Checking Docker Buildx...
-docker buildx version >nul 2>&1
+:check_git
+echo Checking Git repository...
+git status >nul 2>&1
 if errorlevel 1 (
-    echo ❌ Docker Buildx is not available. Please install Docker Desktop or enable buildx.
-    pause
-    exit /b 1
-)
-echo ✅ Docker Buildx is available
-goto :check_buildx_end
-:check_buildx_end
-
-:setup_builder
-echo Setting up buildx builder...
-docker buildx inspect %BUILDER_NAME% >nul 2>&1
-if errorlevel 1 (
-    echo 🔧 Creating new buildx builder: %BUILDER_NAME%
-    docker buildx create --name %BUILDER_NAME% --use
+    echo ⚠️  Not in a git repository, using 'latest' as tag
+    set "IMAGE_TAG=latest"
 ) else (
-    echo 🔧 Using existing buildx builder: %BUILDER_NAME%
-    docker buildx use %BUILDER_NAME%
+    echo ✅ Git repository detected, using branch: %IMAGE_TAG%
 )
-goto :setup_builder_end
-:setup_builder_end
+goto :check_git_end
+:check_git_end
 
 :construct_image_urls
 set "FULL_IMAGE_NAME=%DOCKER_USERNAME%/%REPOSITORY_NAME%:%IMAGE_TAG%"
-set "AMD64_TAG=%DOCKER_USERNAME%/%REPOSITORY_NAME%:amd64"
-set "ARM64_TAG=%DOCKER_USERNAME%/%REPOSITORY_NAME%:arm64"
 
-echo 📋 Image URLs that will be created:
-echo    Main: %FULL_IMAGE_NAME%
-echo    AMD64: %AMD64_TAG%
-echo    ARM64: %ARM64_TAG%
+echo 📋 Image that will be created:
+echo    Tag: %FULL_IMAGE_NAME%
+echo    Branch: %IMAGE_TAG%
 echo.
 goto :construct_image_urls_end
 :construct_image_urls_end
 
 :build_image
-echo 🏗️  Building multi-architecture image...
-echo    Platforms: %PLATFORMS%
+echo 🏗️  Building image...
 echo    Repository: %DOCKER_USERNAME%/%REPOSITORY_NAME%
 echo    Tag: %IMAGE_TAG%
+echo    Branch: %IMAGE_TAG%
 echo.
 
-REM First build locally for current platform
-echo 🔨 Building local image...
+echo 🔨 Building image...
 docker build -t %FULL_IMAGE_NAME% .
 if errorlevel 1 (
-    echo ❌ Local build failed!
+    echo ❌ Build failed!
     pause
     exit /b 1
 )
-echo ✅ Local image built successfully
-
-REM Then build and push multi-architecture
-echo 🚀 Building and pushing multi-architecture image...
-docker buildx build ^
-    --platform %PLATFORMS% ^
-    --tag %FULL_IMAGE_NAME% ^
-    --tag %AMD64_TAG% ^
-    --tag %ARM64_TAG% ^
-    --push ^
-    .
-
-if errorlevel 1 (
-    echo ❌ Multi-arch build/push failed!
-    pause
-    exit /b 1
-)
+echo ✅ Image built successfully
 goto :build_image_end
 :build_image_end
 
@@ -126,13 +98,9 @@ exit /b 0
 :show_usage
 echo 📖 After pushing, you can pull and run the image with:
 echo.
-echo    # Pull and run the latest version
+echo    # Pull and run the image
 echo    docker pull %FULL_IMAGE_NAME%
 echo    docker run -p 3000:3000 -p 5000:5000 %FULL_IMAGE_NAME%
-echo.
-echo    # Or pull specific architecture
-echo    docker pull %AMD64_TAG%    # Intel
-echo    docker pull %ARM64_TAG%    # Apple M1
 echo.
 echo    # Or use docker-compose with the image
 echo    # Update docker-compose.yml to use: image: %FULL_IMAGE_NAME%
@@ -163,25 +131,19 @@ REM Check prerequisites
 call :check_docker
 if errorlevel 1 exit /b 1
 
-if not defined LOCAL_ONLY (
-    call :check_buildx
-    if errorlevel 1 exit /b 1
-)
+call :check_git
+if errorlevel 1 exit /b 1
 
 REM Show configuration
 echo 📋 Build Configuration:
 echo    Docker Hub User: %DOCKER_USERNAME%
 echo    Repository: %REPOSITORY_NAME%
 echo    Tag: %IMAGE_TAG%
-echo    Platforms: %PLATFORMS%
+echo    Branch: %IMAGE_TAG%
 echo.
 
 REM Construct and show image URLs
 call :construct_image_urls
-
-REM Setup buildx builder
-call :setup_builder
-if errorlevel 1 exit /b 1
 
 REM Handle local-only build
 if defined LOCAL_ONLY (
@@ -203,17 +165,29 @@ if defined LOCAL_ONLY (
     goto :end
 )
 
-REM Ask for confirmation before building
-echo 🔨 Ready to build and push the image.
-call :ask_confirmation
-if errorlevel 1 exit /b 1
-
-REM Build and push the image
-echo 🚀 Starting build and push process...
+REM Build the image
+echo 🚀 Starting build process...
 call :build_image
 if errorlevel 1 exit /b 1
 
-echo ✅ Build and push completed successfully!
+echo ✅ Build completed successfully!
+echo.
+
+REM Ask for confirmation before pushing
+echo 🔨 Ready to push the image to Docker Hub.
+call :ask_confirmation
+if errorlevel 1 exit /b 1
+
+REM Push the image
+echo 🚀 Pushing image to Docker Hub...
+docker push %FULL_IMAGE_NAME%
+if errorlevel 1 (
+    echo ❌ Push failed!
+    pause
+    exit /b 1
+)
+
+echo ✅ Push completed successfully!
 echo.
 
 REM Show usage instructions

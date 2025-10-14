@@ -77,15 +77,29 @@ class AppState:
         # If no local model found and no URL configured, return None
         if not self.model_url:
             logger.warning("No local model found and no model URL configured")
-            logger.info("Please either:")
             logger.info(
-                "  1. Train a model first: python train/train_similarity_classifier.py"
+                "To resolve this issue, please choose one of the following options:"
             )
-            logger.info("  2. Set SCANPRO_MODEL_URL to download a model")
-            logger.info(f"  3. Place a trained model in: {default_model_path}")
+            logger.info("")
+            logger.info("OPTION 1 - Mount a trained model directory:")
             logger.info(
-                "     (must contain: model_metadata.json, category_embeddings.json)"
+                "  docker run -v /path/to/your/model:/app/APP_DATA/ml_models/classifier_model \\"
             )
+            logger.info("    -p 3000:3000 -p 5000:5000 bradenacurtis801/scanpro:latest")
+            logger.info("")
+            logger.info("OPTION 2 - Set a model download URL:")
+            logger.info(
+                "  docker run -e SCANPRO_MODEL_URL=https://your-model-url.com/model.zip \\"
+            )
+            logger.info("    -p 3000:3000 -p 5000:5000 bradenacurtis801/scanpro:latest")
+            logger.info("")
+            logger.info("OPTION 3 - Train a model locally first:")
+            logger.info("  python train/train_similarity_classifier.py")
+            logger.info("  Then use OPTION 1 to mount the trained model")
+            logger.info("")
+            logger.info(f"Required model files: {default_model_path}")
+            logger.info("  - model_metadata.json")
+            logger.info("  - category_embeddings.json")
             raise RuntimeError("No model path configured and no model URL provided")
 
         # Try to download from URL
@@ -152,6 +166,20 @@ class AppState:
         # Initialize document classifier
         self.initialize_classifier()
 
+        # Populate categories from model metadata if category_metadata is empty
+        if (
+            not self.category_metadata
+            and self.document_classifier
+            and self.document_classifier.is_available()
+        ):
+            model_categories = self.document_classifier.get_supported_categories()
+            for category in model_categories:
+                if category not in self.category_metadata:
+                    self.category_metadata[category] = {}
+            logger.info(
+                f"Initialized categories from model: {list(self.category_metadata.keys())}"
+            )
+
         # Initialize document processor
         self.document_processor = DocumentProcessor(
             self.model,
@@ -208,12 +236,8 @@ class AppState:
             logger.info(
                 "No category metadata file found. Initializing empty structure."
             )
-            self.category_metadata = {
-                "birth_certificate": [],
-                "marriage_certificate": [],
-                "property_deeds": [],
-                "other": [],
-            }
+            # Initialize empty structure - categories will be populated from model metadata
+            self.category_metadata = {}
 
     def save_category_metadata(self):
         """Saves the current category metadata to disk."""

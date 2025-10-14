@@ -10,12 +10,11 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
+import config as config
+from app_state import get_app_state
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-
-import config as config
-from app_state import get_app_state
 from src.routers import category, feedback, query, upload
 
 # --- Configuration ---
@@ -99,7 +98,6 @@ app.add_middleware(
 # Exception handlers
 from fastapi import Request
 from fastapi.responses import JSONResponse
-
 from src.core.exceptions import map_to_http_exception
 
 
