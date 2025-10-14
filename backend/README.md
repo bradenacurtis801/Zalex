@@ -5,8 +5,8 @@ A FastAPI-based document processing and search backend that provides OCR, text e
 ## 🚀 Features
 
 - **Document Upload & Processing**: Support for PDF and image files (JPG, PNG, JPEG)
-- **OCR Text Extraction**: Tesseract and EasyOCR integration for accurate text recognition
-- **Document Classification**: AI-powered document type classification (birth certificates, marriage certificates, property deeds)
+- **OCR Text Extraction**: Tesseract integration for accurate text recognition
+- **Document Classification**: Similarity-based document type classification (personas, mercantil, inmuebles)
 - **Semantic Search**: FAISS-based vector search using SentenceTransformer embeddings
 - **Document Indexing**: Persistent storage of document metadata and search indices
 - **Image Preprocessing**: Advanced image preprocessing for better OCR accuracy
@@ -73,12 +73,13 @@ backend/
     ├── ocr/                         # OCR-related modules
     │   ├── base.py                  # OCR engine base classes
     │   ├── tesseract_engine.py      # Tesseract OCR implementation
-    │   ├── easyocr_engine.py        # EasyOCR implementation
     │   ├── factory.py               # OCR engine factory
     │   └── ocr_reader.py            # Legacy OCR reader interface
     ├── ml/                          # Machine learning modules (inference only)
     │   ├── classification/          # Document classification
-    │   │   └── inference_classifier.py # Inference-only classifier
+    │   │   ├── base_classifier.py   # Base classifier classes
+    │   │   ├── pretrained_classifier.py # PreTrainedSimilarityClassifier
+    │   │   └── model_loader.py      # Model loading functions
     │   └── preprocessing/           # Image preprocessing
     │       └── adaptive_pre_processing.py
     └── utils/                       # Utility functions
@@ -189,6 +190,65 @@ Search for documents using semantic similarity.
 }
 ```
 
+### Category Endpoints
+
+#### `GET /api/categories`
+Get all available categories and their document counts.
+
+**Response:**
+```json
+{
+  "categories": {
+    "personas": [
+      {
+        "filename": "birth_certificate.pdf",
+        "filePath": "/uploads/birth_certificate.pdf",
+        "category": "personas",
+        "confidence": 0.95,
+        "timestamp": "2024-01-15T10:30:00Z"
+      }
+    ],
+    "mercantil": []
+  },
+  "total_documents": 1
+}
+```
+
+#### `GET /api/categories/{category}`
+Get all documents in a specific category.
+
+**Parameters:**
+- `category`: Category name (e.g., "personas", "mercantil", "inmuebles")
+
+**Response:**
+```json
+{
+  "category": "personas",
+  "documents": [
+    {
+      "filename": "birth_certificate.pdf",
+      "filePath": "/uploads/birth_certificate.pdf",
+      "category": "personas",
+      "confidence": 0.95,
+      "timestamp": "2024-01-15T10:30:00Z"
+    }
+  ],
+  "total_count": 1
+}
+```
+
+#### `GET /api/categories/summary`
+Get a summary of document counts per category.
+
+**Response:**
+```json
+{
+  "personas": 5,
+  "mercantil": 3,
+  "inmuebles": 2
+}
+```
+
 ## ⚙️ Configuration
 
 The application uses `config.py` for centralized configuration:
@@ -233,13 +293,13 @@ Data is stored in platform-specific application data directories:
 ## 🧠 Machine Learning Components
 
 ### OCR Engine
-- **EasyOCR**: Multi-language text recognition
+- **Tesseract**: Multi-language text recognition
 - **Languages**: English and Spanish support
 - **Image Preprocessing**: Adaptive preprocessing for better OCR accuracy
 
 ### Document Classification
-- **Model**: Spanish RoBERTa-based models (PlanTL-GOB-ES)
-- **Types**: Birth certificates, marriage certificates, property deeds
+- **Model**: Similarity-based classifier with SentenceTransformer embeddings
+- **Types**: Personas, mercantil, inmuebles (Spanish legal documents)
 - **Confidence Scoring**: Provides confidence levels for predictions
 - **Training**: Separate training pipeline in `/train` folder
 
@@ -272,10 +332,10 @@ Model training is handled separately in the `../train/` directory. See the main 
 See `requirements.txt` for complete list. Key dependencies:
 
 - **FastAPI**: Web framework
-- **EasyOCR**: OCR engine
+- **Tesseract**: OCR engine
 - **FAISS**: Vector search
 - **SentenceTransformers**: Embedding model
 - **PyMuPDF**: PDF processing
 - **Pillow**: Image processing
 - **OpenCV**: Image preprocessing
-- **Transformers**: Model inference (without training dependencies)
+- **Requests**: Model downloading

@@ -9,21 +9,16 @@ train/
 ├── config.py                    # Training configuration and paths
 ├── requirements.txt             # Training-specific dependencies
 ├── README.md                    # This file
-├── ml/                          # Machine learning modules
-│   ├── classification/          # Document classification
-│   │   ├── finetune_and_predict.py
-│   │   ├── model_config.py
-│   │   └── document_classifier.py
-│   ├── ner/                     # Named Entity Recognition
-│   │   └── named_entity_recognition.py
-│   └── preprocessing/           # Image preprocessing
-│       └── tesseract_preprocess.py
-└── scripts/                     # Training scripts
-    ├── train_spanish_classifier.py
-    ├── train_general_classifier.py
-    ├── test_spanish_models.py
-    ├── setup_models.py
-    └── download_models.py
+ ├── train_similarity_classifier.py   # Main similarity classifier training script
+├── extract_text_from_documents.py # Text extraction from raw documents
+├── package_model.py             # Model packaging for distribution
+└── APP_DATA/                    # Shared data directory
+    ├── document_raw/            # Raw document images organized by category
+    ├── document_dataset/        # Processed text files organized by category
+    ├── ml_models/               # Trained models
+    │   └── classifier_model/    # Default classifier model
+    ├── training_results/        # Training outputs
+    └── training_logs/           # Training logs
 ```
 
 ## 🚀 Quick Start
@@ -34,41 +29,35 @@ train/
    pip install -r requirements.txt
    ```
 
-2. **Train a Spanish document classifier:**
+2. **Extract text from raw documents:**
    ```bash
-   python main.py train
-   # or
-   python train.py train
+   python extract_text_from_documents.py
    ```
 
-3. **Test model availability:**
+3. **Train a similarity document classifier:**
    ```bash
-   python main.py test
-   # or
-   python train.py test
+   python train_similarity_classifier.py
    ```
 
-4. **Setup models:**
+4. **Package model for distribution:**
    ```bash
-   python main.py setup
-   # or
-   python train.py setup
+   python package_model.py
    ```
 
 ## 📊 Available Models
 
-The training module supports several Spanish language models:
+The training module uses similarity-based classification with SentenceTransformer embeddings:
 
-- **PlanTL-GOB-ES/roberta-base-bne**: Official Spanish RoBERTa (default)
-- **PlanTL-GOB-ES/roberta-large-bne**: Large Spanish RoBERTa
-- **BSC-LT/roberta-base-bne-capitel-ner**: Spanish NER model
-- **BSC-LT/roberta-base-biomedical-es**: Spanish biomedical model
+- **all-MiniLM-L6-v2**: Default SentenceTransformer model for embeddings
+- **Cosine Similarity**: Cosine similarity-based classification
+- **Dynamic Categories**: Categories discovered from `document_raw/` directory structure
 
 ## 🔧 Configuration
 
-Training paths and settings are configured in `config.py`. The module uses the `scripts/APP_DATA/` directory for:
-- Training data (`document_dataset/`)
-- Model outputs (`ml_models/`)
+Training paths and settings are configured in `config.py`. The module uses the `APP_DATA/` directory for:
+- Raw documents (`document_raw/`) - organized by category folders
+- Processed text (`document_dataset/`) - extracted text organized by category
+- Model outputs (`ml_models/classifier_model/`) - trained similarity classifier
 - Training logs (`training_logs/`)
 - Training results (`training_results/`)
 
@@ -76,29 +65,28 @@ Training paths and settings are configured in `config.py`. The module uses the `
 
 ### Training a New Model
 
-```python
-from ml.classification.finetune_and_predict import load_and_prepare_data, fine_tune_model
+1. **Organize your documents** in `APP_DATA/document_raw/` by category:
+   ```
+   APP_DATA/document_raw/
+   ├── personas/
+   ├── mercantil/
+   └── inmuebles/
+   ```
 
-# Load your labeled data
-df, id2label, label2id = load_and_prepare_data("path/to/your/data")
+2. **Extract text** from raw documents:
+   ```bash
+   python extract_text_from_documents.py
+   ```
 
-# Train the model
-fine_tune_model(df, id2label, label2id)
-```
+3. **Train the similarity classifier**:
+   ```bash
+   python train_similarity_classifier.py
+   ```
 
 ### Using a Trained Model
 
-```python
-from ml.classification.finetune_and_predict import DocumentClassifier
-
-# Load trained model
-classifier = DocumentClassifier("path/to/trained/model")
-
-# Classify a document
-predicted_type, confidence = classifier.classify("path/to/document.txt")
-print(f"Document type: {predicted_type} (confidence: {confidence:.2%})")
-```
+The trained model is automatically available to the backend from `APP_DATA/ml_models/classifier_model/`. The backend will load it automatically when starting up.
 
 ## 🔄 Integration with Backend
 
-After training, models are automatically available to the FastAPI backend through the `inference_classifier.py` module, which provides a lightweight interface for document classification without training dependencies.
+After training, models are automatically available to the FastAPI backend through the `pretrained_classifier.py` module, which provides a lightweight interface for document classification without training dependencies. The backend automatically loads the model from `APP_DATA/ml_models/classifier_model/`.

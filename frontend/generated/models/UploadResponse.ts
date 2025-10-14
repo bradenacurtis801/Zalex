@@ -13,6 +13,14 @@
  */
 
 import { mapValues } from '../runtime';
+import type { DocumentClassification } from './DocumentClassification';
+import {
+    DocumentClassificationFromJSON,
+    DocumentClassificationFromJSONTyped,
+    DocumentClassificationToJSON,
+    DocumentClassificationToJSONTyped,
+} from './DocumentClassification';
+
 /**
  * 
  * @export
@@ -25,6 +33,12 @@ export interface UploadResponse {
      * @memberof UploadResponse
      */
     message: string;
+    /**
+     * 
+     * @type {Array<DocumentClassification>}
+     * @memberof UploadResponse
+     */
+    classifications?: Array<DocumentClassification> | null;
 }
 
 /**
@@ -46,6 +60,7 @@ export function UploadResponseFromJSONTyped(json: any, ignoreDiscriminator: bool
     return {
         
         'message': json['message'],
+        'classifications': json['classifications'] == null ? undefined : ((json['classifications'] as Array<any>).map(DocumentClassificationFromJSON)),
     };
 }
 
@@ -61,6 +76,7 @@ export function UploadResponseToJSONTyped(value?: UploadResponse | null, ignoreD
     return {
         
         'message': value['message'],
+        'classifications': value['classifications'] == null ? undefined : ((value['classifications'] as Array<any>).map(DocumentClassificationToJSON)),
     };
 }
 

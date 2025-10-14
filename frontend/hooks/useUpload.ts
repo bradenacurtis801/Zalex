@@ -29,8 +29,25 @@ export function useUpload() {
       setUploadStatus(result.message)
       clearFiles()
       return result
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed'
+    } catch (error: any) {
+      let errorMessage = 'Upload failed'
+      
+      // Handle different error types based on HTTP status codes
+      if (error?.response?.data?.detail) {
+        // Use the specific error message from the backend first
+        errorMessage = error.response.data.detail
+      } else if (error?.response?.status === 503) {
+        errorMessage = 'OCR service is not available. Please ensure Tesseract is installed on the server.'
+      } else if (error?.response?.status === 500) {
+        errorMessage = 'Server error occurred while processing your files. Please try again.'
+      } else if (error?.response?.status === 400) {
+        errorMessage = 'Invalid request. Please check your files and try again.'
+      } else if (error?.response?.status === 413) {
+        errorMessage = 'File too large. Please select smaller files.'
+      } else if (error instanceof Error) {
+        errorMessage = error.message
+      }
+      
       setUploadStatus(`Error: ${errorMessage}`)
       throw error
     } finally {

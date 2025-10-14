@@ -16,9 +16,83 @@
 import * as runtime from '../runtime';
 
 /**
+ * DefaultApi - interface
+ * 
+ * @export
+ * @interface DefaultApiInterface
+ */
+export interface DefaultApiInterface {
+    /**
+     * Health check endpoint for Docker and load balancers.
+     * @summary Health Check
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApiInterface
+     */
+    healthCheckHealthGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>>;
+
+    /**
+     * Health check endpoint for Docker and load balancers.
+     * Health Check
+     */
+    healthCheckHealthGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any>;
+
+    /**
+     * Redirect to frontend in development mode.
+     * @summary Root
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApiInterface
+     */
+    rootGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>>;
+
+    /**
+     * Redirect to frontend in development mode.
+     * Root
+     */
+    rootGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any>;
+
+}
+
+/**
  * 
  */
-export class DefaultApi extends runtime.BaseAPI {
+export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
+
+    /**
+     * Health check endpoint for Docker and load balancers.
+     * Health Check
+     */
+    async healthCheckHealthGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+
+        let urlPath = `/health`;
+
+        const response = await this.request({
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        }, initOverrides);
+
+        if (this.isJsonMime(response.headers.get('content-type'))) {
+            return new runtime.JSONApiResponse<any>(response);
+        } else {
+            return new runtime.TextApiResponse(response) as any;
+        }
+    }
+
+    /**
+     * Health check endpoint for Docker and load balancers.
+     * Health Check
+     */
+    async healthCheckHealthGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any> {
+        const response = await this.healthCheckHealthGetRaw(initOverrides);
+        return await response.value();
+    }
 
     /**
      * Redirect to frontend in development mode.

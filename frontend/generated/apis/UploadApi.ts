@@ -30,9 +30,34 @@ export interface UploadFilesApiUploadPostRequest {
 }
 
 /**
+ * UploadApi - interface
+ * 
+ * @export
+ * @interface UploadApiInterface
+ */
+export interface UploadApiInterface {
+    /**
+     * Handles the file upload and initiates the processing pipeline.
+     * @summary Upload Files
+     * @param {Array<Blob>} files 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof UploadApiInterface
+     */
+    uploadFilesApiUploadPostRaw(requestParameters: UploadFilesApiUploadPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<UploadResponse>>;
+
+    /**
+     * Handles the file upload and initiates the processing pipeline.
+     * Upload Files
+     */
+    uploadFilesApiUploadPost(requestParameters: UploadFilesApiUploadPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<UploadResponse>;
+
+}
+
+/**
  * 
  */
-export class UploadApi extends runtime.BaseAPI {
+export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
 
     /**
      * Handles the file upload and initiates the processing pipeline.

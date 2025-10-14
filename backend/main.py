@@ -15,7 +15,7 @@ from app_state import get_app_state
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from src.routers import query, upload
+from src.routers import category, query, upload
 
 # --- Configuration ---
 # Set up basic logging
@@ -23,6 +23,7 @@ logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -44,6 +45,22 @@ async def lifespan(app: FastAPI):
 
     app_state = get_app_state()
     logger.debug("Initializing app state...")
+
+    # Configure model loading (URL download only)
+    model_url = config.get_model_url()
+
+    if model_url:
+        logger.info(f"Using model URL for download: {model_url}")
+        app_state.set_model_url(model_url)
+    else:
+        # No explicit configuration - will check ML_MODELS_DIR automatically
+        logger.info(
+            "No model configuration found, will check ML_MODELS_DIR for existing model"
+        )
+        logger.info(
+            "If no model is found, please train one or configure SCANPRO_MODEL_URL"
+        )
+
     app_state.initialize()
     logger.debug("App state initialization complete")
 
@@ -83,18 +100,20 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from src.core.exceptions import map_to_http_exception
 
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Global exception handler for all unhandled exceptions."""
     http_exc = map_to_http_exception(exc)
     return JSONResponse(
-        status_code=http_exc.status_code,
-        content={"detail": http_exc.detail}
+        status_code=http_exc.status_code, content={"detail": http_exc.detail}
     )
+
 
 # Include routers
 app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(query.router, prefix="/api", tags=["query"])
+app.include_router(category.router, prefix="/api", tags=["category"])
 
 
 # Health check endpoint

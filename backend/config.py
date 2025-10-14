@@ -24,10 +24,14 @@ class Settings(BaseSettings):
     # CORS settings
     cors_origins: str = Field(default="http://127.0.0.1:3000", env="CORS_ORIGINS")
 
+    # Model configuration
+    model_url: str = Field(default="", env="SCANPRO_MODEL_URL")
+
     class Config:
         case_sensitive = False
         env_file = ".env"
         env_file_encoding = "utf-8"
+        protected_namespaces = ("settings_",)
 
     @property
     def node_env_value(self) -> str:
@@ -58,7 +62,7 @@ is_production = settings.node_env_value == "prod"
 APP_DIR: Path = Path("")
 
 if is_development:
-    APP_DIR = Path(sys.argv[0]).resolve().parent / "APP_DATA"
+    APP_DIR = Path(sys.argv[0]).resolve().parent.parent / "APP_DATA"
 elif _platform.WINDOWS:
     _basedir = os.environ.get("APPDATA", os.path.expanduser("~"))
     APP_DIR = Path(_basedir) / APP_NAME
@@ -76,7 +80,52 @@ METADATA_FILE = APP_DIR / "document_metadata.json"
 
 # ML model paths (for inference only)
 ML_MODELS_DIR = APP_DIR / "ml_models"
-SPANISH_CLASSIFIER_MODEL = ML_MODELS_DIR / "spanish_doc_classifier_model"
+DEFAULT_MODEL_PATH = ML_MODELS_DIR / "classifier_model"
+
+
+def validate_model_directory(model_path: str) -> bool:
+    """
+    Validate that a model directory contains all required files.
+
+    Args:
+        model_path: Path to the model directory
+
+    Returns:
+        bool: True if valid, False otherwise
+    """
+    model_dir = Path(model_path)
+
+    if not model_dir.exists():
+        return False
+
+    required_files = ["model_metadata.json", "category_embeddings.json"]
+
+    for file_name in required_files:
+        if not (model_dir / file_name).exists():
+            return False
+
+    return True
+
+
+def get_model_url() -> str:
+    """
+    Get the model URL for downloading in production.
+
+    Returns:
+        str: URL to download the model from
+    """
+    return settings.model_url
+
+
+def get_model_download_dir() -> str:
+    """
+    Get the directory to download models to in production.
+
+    Returns:
+        str: Directory path for downloaded models (ML_MODELS_DIR)
+    """
+    return str(ML_MODELS_DIR)
+
 
 #######################################################
 #######################################################

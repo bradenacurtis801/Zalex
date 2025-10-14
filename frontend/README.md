@@ -5,8 +5,12 @@ A modern React/Next.js frontend for the ScanPro AI Document Agent.
 ## Features
 
 - **Document Upload**: Drag & drop interface for PDF, JPG, PNG files
+- **Category Management**: Browse and view documents organized by classification categories
+- **Document Classification**: Real-time document type classification with confidence scores
 - **Real-time Search**: Chat interface for querying documents
+- **Error Handling**: Color-coded status messages with proper error feedback
 - **Modern UI**: Built with Tailwind CSS and Next.js
+- **Responsive Design**: Works on desktop and mobile devices
 
 ## Getting Started
 
@@ -35,6 +39,34 @@ Create a `.env.local` file:
 ```
 NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
+
+## Category Management
+
+The frontend includes a comprehensive category management system that allows users to:
+
+### Browse Categories
+- View all available document categories (personas, mercantil, inmuebles, etc.)
+- See document counts for each category
+- View last updated timestamps
+
+### Document Viewing
+- Click on any category to see all documents in that category
+- View document details including:
+  - Filename and file path
+  - Classification confidence score
+  - Upload timestamp
+  - Document category
+
+### Real-time Updates
+- Refresh button to reload categories
+- Automatic loading states during data fetching
+- Error handling with retry options
+
+### User Interface
+- **Three-panel layout**: Upload, Categories, and Search
+- **Responsive design**: Works on desktop and mobile
+- **Interactive elements**: Hover effects and smooth transitions
+- **Status feedback**: Loading spinners and error messages
 
 ## Next.js Configuration
 
@@ -89,6 +121,7 @@ frontend/
 │   ├── ui/                      # Basic UI components
 │   │   ├── Button.tsx
 │   │   ├── Input.tsx
+│   │   ├── StatusMessage.tsx    # Color-coded status messages
 │   │   ├── Modal.tsx
 │   │   └── index.ts
 │   ├── features/                # Feature-specific components
@@ -166,3 +199,31 @@ import { DefaultApi } from '@/generated'
 const api = new DefaultApi()
 const result = await api.uploadFiles(files)
 ```
+
+## Error Handling
+
+The frontend provides comprehensive error handling with visual feedback:
+
+### Status Message Types
+
+- **Success** (Green): Successful operations
+- **Error** (Red): System errors, OCR failures, server errors
+- **Warning** (Yellow): Validation warnings, user input issues
+
+### Error Categories
+
+- **503 Service Unavailable**: OCR service not available
+- **500 Internal Server Error**: Server processing errors
+- **400 Bad Request**: Invalid requests or file validation
+- **413 Payload Too Large**: File size exceeded
+
+### StatusMessage Component
+
+```typescript
+<StatusMessage 
+  message="Error: OCR service is not available" 
+  type="error" 
+/>
+```
+
+The component automatically applies appropriate styling based on the message type.

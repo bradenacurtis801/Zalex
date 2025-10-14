@@ -14,11 +14,12 @@ import faiss
 import fitz
 import numpy as np
 import pytesseract
-from pytesseract import TesseractNotFoundError
 from PIL import Image
+from pytesseract import TesseractNotFoundError
 from sentence_transformers import SentenceTransformer
+from src.core.exceptions import DocumentProcessingException, OCRNotAvailableException
+from src.ml.classification.base_classifier import BaseDocumentClassifier
 from src.ocr.ocr_reader import extract_text_from_bytes, extract_text_from_image
-from src.core.exceptions import OCRNotAvailableException, DocumentProcessingException
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +28,25 @@ class DocumentProcessor:
     """Handles document processing, OCR, and indexing operations."""
 
     def __init__(
-        self, model: SentenceTransformer, index: faiss.IndexFlatL2, metadata: list
+        self,
+        model: SentenceTransformer,
+        index: faiss.IndexFlatL2,
+        metadata: list,
+        document_classifier=None,
+        category_metadata: dict = None,
     ):
         self.model = model
         self.index = index
         self.metadata = metadata
+        self.document_classifier = document_classifier
+        self.category_metadata = category_metadata or {}
+
+        # Initialize category metadata with model categories if available
+        if self.document_classifier and self.document_classifier.is_available():
+            model_categories = self.document_classifier.get_supported_categories()
+            for category in model_categories:
+                if category not in self.category_metadata:
+                    self.category_metadata[category] = []
 
     def process_document(self, file_path: str, filename: str) -> dict:
         """
@@ -110,17 +125,35 @@ class DocumentProcessor:
         elif file_extension in [".jpg", ".jpeg", ".png"]:
             logger.info(f"Processing image: {filename}")
             # Perform OCR directly on the image file
-            ocr_results = self.get_unique_words_from_image(file_path)
-            for text_chunk in ocr_results:
-                texts_to_index.append(
-                    {"text": text_chunk, "source": filename, "page": 1}
+            try:
+                ocr_results = self.get_unique_words_from_image(file_path)
+                for text_chunk in ocr_results:
+                    texts_to_index.append(
+                        {"text": text_chunk, "source": filename, "page": 1}
+                    )
+                logger.info(
+                    f"OCR completed for {filename}. Extracted {len(ocr_results)} text chunks."
                 )
+            except Exception as e:
+                logger.warning(f"OCR failed for {filename}: {e}")
+                # Still try to classify with empty text - classifier might still work
+                texts_to_index.append({"text": "", "source": filename, "page": 1})
         else:
             logger.warning(f"Unsupported file type: {filename}")
             return {"status": "error", "message": "Unsupported file type"}
 
         if not texts_to_index:
-            raise DocumentProcessingException(f"No text could be extracted from {filename}")
+            raise DocumentProcessingException(
+                f"No text could be extracted from {filename}"
+            )
+
+        # Perform document classification
+        document_category, confidence = self._classify_document(
+            texts_to_index, filename
+        )
+        logger.info(
+            f"Document {filename} classified as: {document_category} (confidence: {confidence:.3f})"
+        )
 
         # Create embeddings for the extracted text chunks
         logger.info(
@@ -144,9 +177,15 @@ class DocumentProcessor:
 
         logger.debug("Updating metadata...")
         for item in texts_to_index:
+            # Add classification information to each text chunk
+            item["category"] = document_category
+            item["confidence"] = confidence
             self.metadata.append(item)
-        logger.debug(
-            f"Metadata updated. Total metadata entries: {len(self.metadata)}"
+        logger.debug(f"Metadata updated. Total metadata entries: {len(self.metadata)}")
+
+        # Update category metadata
+        self._update_category_metadata(
+            filename, file_path, document_category, confidence
         )
 
         logger.info(
@@ -154,6 +193,7 @@ class DocumentProcessor:
         )
         logger.debug("Saving index and metadata to disk...")
         self.save_index_and_metadata()
+        self.save_category_metadata()
         logger.debug("Index and metadata saved successfully")
         return {"status": "success", "message": f"Successfully indexed {filename}."}
 
@@ -218,3 +258,105 @@ class DocumentProcessor:
         with open(config.METADATA_FILE, "w", encoding="utf-8") as f:
             json.dump(self.metadata, f, indent=4)
         logger.info("Index and metadata saved successfully.")
+
+    def _classify_document(self, texts_to_index: list, filename: str) -> tuple:
+        """
+        Classify a document based on its extracted text content.
+
+        Args:
+            texts_to_index: List of text chunks from the document
+            filename: Name of the file being processed
+
+        Returns:
+            Tuple of (category, confidence_score)
+        """
+        if not self.document_classifier or not self.document_classifier.is_available():
+            logger.warning("Document classifier not available, using 'other' category")
+            return "other", 0.0
+
+        try:
+            # Combine all text chunks for classification
+            combined_text = " ".join([item["text"] for item in texts_to_index])
+
+            # Truncate text if too long (classifier has max length)
+            if len(combined_text) > 2000:  # Conservative limit
+                combined_text = combined_text[:2000]
+                logger.debug(f"Text truncated to 2000 characters for classification")
+
+            # Use generic classifier interface
+            if isinstance(self.document_classifier, BaseDocumentClassifier):
+                result = self.document_classifier.classify(combined_text, filename)
+                category = result.category
+                confidence = result.confidence
+                logger.debug(f"Classification method: {result.method}")
+            else:
+                # Fallback for old interface
+                category, confidence = self.document_classifier.classify(combined_text)
+
+            # Map classifier output to our category names
+            # Use the actual categories from the trained model dynamically
+            if self.document_classifier and self.document_classifier.is_available():
+                # Get categories from the trained model
+                model_categories = self.document_classifier.get_supported_categories()
+                # Create mapping that preserves the original category names
+                category_mapping = {cat: cat for cat in model_categories}
+                category_mapping["other"] = "other"  # Always include "other"
+            else:
+                # Fallback if classifier not available
+                category_mapping = {"other": "other"}
+
+            mapped_category = category_mapping.get(category, "other")
+            logger.debug(
+                f"Raw classification: {category} -> Mapped to: {mapped_category}"
+            )
+
+            return mapped_category, confidence
+
+        except Exception as e:
+            logger.error(f"Classification failed for {filename}: {e}")
+            return "other", 0.0
+
+    def _update_category_metadata(
+        self, filename: str, file_path: str, category: str, confidence: float
+    ):
+        """
+        Update the category metadata with the new document.
+
+        Args:
+            filename: Name of the file
+            file_path: Full path to the file
+            category: Document category
+            confidence: Classification confidence score
+        """
+        try:
+            # Create document entry
+            document_entry = {
+                "filename": filename,
+                "file_path": file_path,
+                "category": category,
+                "confidence": confidence,
+                "timestamp": __import__("datetime").datetime.now().isoformat(),
+            }
+
+            # Add to appropriate category list
+            if category in self.category_metadata:
+                self.category_metadata[category].append(document_entry)
+            else:
+                # If category doesn't exist, add to 'other'
+                self.category_metadata.setdefault("other", []).append(document_entry)
+                logger.warning(
+                    f"Unknown category '{category}' for {filename}, added to 'other'"
+                )
+
+            logger.debug(f"Added {filename} to category '{category}' in metadata")
+
+        except Exception as e:
+            logger.error(f"Failed to update category metadata for {filename}: {e}")
+
+    def save_category_metadata(self):
+        """Saves the current category metadata to disk."""
+        category_file = config.APP_DIR / "category_metadata.json"
+        logger.info(f"Saving category metadata to {category_file}")
+        with open(category_file, "w", encoding="utf-8") as f:
+            json.dump(self.category_metadata, f, indent=4)
+        logger.info("Category metadata saved successfully.")

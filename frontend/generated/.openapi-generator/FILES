@@ -1,8 +1,13 @@
+apis/CategoryApi.ts
 apis/DefaultApi.ts
 apis/QueryApi.ts
 apis/UploadApi.ts
 apis/index.ts
 index.ts
+models/CategoriesResponse.ts
+models/CategoryResponse.ts
+models/DocumentClassification.ts
+models/DocumentEntry.ts
 models/HTTPValidationError.ts
 models/QueryRequest.ts
 models/QueryResponse.ts

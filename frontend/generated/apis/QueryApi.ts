@@ -33,9 +33,34 @@ export interface QueryIndexApiQueryPostRequest {
 }
 
 /**
+ * QueryApi - interface
+ * 
+ * @export
+ * @interface QueryApiInterface
+ */
+export interface QueryApiInterface {
+    /**
+     * Handles user queries, searches the index, and returns relevant results.
+     * @summary Query Index
+     * @param {QueryRequest} queryRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof QueryApiInterface
+     */
+    queryIndexApiQueryPostRaw(requestParameters: QueryIndexApiQueryPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<QueryResponse>>;
+
+    /**
+     * Handles user queries, searches the index, and returns relevant results.
+     * Query Index
+     */
+    queryIndexApiQueryPost(requestParameters: QueryIndexApiQueryPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<QueryResponse>;
+
+}
+
+/**
  * 
  */
-export class QueryApi extends runtime.BaseAPI {
+export class QueryApi extends runtime.BaseAPI implements QueryApiInterface {
 
     /**
      * Handles user queries, searches the index, and returns relevant results.

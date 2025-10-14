@@ -1,5 +1,9 @@
 /* tslint:disable */
 /* eslint-disable */
+export * from './CategoriesResponse';
+export * from './CategoryResponse';
+export * from './DocumentClassification';
+export * from './DocumentEntry';
 export * from './HTTPValidationError';
 export * from './QueryRequest';
 export * from './QueryResponse';
