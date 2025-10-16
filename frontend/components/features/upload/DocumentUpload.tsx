@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { uploadApi } from '@/api'
+import { useState, useRef, useEffect } from 'react'
+import { uploadApi, createWebSocketUrl, generateClientId } from '@/api'
 import { Button } from '@/components/ui'
+import ProgressBar from '@/components/ui/ProgressBar'
 import ClassificationResults from './ClassificationResults'
 import { DocumentClassification } from '@/generated'
+import { useWebSocket } from '@/hooks/useWebSocket'
 
 interface DocumentUploadProps {
   onUploadStatus: (status: string, type?: 'success' | 'error' | 'warning') => void
@@ -15,6 +17,21 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
   const [isUploading, setIsUploading] = useState(false)
   const [classifications, setClassifications] = useState<DocumentClassification[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // Progress tracking state
+  const [progress, setProgress] = useState(0)
+  const [currentFile, setCurrentFile] = useState<string>('')
+  const [totalFiles, setTotalFiles] = useState(0)
+  const [currentFileIndex, setCurrentFileIndex] = useState(0)
+  const [showProgress, setShowProgress] = useState(false)
+  
+  // WebSocket state
+  const [clientId] = useState(() => generateClientId())
+  const [wsUrl] = useState(() => {
+    const url = createWebSocketUrl(clientId)
+    console.log('WebSocket URL:', url)
+    return url
+  })
   
 
   const handleFileSelect = (selectedFiles: FileList | null) => {
@@ -37,6 +54,69 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
     setFiles(prev => prev.filter((_, i) => i !== index))
   }
 
+  const clearAllFiles = () => {
+    setFiles([])
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  // WebSocket message handler
+  const handleWebSocketMessage = (message: any) => {
+    console.log('📨 WebSocket message received:', message)
+    
+    if (message.type === 'file_start') {
+      console.log('🚀 File start:', message.filename)
+      setCurrentFile(message.filename)
+      setTotalFiles(message.total_files)
+      setCurrentFileIndex(message.current_file)
+      setProgress(message.progress_percent)
+      setShowProgress(true)
+    } else if (message.type === 'file_complete') {
+      console.log('✅ File complete:', message.filename, 'Progress:', message.progress_percent + '%')
+      setProgress(message.progress_percent)
+      setCurrentFileIndex(message.current_file)
+      
+      // If this is the last file, hide progress after a short delay
+      if (message.current_file === message.total_files) {
+        console.log('🎉 All files processed!')
+        setTimeout(() => {
+          setShowProgress(false)
+          setProgress(0)
+          setCurrentFile('')
+        }, 1000)
+      }
+    } else if (message.type === 'error') {
+      console.error('❌ WebSocket error message:', message.error)
+      onUploadStatus(`WebSocket Error: ${message.error}`, 'error')
+      setShowProgress(false)
+    } else {
+      console.log('❓ Unknown message type:', message.type)
+    }
+  }
+
+  // WebSocket connection
+  const { isConnected, connect, disconnect } = useWebSocket({
+    url: wsUrl,
+    onMessage: handleWebSocketMessage,
+    onError: (error) => {
+      console.error('WebSocket error:', error)
+      console.error('WebSocket URL:', wsUrl)
+    },
+    onOpen: () => {
+      console.log('WebSocket connected successfully')
+    },
+    onClose: () => {
+      console.log('WebSocket disconnected')
+    }
+  })
+
+  // Connect to WebSocket when component mounts
+  useEffect(() => {
+    connect()
+    return () => disconnect()
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (files.length === 0) {
@@ -46,8 +126,12 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
 
     setIsUploading(true)
     setClassifications([]) // Clear previous classifications
+    setShowProgress(true) // Show progress bar
     try {
-      const result = await uploadApi.uploadFilesApiUploadPost({ files })
+      const result = await uploadApi.uploadFilesApiUploadPost({ 
+        files,
+        clientId: clientId
+      })
       
       // Handle classification results if available
       if (result.classifications && result.classifications.length > 0) {
@@ -82,6 +166,7 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
+      setShowProgress(false) // Hide progress bar on success
     } catch (error: any) {
       let errorMessage = 'Upload failed'
       
@@ -104,6 +189,7 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
       }
       
       onUploadStatus(`Error: ${errorMessage}`, 'error')
+      setShowProgress(false) // Hide progress bar on error
     } finally {
       setIsUploading(false)
     }
@@ -134,20 +220,36 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
         </div>
       </div>
 
-      <div className="mt-4 space-y-2">
-        {files.map((file, index) => (
-          <div key={index} className="flex justify-between items-center bg-gray-100 p-2 rounded">
-            <span className="text-sm truncate">{file.name}</span>
+      {files.length > 0 && (
+        <div className="mt-4">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm font-medium text-gray-700">
+              Selected files ({files.length})
+            </span>
             <button
               type="button"
-              onClick={() => removeFile(index)}
-              className="text-red-500 hover:text-red-700"
+              onClick={clearAllFiles}
+              className="text-sm text-red-600 hover:text-red-800 font-medium"
             >
-              ×
+              Clear All
             </button>
           </div>
-        ))}
-      </div>
+          <div className="max-h-48 overflow-y-auto space-y-2 border border-gray-200 rounded-lg p-2">
+            {files.map((file, index) => (
+              <div key={index} className="flex justify-between items-center bg-gray-100 p-2 rounded">
+                <span className="text-sm truncate flex-1 mr-2">{file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeFile(index)}
+                  className="text-red-500 hover:text-red-700 flex-shrink-0"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Button
         type="submit"
@@ -157,6 +259,16 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
       >
         Enroll Documents
       </Button>
+
+      {/* Progress bar */}
+      <ProgressBar
+        progress={progress}
+        currentFile={currentFile}
+        totalFiles={totalFiles}
+        currentFileIndex={currentFileIndex}
+        isVisible={showProgress}
+        className="mt-4"
+      />
 
       {/* Display classification results */}
       <ClassificationResults classifications={classifications} />

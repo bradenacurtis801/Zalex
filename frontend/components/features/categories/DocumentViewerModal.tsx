@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { CategoryDocument } from '@/hooks/useCategories'
 import { Button } from '@/components/ui'
 import { StatusMessage } from '@/components/ui'
+import { getCategoryColor } from '@/utils/categoryUtils'
 import ReclassificationModal from './ReclassificationModal'
 
 interface DocumentViewerModalProps {
@@ -28,6 +29,7 @@ export default function DocumentViewerModal({
   const [pdfLoadError, setPdfLoadError] = useState(false)
   const [pdfPages, setPdfPages] = useState<Array<{page_number: number, image_data: string, width: number, height: number}>>([])
   const [showReclassifyModal, setShowReclassifyModal] = useState(false)
+
 
   useEffect(() => {
     if (isOpen && document) {
@@ -151,7 +153,7 @@ export default function DocumentViewerModal({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <span className="font-medium text-gray-700">Category:</span>
-              <span className="ml-2 px-2 py-1 bg-violet-100 text-violet-800 rounded-full text-xs">
+              <span className={`ml-2 px-2 py-1 rounded-full text-xs ${getCategoryColor(document.category)}`}>
                 {document.category}
               </span>
             </div>

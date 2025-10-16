@@ -1,8 +1,9 @@
 import logging
 import os
+import uuid
 
 import config
-from fastapi import APIRouter, Depends, File, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, Query
 from fastapi import Path as FastAPIPath
 from fastapi import UploadFile
 from fastapi.responses import FileResponse, JSONResponse
@@ -18,11 +19,13 @@ router = APIRouter()
 @router.post("/upload", response_model=UploadResponse)
 async def upload_files(
     files: list[UploadFile] = File(...),
+    client_id: str = Query(None, description="Client ID for WebSocket progress updates"),
     upload_service: UploadService = Depends(get_upload_service),
 ) -> UploadResponse:
     """Handles the file upload and initiates the processing pipeline."""
     logger.info(f"Received upload request with {len(files)} file(s)")
-    return await upload_service.process_upload(files)
+    
+    return await upload_service.process_upload(files, client_id)
 
 
 @router.get("/documents/{filename}/content")

@@ -2,7 +2,7 @@ import os
 import platform
 import sys
 from pathlib import Path
-from typing import Literal
+from typing import Literal, List
 
 from dotenv import load_dotenv
 from pydantic import Field
@@ -23,7 +23,10 @@ class Settings(BaseSettings):
     debug: int = Field(default=0, env="DEBUG")
 
     # CORS settings
-    cors_origins: str = Field(default="http://127.0.0.1:3000", env="CORS_ORIGINS")
+    cors_origins: List[str] = Field(
+        default=["*"],
+        description="CORS allowed origins"
+    )
 
     # Model configuration
     # Hugging Face token for private models

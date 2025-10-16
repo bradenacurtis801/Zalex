@@ -9,6 +9,7 @@ from src.services.pdf_service import PDFService
 from src.services.query_service import QueryService
 from src.services.upload_service import UploadService
 from src.utils.document_processor import DocumentProcessor
+from src.websocket_manager import get_connection_manager
 
 
 def get_document_processor() -> DocumentProcessor:
@@ -19,9 +20,10 @@ def get_document_processor() -> DocumentProcessor:
 
 def get_upload_service(
     document_processor: DocumentProcessor = Depends(get_document_processor),
+    connection_manager=Depends(get_connection_manager),
 ) -> UploadService:
     """Dependency injection for UploadService."""
-    return UploadService(document_processor)
+    return UploadService(document_processor, connection_manager)
 
 
 def get_pdf_service() -> PDFService:

@@ -19,7 +19,9 @@ export default function StatusMessage({ message, type, className = '' }: StatusM
 
   return (
     <div className={`p-2 rounded-md text-sm ${getStatusStyles()} ${className}`}>
-      {message}
+      <div className="max-h-32 overflow-y-auto break-words">
+        {message}
+      </div>
     </div>
   )
 }

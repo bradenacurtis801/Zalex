@@ -39,6 +39,7 @@ export interface GetPdfPagesApiDocumentsFilenamePagesGetRequest {
 
 export interface UploadFilesApiUploadPostRequest {
     files: Array<Blob>;
+    clientId?: string;
 }
 
 /**
@@ -130,6 +131,7 @@ export interface UploadApiInterface {
      * Handles the file upload and initiates the processing pipeline.
      * @summary Upload Files
      * @param {Array<Blob>} files 
+     * @param {string} [clientId] Client ID for WebSocket progress updates
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof UploadApiInterface
@@ -361,6 +363,10 @@ export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
         }
 
         const queryParameters: any = {};
+
+        if (requestParameters['clientId'] != null) {
+            queryParameters['client_id'] = requestParameters['clientId'];
+        }
 
         const headerParameters: runtime.HTTPHeaders = {};
 

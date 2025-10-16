@@ -12,10 +12,13 @@ from contextlib import asynccontextmanager
 
 import config as config
 from app_state import get_app_state
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from src.routers import category, feedback, query, upload
+from src.websocket_manager import get_connection_manager
+import json
+import asyncio
 
 # --- Configuration ---
 # Set up basic logging
@@ -23,6 +26,10 @@ logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+
+# Get the singleton connection manager
+manager = get_connection_manager()
 
 
 @asynccontextmanager
@@ -72,7 +79,7 @@ app = FastAPI(
 
 # Add CORS middleware for frontend
 # Parse CORS origins from environment variable (comma-separated)
-cors_origins = [origin.strip() for origin in config.settings.cors_origins.split(",")]
+cors_origins = config.settings.cors_origins
 
 # In development, allow all origins for easier debugging
 if config.is_development:
@@ -106,6 +113,19 @@ app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(query.router, prefix="/api", tags=["query"])
 app.include_router(category.router, prefix="/api", tags=["category"])
 app.include_router(feedback.router, prefix="/api", tags=["feedback"])
+
+
+# WebSocket endpoint for progress updates
+@app.websocket("/ws/{client_id}")
+async def websocket_endpoint(websocket: WebSocket, client_id: str):
+    """WebSocket endpoint for real-time progress updates."""
+    await manager.connect(websocket, client_id)
+    try:
+        while True:
+            # Keep connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(client_id)
 
 
 # Health check endpoint

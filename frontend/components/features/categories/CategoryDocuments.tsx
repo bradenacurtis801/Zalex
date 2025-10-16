@@ -5,6 +5,7 @@ import { useCategories, CategoryDocument } from '@/hooks/useCategories'
 import { useFeedback } from '@/hooks/useFeedback'
 import { Button } from '@/components/ui'
 import { StatusMessage } from '@/components/ui'
+import { getCategoryColor } from '@/utils/categoryUtils'
 import ReclassificationModal from './ReclassificationModal'
 import DocumentViewerModal from './DocumentViewerModal'
 
@@ -52,6 +53,7 @@ export default function CategoryDocuments({ category, onError, availableCategori
   const formatDate = (timestamp: string) => {
     return new Date(timestamp).toLocaleString()
   }
+
 
   const handleReclassify = (document: CategoryDocument) => {
     setReclassifyModal({ isOpen: true, document })
@@ -102,19 +104,17 @@ export default function CategoryDocuments({ category, onError, availableCategori
           Showing {documents.length} document{documents.length !== 1 ? 's' : ''} in {category}
         </div>
         
-        {documents.map((doc, index) => (
+        <div className="max-h-96 overflow-y-auto space-y-3 border border-gray-200 rounded-lg p-2">
+          {documents.map((doc, index) => (
           <div
             key={`${doc.filename}-${index}`}
             className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
           >
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
-                <h4 className="font-medium text-gray-900 truncate">
+                <h4 className="font-medium text-gray-900 truncate max-w-xs">
                   {doc.filename}
                 </h4>
-                <p className="text-sm text-gray-600 mt-1">
-                  {doc.filePath}
-                </p>
                 <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 bg-green-400 rounded-full"></span>
@@ -126,7 +126,7 @@ export default function CategoryDocuments({ category, onError, availableCategori
                 </div>
               </div>
               <div className="flex items-center gap-2 ml-4">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-800">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(doc.category)}`}>
                   {doc.category}
                 </span>
                 <Button
@@ -149,6 +149,7 @@ export default function CategoryDocuments({ category, onError, availableCategori
             </div>
           </div>
         ))}
+        </div>
       </div>
 
       {/* Reclassification Modal */}

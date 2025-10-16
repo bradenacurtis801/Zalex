@@ -1,7 +1,9 @@
 """Upload service for handling file uploads and processing."""
 
+import asyncio
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 
 import config as config
@@ -9,6 +11,7 @@ from fastapi import UploadFile
 from src.models.upload import DocumentClassification, UploadResponse
 from src.utils.document_processor import DocumentProcessor
 from src.utils.file_hasher import calculate_file_hash, get_content_based_filename
+from src.websocket_manager import ConnectionManager
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +19,12 @@ logger = logging.getLogger(__name__)
 class UploadService:
     """Service for handling file uploads and document processing."""
 
-    def __init__(self, document_processor: DocumentProcessor):
+    def __init__(self, document_processor: DocumentProcessor, connection_manager: ConnectionManager):
         self.document_processor = document_processor
+        self.connection_manager = connection_manager
 
-    async def process_upload(self, files: List[UploadFile]) -> UploadResponse:
+
+    async def process_upload(self, files: List[UploadFile], client_id: str = None) -> UploadResponse:
         """
         Process uploaded files and initiate document processing.
 
@@ -49,6 +54,16 @@ class UploadService:
         already_classified_count = 0
 
         for i, file in enumerate(files):
+            # Send progress update
+            if client_id and self.connection_manager:
+                await self.connection_manager.send_progress(client_id, {
+                    "type": "file_start",
+                    "current_file": i + 1,
+                    "total_files": len(files),
+                    "filename": file.filename,
+                    "progress_percent": int((i / len(files)) * 100)
+                })
+            
             logger.debug(f"Processing file {i+1}/{len(files)}: {file.filename}")
             classification, was_already_classified = await self._process_single_file(
                 file, processor
@@ -57,6 +72,21 @@ class UploadService:
                 classifications.append(classification)
                 if was_already_classified:
                     already_classified_count += 1
+            
+            # Send file completion update
+            if client_id and self.connection_manager:
+                await self.connection_manager.send_progress(client_id, {
+                    "type": "file_complete",
+                    "current_file": i + 1,
+                    "total_files": len(files),
+                    "filename": file.filename,
+                    "progress_percent": int(((i + 1) / len(files)) * 100),
+                    "classification": {
+                        "category": classification.category if classification else "unknown",
+                        "confidence": classification.confidence if classification else 0.0
+                    }
+                })
+            
             logger.debug(f"Successfully processed {file.filename}")
 
         # Generate appropriate message based on whether files were already classified
@@ -107,8 +137,12 @@ class UploadService:
         temp_file_path = os.path.join(config.UPLOAD_DIR, f"temp_{original_filename}")
         await self._save_file(file, temp_file_path)
 
-        # Calculate content hash
-        file_hash = calculate_file_hash(temp_file_path)
+        # Calculate content hash - run in thread pool for large files
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor() as executor:
+            file_hash = await loop.run_in_executor(
+                executor, calculate_file_hash, temp_file_path
+            )
         if not file_hash:
             raise Exception(f"Failed to calculate hash for {original_filename}")
 
@@ -129,7 +163,7 @@ class UploadService:
             file_path = final_file_path
 
             # Check if this file has already been classified
-            existing_classification = self._get_existing_classification(filename)
+            existing_classification = self._get_existing_classification(filename, original_filename)
             if existing_classification:
                 logger.info(
                     f"File {filename} already classified as {existing_classification.category} "
@@ -148,8 +182,13 @@ class UploadService:
         logger.debug(f"Final file path: {file_path}")
 
         # Process document - this will throw an exception if it fails
+        # Run CPU-intensive processing in a thread pool to avoid blocking the event loop
         logger.debug(f"Starting document processing for {filename}...")
-        result = processor.process_document(file_path, filename)
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor() as executor:
+            result = await loop.run_in_executor(
+                executor, processor.process_document, file_path, filename
+            )
         logger.debug(f"Document processing completed for {filename}")
 
         # Extract classification information from the processor's category metadata
@@ -207,13 +246,13 @@ class UploadService:
         )
         return (
             DocumentClassification(
-                filename=filename, category=category, confidence=confidence
+                filename=original_filename, category=category, confidence=confidence
             ),
             False,
         )
 
     def _get_existing_classification(
-        self, filename: str
+        self, filename: str, original_filename: str
     ) -> Optional[DocumentClassification]:
         """
         Check if a file with the given filename has already been classified.
@@ -236,7 +275,7 @@ class UploadService:
                         f"Found existing classification for {filename} in category {category}"
                     )
                     return DocumentClassification(
-                        filename=filename,
+                        filename=original_filename,
                         category=doc_entry.get("category", category),
                         confidence=doc_entry.get("confidence", 0.0),
                     )

@@ -2,6 +2,20 @@
 
 A comprehensive document processing and search system that combines OCR, AI-powered document classification, and semantic search capabilities.
 
+## 🎬 Demo
+
+![Main Page - Empty State](demos/MainPageEmpty.png)
+*Main page with empty state - ready for document upload*
+
+![Main Page - Processing Upload](demos/MainPageProcessingUpload.png)
+*Real-time progress tracking during document upload with WebSocket integration*
+
+![Main Page - Upload Complete](demos/MainPageUploadComplete.png)
+*Upload completed with classification results and scrollable file lists*
+
+![Main Page - Category Management](demos/MainPageCategoryFeat.png)
+*Category management interface with dynamic color-coded categories and scrollable document lists*
+
 ## 🚀 Overview
 
 ScanPro is a full-stack application that allows users to upload documents, automatically classify them by type, and perform intelligent semantic searches across their document collection. The system is designed to handle Spanish legal documents including birth certificates, marriage certificates, and property deeds.

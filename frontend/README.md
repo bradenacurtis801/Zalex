@@ -2,11 +2,15 @@
 
 A modern React/Next.js frontend for the ScanPro AI Document Agent.
 
+> 📸 **Demo**: See the main project [README](../README.md) for visual demonstrations of the application.
+
 ## Features
 
 - **Document Upload**: Drag & drop interface for PDF, JPG, PNG files
+- **Real-time Progress**: WebSocket-based progress tracking with animated progress bars
 - **Category Management**: Browse and view documents organized by classification categories
 - **Document Classification**: Real-time document type classification with confidence scores
+- **Dynamic UI**: Scrollable lists, clear buttons, and responsive design
 - **Real-time Search**: Chat interface for querying documents
 - **Error Handling**: Color-coded status messages with proper error feedback
 - **Modern UI**: Built with Tailwind CSS and Next.js
@@ -39,6 +43,28 @@ Create a `.env.local` file:
 ```
 NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
+
+## Real-time Progress Tracking
+
+The frontend features advanced real-time progress tracking powered by WebSocket connections:
+
+### Progress Bar Features
+- **Animated Progress Bar**: Smooth progress visualization with percentage display
+- **Current File Tracking**: Shows which file is currently being processed
+- **File Counter**: Displays "File X of Y" progress
+- **Auto-hide**: Progress bar automatically hides when upload completes
+
+### WebSocket Integration
+- **Persistent Connection**: Client ID stored in localStorage for session continuity
+- **Automatic Reconnection**: Reconnects every 1 second if connection is lost
+- **Error Handling**: Graceful handling of connection failures
+- **Real-time Updates**: Instant progress updates without page refresh
+
+### Upload Experience
+- **Non-blocking Processing**: Backend processes files in thread pools
+- **Scrollable File Lists**: Handle large numbers of files with scrollable containers
+- **Clear All Button**: Easy way to clear all selected files
+- **Status Messages**: Color-coded feedback for different message types
 
 ## Category Management
 
@@ -122,13 +148,19 @@ frontend/
 │   │   ├── Button.tsx
 │   │   ├── Input.tsx
 │   │   ├── StatusMessage.tsx    # Color-coded status messages
+│   │   ├── ProgressBar.tsx      # Real-time progress visualization
 │   │   ├── Modal.tsx
 │   │   └── index.ts
 │   ├── features/                # Feature-specific components
 │   │   ├── upload/
 │   │   │   ├── DocumentUpload.tsx
-│   │   │   ├── FileList.tsx
-│   │   │   └── UploadProgress.tsx
+│   │   │   ├── ClassificationResults.tsx
+│   │   │   └── FileList.tsx
+│   │   ├── categories/
+│   │   │   ├── CategoryManager.tsx
+│   │   │   ├── CategoryDocuments.tsx
+│   │   │   ├── DocumentViewerModal.tsx
+│   │   │   └── ReclassificationModal.tsx
 │   │   └── chat/
 │   │       ├── ChatInterface.tsx
 │   │       ├── MessageBubble.tsx
@@ -145,11 +177,17 @@ frontend/
 ├── hooks/                        # Custom React hooks
 │   ├── useUpload.ts
 │   ├── useSearch.ts
+│   ├── useWebSocket.ts           # WebSocket connection management
+│   ├── useCategories.ts
+│   ├── useFeedback.ts
 │   └── useLocalStorage.ts
 ├── lib/                          # Utility libraries
 │   ├── utils.ts
 │   ├── constants.ts
 │   └── validations.ts
+├── utils/                        # Frontend utilities
+│   ├── categoryUtils.ts          # Category color and label utilities
+│   └── cache.ts                  # Caching utilities
 ├── scripts/                      # Build and generation scripts
 │   ├── generate-api.sh          # Unix API generation script
 │   └── generate-api.bat         # Windows API generation script
@@ -188,8 +226,11 @@ The frontend uses OpenAPI Generator to create type-safe API clients from the Fas
 ### API Endpoints
 
 The frontend communicates with the FastAPI backend through:
-- `POST /api/upload` - Upload documents
+- `POST /api/upload` - Upload documents with WebSocket progress tracking
 - `POST /api/query` - Search documents
+- `GET /api/categories` - Get all document categories
+- `POST /api/feedback` - Submit classification feedback
+- `WebSocket /ws/{client_id}` - Real-time progress updates
 
 ### Using Generated Client
 

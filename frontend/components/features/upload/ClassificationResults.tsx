@@ -1,6 +1,7 @@
 'use client'
 
 import { DocumentClassification } from '@/generated'
+import { getCategoryColor, getCategoryLabel } from '@/utils/categoryUtils'
 
 interface ClassificationResultsProps {
   classifications: DocumentClassification[]
@@ -11,35 +12,6 @@ export default function ClassificationResults({ classifications }: Classificatio
     return null
   }
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'personas':
-        return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'mercantil':
-        return 'bg-green-100 text-green-800 border-green-200'
-      case 'inmuebles':
-        return 'bg-purple-100 text-purple-800 border-purple-200'
-      case 'other':
-        return 'bg-gray-100 text-gray-800 border-gray-200'
-      default:
-        return 'bg-indigo-100 text-indigo-800 border-indigo-200'
-    }
-  }
-
-  const getCategoryLabel = (category: string) => {
-    switch (category) {
-      case 'personas':
-        return 'Personas'
-      case 'mercantil':
-        return 'Mercantil'
-      case 'inmuebles':
-        return 'Inmuebles'
-      case 'other':
-        return 'Other'
-      default:
-        return category.charAt(0).toUpperCase() + category.slice(1)
-    }
-  }
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.8) return 'text-green-600'
@@ -49,8 +21,11 @@ export default function ClassificationResults({ classifications }: Classificatio
 
   return (
     <div className="mt-4 space-y-3">
-      <h3 className="text-lg font-semibold text-gray-900">Document Classifications</h3>
-      <div className="space-y-2">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold text-gray-900">Document Classifications</h3>
+        <span className="text-sm text-gray-500">({classifications.length} documents)</span>
+      </div>
+      <div className="max-h-96 overflow-y-auto space-y-2 border border-gray-200 rounded-lg p-2">
         {classifications.map((classification, index) => (
           <div
             key={index}
