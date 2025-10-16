@@ -5,21 +5,20 @@ Document processing service for OCR, text extraction, and indexing.
 import json
 import logging
 import os
-import re
-import string
 import sys
 
 import config as config
 import faiss
 import fitz
 import numpy as np
-import pytesseract
-from PIL import Image
-from pytesseract import TesseractNotFoundError
 from sentence_transformers import SentenceTransformer
-from src.core.exceptions import DocumentProcessingException, OCRNotAvailableException
+from src.core.exceptions import (
+    ClassifierNotAvailableException,
+    DocumentProcessingException,
+    OCRNotAvailableException,
+)
 from src.ml.classification.base_classifier import BaseDocumentClassifier
-from src.ocr.ocr_reader import extract_text_from_bytes, extract_text_from_image
+from src.ocr.base import OCREngine
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +31,8 @@ class DocumentProcessor:
         model: SentenceTransformer,
         index: faiss.IndexFlatL2,
         metadata: list,
-        document_classifier=None,
+        ocr_engine: OCREngine,
+        document_classifier: BaseDocumentClassifier,
         category_metadata: dict = None,
     ):
         self.model = model
@@ -40,9 +40,10 @@ class DocumentProcessor:
         self.metadata = metadata
         self.document_classifier = document_classifier
         self.category_metadata = category_metadata or {}
+        self.ocr_engine = ocr_engine
 
         # Initialize category metadata with model categories if available
-        if self.document_classifier and self.document_classifier.is_available():
+        if self.document_classifier.is_initialized:
             model_categories = self.document_classifier.get_supported_categories()
             for category in model_categories:
                 if category not in self.category_metadata:
@@ -90,7 +91,7 @@ class DocumentProcessor:
                 logger.debug(f"Starting OCR on page {page_num + 1}...")
                 try:
                     # Extract text directly from bytes using the OCR engine
-                    text = extract_text_from_bytes(img_bytes, "png", "eng+spa")
+                    text = self.ocr_engine.extract_text_from_bytes(img_bytes, "png")
                     ocr_results = [text] if text.strip() else []
 
                     logger.debug(
@@ -126,14 +127,17 @@ class DocumentProcessor:
             logger.info(f"Processing image: {filename}")
             # Perform OCR directly on the image file
             try:
-                ocr_results = self.get_unique_words_from_image(file_path)
-                for text_chunk in ocr_results:
-                    texts_to_index.append(
-                        {"text": text_chunk, "source": filename, "page": 1}
+                # Extract text using OCR engine
+                text = self.ocr_engine.extract_text(file_path)
+                if text.strip():
+                    # Store full text as single chunk (consistent with PDF processing)
+                    texts_to_index.append({"text": text, "source": filename, "page": 1})
+                    logger.info(
+                        f"OCR completed for {filename}. Text extracted successfully."
                     )
-                logger.info(
-                    f"OCR completed for {filename}. Extracted {len(ocr_results)} text chunks."
-                )
+                else:
+                    logger.warning(f"No text extracted from {filename}")
+                    texts_to_index.append({"text": "", "source": filename, "page": 1})
             except Exception as e:
                 logger.warning(f"OCR failed for {filename}: {e}")
                 # Still try to classify with empty text - classifier might still work
@@ -197,59 +201,6 @@ class DocumentProcessor:
         logger.debug("Index and metadata saved successfully")
         return {"status": "success", "message": f"Successfully indexed {filename}."}
 
-    def get_unique_words_from_image(self, image_path: str) -> list[str]:
-        """
-        Performs OCR on an image, processes the text to extract unique words,
-        and returns them as a sorted list.
-
-        This function replicates the shell command:
-        tesseract <image> stdout -l spa+eng | tr '[:punct:]' ' ' | tr -s ' ' '\n' | sort -u
-
-        Args:
-            image_path: The file path to the image.
-
-        Returns:
-            A list of unique, sorted words found in the image.
-            Returns an empty list if the image cannot be opened or processed.
-        """
-        try:
-            # Step 1: Perform OCR using pytesseract
-            # This is equivalent to `tesseract your_image.png stdout -l spa+eng`
-            # The 'lang' argument handles both Spanish and English.
-            raw_text = pytesseract.image_to_string(
-                Image.open(image_path), lang="spa+eng"
-            )
-
-            # --- Text Processing Steps ---
-
-            # Make text lowercase to ensure case-insensitive uniqueness (like `sort -u`)
-            text = raw_text.lower()
-
-            # Step 2: Replace all punctuation with a space
-            # This is equivalent to `tr '[:punct:]' ' '`
-            # We use a regular expression for a robust replacement.
-            text = re.sub(f"[{re.escape(string.punctuation)}]", " ", text)
-
-            # Step 3: Split the text into words
-            # This is equivalent to `tr -s ' ' '\n'`
-            # The .split() method naturally handles multiple spaces between words.
-            words = text.split()
-
-            # Step 4: Get a unique, sorted list of words
-            # This is equivalent to `sort -u`
-            # A `set` stores only unique items, and `sorted()` sorts them.
-            unique_sorted_words = sorted(list(set(words)))
-
-            return unique_sorted_words
-
-        except FileNotFoundError:
-            raise DocumentProcessingException(f"Image file not found: {image_path}")
-        except TesseractNotFoundError as e:
-            # TesseractNotFoundError is thrown when tesseract is not installed or not in PATH
-            raise OCRNotAvailableException(f"Tesseract OCR is not available: {str(e)}")
-        except Exception as e:
-            raise DocumentProcessingException(f"OCR processing failed: {str(e)}")
-
     def save_index_and_metadata(self):
         """Saves the current FAISS index and metadata to disk."""
         logger.info(f"Saving FAISS index to {config.INDEX_FILE}")
@@ -270,40 +221,29 @@ class DocumentProcessor:
         Returns:
             Tuple of (category, confidence_score)
         """
-        if not self.document_classifier or not self.document_classifier.is_available():
-            logger.warning("Document classifier not available, using 'other' category")
-            return "other", 0.0
+        if not self.document_classifier.is_initialized:
+            logger.error("Document classifier not initialized for classification")
+            raise ClassifierNotAvailableException(
+                "Document classification service is not initialized. Please ensure the model is properly loaded."
+            )
 
         try:
             # Combine all text chunks for classification
             combined_text = " ".join([item["text"] for item in texts_to_index])
 
-            # Truncate text if too long (classifier has max length)
-            if len(combined_text) > 2000:  # Conservative limit
-                combined_text = combined_text[:2000]
-                logger.debug(f"Text truncated to 2000 characters for classification")
-
-            # Use generic classifier interface
-            if isinstance(self.document_classifier, BaseDocumentClassifier):
-                result = self.document_classifier.classify(combined_text, filename)
-                category = result.category
-                confidence = result.confidence
-                logger.debug(f"Classification method: {result.method}")
-            else:
-                # Fallback for old interface
-                category, confidence = self.document_classifier.classify(combined_text)
+            # Use classifier interface
+            result = self.document_classifier.classify(combined_text, filename)
+            category = result.category
+            confidence = result.confidence
+            logger.debug(f"Classification method: {result.method}")
 
             # Map classifier output to our category names
             # Use the actual categories from the trained model dynamically
-            if self.document_classifier and self.document_classifier.is_available():
-                # Get categories from the trained model
-                model_categories = self.document_classifier.get_supported_categories()
-                # Create mapping that preserves the original category names
-                category_mapping = {cat: cat for cat in model_categories}
-                category_mapping["other"] = "other"  # Always include "other"
-            else:
-                # Fallback if classifier not available
-                category_mapping = {"other": "other"}
+            # Get categories from the trained model
+            model_categories = self.document_classifier.get_supported_categories()
+            # Create mapping that preserves the original category names
+            category_mapping = {cat: cat for cat in model_categories}
+            category_mapping["other"] = "other"  # Always include "other"
 
             mapped_category = category_mapping.get(category, "other")
             logger.debug(

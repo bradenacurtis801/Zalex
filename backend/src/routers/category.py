@@ -27,12 +27,12 @@ async def get_documents_by_category(
     """Get all documents in a specific category."""
     logger.info(f"Received request for category: {category}")
 
-    # Validate category exists
-    category_metadata = category_service.app_state.category_metadata
-    if category not in category_metadata:
+    # Validate category exists by getting available categories
+    available_categories = category_service._get_model_categories()
+    if category not in available_categories:
         raise HTTPException(
             status_code=404,
-            detail=f"Category '{category}' not found. Available categories: {list(category_metadata.keys())}",
+            detail=f"Category '{category}' not found. Available categories: {available_categories}",
         )
 
     return category_service.get_documents_by_category(category)

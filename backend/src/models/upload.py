@@ -12,3 +12,4 @@ class DocumentClassification(BaseModel):
 class UploadResponse(BaseModel):
     message: str
     classifications: Optional[List[DocumentClassification]] = None
+    already_classified: Optional[bool] = False

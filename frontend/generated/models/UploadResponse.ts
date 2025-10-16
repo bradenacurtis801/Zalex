@@ -39,6 +39,12 @@ export interface UploadResponse {
      * @memberof UploadResponse
      */
     classifications?: Array<DocumentClassification> | null;
+    /**
+     * 
+     * @type {boolean}
+     * @memberof UploadResponse
+     */
+    alreadyClassified?: boolean | null;
 }
 
 /**
@@ -61,6 +67,7 @@ export function UploadResponseFromJSONTyped(json: any, ignoreDiscriminator: bool
         
         'message': json['message'],
         'classifications': json['classifications'] == null ? undefined : ((json['classifications'] as Array<any>).map(DocumentClassificationFromJSON)),
+        'alreadyClassified': json['already_classified'] == null ? undefined : json['already_classified'],
     };
 }
 
@@ -77,6 +84,7 @@ export function UploadResponseToJSONTyped(value?: UploadResponse | null, ignoreD
         
         'message': value['message'],
         'classifications': value['classifications'] == null ? undefined : ((value['classifications'] as Array<any>).map(DocumentClassificationToJSON)),
+        'already_classified': value['alreadyClassified'],
     };
 }
 

@@ -66,7 +66,7 @@ export interface UploadApiInterface {
     /**
      * Download a document file.  Args:     filename: Name of the file to download  Returns:     File download response
      * @summary Download Document
-     * @param {string} filename 
+     * @param {string} filename Document filename (content-based hash format)
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof UploadApiInterface
@@ -82,7 +82,7 @@ export interface UploadApiInterface {
     /**
      * Get the content of a document for viewing.  Args:     filename: Name of the file to retrieve  Returns:     File content or text content
      * @summary Get Document Content
-     * @param {string} filename 
+     * @param {string} filename Document filename (content-based hash format)
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof UploadApiInterface
@@ -113,7 +113,7 @@ export interface UploadApiInterface {
     /**
      * Convert PDF to images and return page information.  Args:     filename: Name of the PDF file     pdf_service: PDF service instance  Returns:     JSON with page information and image URLs
      * @summary Get Pdf Pages
-     * @param {string} filename 
+     * @param {string} filename PDF filename (content-based hash format)
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof UploadApiInterface

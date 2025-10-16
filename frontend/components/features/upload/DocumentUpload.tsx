@@ -52,9 +52,30 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
       // Handle classification results if available
       if (result.classifications && result.classifications.length > 0) {
         setClassifications(result.classifications)
-        onUploadStatus(`${result.message} Documents classified successfully!`, 'success')
+        
+        // Create detailed classification message
+        const classificationDetails = result.classifications
+          .map((classification: DocumentClassification) => {
+            const truncatedFilename = classification.filename.length > 25 
+              ? `${classification.filename.substring(0, 25)}...` 
+              : classification.filename
+            return `${truncatedFilename}: ${classification.category} (${(classification.confidence * 100).toFixed(1)}%)`
+          })
+          .join(', ')
+        
+        // Add special message for already classified documents
+        const statusMessage = result.alreadyClassified 
+          ? `📋 ${result.message} Classifications: ${classificationDetails}`
+          : `${result.message} Classifications: ${classificationDetails}`
+        
+        onUploadStatus(statusMessage, 'success')
       } else {
-        onUploadStatus(result.message, 'success')
+        // Add special message for already classified documents even without classifications
+        const statusMessage = result.alreadyClassified 
+          ? `📋 ${result.message}`
+          : result.message
+        
+        onUploadStatus(statusMessage, 'success')
       }
       
       setFiles([])
@@ -65,8 +86,11 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
       let errorMessage = 'Upload failed'
       
       // Handle different error types based on HTTP status codes
-      if (error?.response?.status === 503) {
-        errorMessage = 'OCR service is not available. Please ensure Tesseract is installed on the server.'
+      if (error?.response?.data?.detail) {
+        // Use the specific error message from the backend first
+        errorMessage = error.response.data.detail
+      } else if (error?.response?.status === 503) {
+        errorMessage = 'Service temporarily unavailable. Please try again later.'
       } else if (error?.response?.status === 500) {
         errorMessage = 'Server error occurred while processing your files. Please try again.'
       } else if (error?.response?.status === 400) {

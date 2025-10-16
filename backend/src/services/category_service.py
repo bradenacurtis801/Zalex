@@ -4,8 +4,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 
-from app_state import get_app_state
-from src.ml.classification.model_loader import load_pretrained_classifier
+from src.ml.classification.base_classifier import BaseDocumentClassifier
 from src.models.category import CategoriesResponse, CategoryResponse, DocumentEntry
 
 logger = logging.getLogger(__name__)
@@ -14,9 +13,11 @@ logger = logging.getLogger(__name__)
 class CategoryService:
     """Service for handling document category operations."""
 
-    def __init__(self):
-        self.app_state = get_app_state()
-        self.model_dir = None  # Will be set from app_state
+    def __init__(
+        self, document_classifier: BaseDocumentClassifier, category_metadata: dict
+    ):
+        self.document_classifier = document_classifier
+        self.category_metadata = category_metadata
         self._model_categories = None
 
     def _get_model_categories(self) -> List[str]:
@@ -30,19 +31,15 @@ class CategoryService:
             return self._model_categories
 
         try:
-            # Get model path from app_state
-            model_dir = self.app_state.model_path
-            if not model_dir:
-                logger.warning("No model path configured in app_state")
-                logger.error("Cannot get categories without a trained model")
-                return []
-
-            # Try to load the classifier to get categories
-            classifier = load_pretrained_classifier(model_dir)
-            if classifier and classifier.is_available():
-                self._model_categories = classifier.get_supported_categories()
+            # Get categories directly from the loaded classifier
+            if self.document_classifier and self.document_classifier.is_initialized:
+                self._model_categories = (
+                    self.document_classifier.get_supported_categories()
+                )
                 logger.info(f"Loaded categories from model: {self._model_categories}")
                 return self._model_categories
+            else:
+                logger.warning("Document classifier not available")
         except Exception as e:
             logger.warning(f"Failed to load model categories: {e}")
 
@@ -72,8 +69,8 @@ class CategoryService:
                 total_count=0,
             )
 
-        # Get documents from both app_state and directory structure
-        category_metadata = self.app_state.category_metadata
+        # Get documents from category metadata
+        category_metadata = self.category_metadata
         documents = category_metadata.get(category, {})
 
         # Convert to DocumentEntry objects
@@ -112,16 +109,16 @@ class CategoryService:
         # Get category summary from model metadata only
         category_summary = {}
 
-        # Also get metadata from app_state for additional context
-        category_metadata = self.app_state.category_metadata
+        # Get metadata from injected dependency
+        category_metadata = self.category_metadata
 
-        # Merge model-based categories with app_state metadata
+        # Merge model-based categories with category metadata
         merged_categories = {}
         for category in available_categories:
             if category in category_metadata:
                 merged_categories[category] = category_metadata[category]
             else:
-                # Create basic structure for categories found in model but not in app_state
+                # Create basic structure for categories found in model but not in metadata
                 merged_categories[category] = {}
 
         total_documents = sum(

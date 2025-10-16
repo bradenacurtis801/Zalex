@@ -7,11 +7,14 @@ These functions update existing model embeddings without retraining from scratch
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List
 
 import config
 import numpy as np
 from sentence_transformers import SentenceTransformer
+
+if TYPE_CHECKING:
+    from ..models.feedback import CorrectionData
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +39,14 @@ def load_existing_embeddings(model_path: str) -> Dict[str, List[float]]:
 
 
 def extract_corrected_documents(
-    corrections: List[Dict[str, Any]],
+    corrections: List["CorrectionData"],
 ) -> Dict[str, List[str]]:
     """Extract text content from corrected documents organized by category."""
     corrected_docs = {}
 
     for correction in corrections:
-        filename = correction["filename"]
-        category = correction["to_category"]
+        filename = correction.filename
+        category = correction.to_category
 
         # Get document path from category metadata
         doc_path = _get_document_path(filename, category)
@@ -200,7 +203,7 @@ def save_updated_embeddings(
 
 
 def update_model_embeddings_incremental(
-    corrections: List[Dict[str, Any]], model_path: str
+    corrections: List["CorrectionData"], model_path: str
 ) -> bool:
     """Complete incremental model update pipeline."""
     try:

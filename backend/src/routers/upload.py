@@ -2,7 +2,9 @@ import logging
 import os
 
 import config
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException
+from fastapi import Path as FastAPIPath
+from fastapi import UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from src.dependencies import get_pdf_service, get_upload_service
 from src.models.upload import UploadResponse
@@ -24,7 +26,15 @@ async def upload_files(
 
 
 @router.get("/documents/{filename}/content")
-async def get_document_content(filename: str):
+async def get_document_content(
+    filename: str = FastAPIPath(
+        ...,
+        regex=r"^[a-zA-Z0-9._-]+$",
+        min_length=1,
+        max_length=255,
+        description="Document filename (content-based hash format)",
+    )
+):
     """
     Get the content of a document for viewing.
 
@@ -81,7 +91,15 @@ async def get_document_content(filename: str):
 
 
 @router.get("/documents/{filename}/download")
-async def download_document(filename: str):
+async def download_document(
+    filename: str = FastAPIPath(
+        ...,
+        regex=r"^[a-zA-Z0-9._-]+$",
+        min_length=1,
+        max_length=255,
+        description="Document filename (content-based hash format)",
+    )
+):
     """
     Download a document file.
 
@@ -112,7 +130,14 @@ async def download_document(filename: str):
 
 @router.get("/documents/{filename}/pages")
 async def get_pdf_pages(
-    filename: str, pdf_service: PDFService = Depends(get_pdf_service)
+    filename: str = FastAPIPath(
+        ...,
+        regex=r"^[a-zA-Z0-9._-]+$",
+        min_length=1,
+        max_length=255,
+        description="PDF filename (content-based hash format)",
+    ),
+    pdf_service: PDFService = Depends(get_pdf_service),
 ):
     """
     Convert PDF to images and return page information.

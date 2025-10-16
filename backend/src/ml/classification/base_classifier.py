@@ -5,7 +5,10 @@ Provides a generic interface for different classification strategies.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+
+if TYPE_CHECKING:
+    from ...models.feedback import CorrectionData
 
 logger = logging.getLogger(__name__)
 
@@ -88,14 +91,24 @@ class BaseDocumentClassifier(ABC):
         )
         pass
 
-    def is_available(self) -> bool:
+    def retrain_with_corrections(
+        self, corrections: List["CorrectionData"], model_path: str
+    ) -> bool:
         """
-        Check if the classifier is available and ready for use.
+        Retrain the classifier with user corrections.
+        Default implementation does nothing - subclasses must override.
+
+        Args:
+            corrections: List of CorrectionData objects with document details
+            model_path: Path to save the updated model
 
         Returns:
-            bool: True if classifier is available, False otherwise
+            bool: True if retraining successful, False otherwise
         """
-        return self.is_initialized
+        logger.warning(
+            f"retrain_with_corrections not implemented for {self.__class__.__name__}"
+        )
+        return False
 
     def get_classifier_info(self) -> Dict[str, Any]:
         """
@@ -106,7 +119,7 @@ class BaseDocumentClassifier(ABC):
         """
         return {
             "name": self.name,
-            "is_available": self.is_available(),
+            "is_initialized": self.is_initialized,
             "supported_categories": self.get_supported_categories(),
             "type": self.__class__.__name__,
         }

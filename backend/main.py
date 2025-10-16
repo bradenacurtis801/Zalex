@@ -46,20 +46,11 @@ async def lifespan(app: FastAPI):
     app_state = get_app_state()
     logger.debug("Initializing app state...")
 
-    # Configure model loading (URL download only)
-    model_url = config.get_model_url()
-
-    if model_url:
-        logger.info(f"Using model URL for download: {model_url}")
-        app_state.set_model_url(model_url)
-    else:
-        # No explicit configuration - will check ML_MODELS_DIR automatically
-        logger.info(
-            "No model configuration found, will check ML_MODELS_DIR for existing model"
-        )
-        logger.info(
-            "If no model is found, please train one or configure SCANPRO_MODEL_URL"
-        )
+    # Model loading - will check ML_MODELS_DIR for existing model
+    logger.info("Checking ML_MODELS_DIR for existing model")
+    logger.info(
+        "If no model is found, please train one using: python train/train_similarity_classifier.py"
+    )
 
     app_state.initialize()
     logger.debug("App state initialization complete")

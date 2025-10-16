@@ -13,27 +13,31 @@ export default function ClassificationResults({ classifications }: Classificatio
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'birth_certificate':
+      case 'personas':
         return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'marriage_certificate':
-        return 'bg-pink-100 text-pink-800 border-pink-200'
-      case 'property_deeds':
+      case 'mercantil':
         return 'bg-green-100 text-green-800 border-green-200'
-      default:
+      case 'inmuebles':
+        return 'bg-purple-100 text-purple-800 border-purple-200'
+      case 'other':
         return 'bg-gray-100 text-gray-800 border-gray-200'
+      default:
+        return 'bg-indigo-100 text-indigo-800 border-indigo-200'
     }
   }
 
   const getCategoryLabel = (category: string) => {
     switch (category) {
-      case 'birth_certificate':
-        return 'Birth Certificate'
-      case 'marriage_certificate':
-        return 'Marriage Certificate'
-      case 'property_deeds':
-        return 'Property Deed'
+      case 'personas':
+        return 'Personas'
+      case 'mercantil':
+        return 'Mercantil'
+      case 'inmuebles':
+        return 'Inmuebles'
+      case 'other':
+        return 'Other'
       default:
-        return category
+        return category.charAt(0).toUpperCase() + category.slice(1)
     }
   }
 
@@ -50,15 +54,21 @@ export default function ClassificationResults({ classifications }: Classificatio
         {classifications.map((classification, index) => (
           <div
             key={index}
-            className="flex items-center justify-between p-3 bg-white border rounded-lg shadow-sm"
+            className="flex items-start justify-between p-3 bg-white border rounded-lg shadow-sm"
           >
-            <div className="flex-1">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-900">
-                  {classification.filename}
+            <div className="flex-1 min-w-0 mr-4">
+              <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-2">
+                <span 
+                  className="text-sm font-medium text-gray-900 truncate"
+                  title={classification.filename}
+                >
+                  {classification.filename.length > 30 
+                    ? `${classification.filename.substring(0, 30)}...` 
+                    : classification.filename
+                  }
                 </span>
                 <span
-                  className={`px-2 py-1 text-xs font-medium rounded-full border ${getCategoryColor(
+                  className={`px-2 py-1 text-xs font-medium rounded-full border flex-shrink-0 ${getCategoryColor(
                     classification.category
                   )}`}
                 >
@@ -66,7 +76,7 @@ export default function ClassificationResults({ classifications }: Classificatio
                 </span>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 flex-shrink-0">
               <span className="text-sm text-gray-500">Confidence:</span>
               <span
                 className={`text-sm font-medium ${getConfidenceColor(

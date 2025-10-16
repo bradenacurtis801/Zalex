@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from typing import Literal
 
+from dotenv import load_dotenv
 from pydantic import Field
 from pydantic_settings import BaseSettings
 from src.utils import _platform
@@ -25,7 +26,8 @@ class Settings(BaseSettings):
     cors_origins: str = Field(default="http://127.0.0.1:3000", env="CORS_ORIGINS")
 
     # Model configuration
-    model_url: str = Field(default="", env="SCANPRO_MODEL_URL")
+    # Hugging Face token for private models
+    scanpro_hf_token: str = Field(default="")
 
     class Config:
         case_sensitive = False
@@ -80,52 +82,8 @@ METADATA_FILE = APP_DIR / "document_metadata.json"
 
 # ML model paths (for inference only)
 ML_MODELS_DIR = APP_DIR / "ml_models"
-DEFAULT_MODEL_PATH = ML_MODELS_DIR / "classifier_model"
-
-
-def validate_model_directory(model_path: str) -> bool:
-    """
-    Validate that a model directory contains all required files.
-
-    Args:
-        model_path: Path to the model directory
-
-    Returns:
-        bool: True if valid, False otherwise
-    """
-    model_dir = Path(model_path)
-
-    if not model_dir.exists():
-        return False
-
-    required_files = ["model_metadata.json", "category_embeddings.json"]
-
-    for file_name in required_files:
-        if not (model_dir / file_name).exists():
-            return False
-
-    return True
-
-
-def get_model_url() -> str:
-    """
-    Get the model URL for downloading in production.
-
-    Returns:
-        str: URL to download the model from
-    """
-    return settings.model_url
-
-
-def get_model_download_dir() -> str:
-    """
-    Get the directory to download models to in production.
-
-    Returns:
-        str: Directory path for downloaded models (ML_MODELS_DIR)
-    """
-    return str(ML_MODELS_DIR)
-
+# CLASSIFIER_MODEL_PATH = ML_MODELS_DIR / "classifier_model"
+CLASSIFIER_MODEL_PATH = ML_MODELS_DIR / "finetune_classifier"
 
 #######################################################
 #######################################################

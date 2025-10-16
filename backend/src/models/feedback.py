@@ -14,6 +14,17 @@ class ReclassificationRequest(BaseModel):
     user_comment: Optional[str] = None
 
 
+class CorrectionData(BaseModel):
+    """Data model for storing correction information for model retraining."""
+
+    filename: str
+    from_category: str
+    to_category: str
+    confidence: Optional[float] = None
+    user_comment: Optional[str] = None
+    timestamp: str
+
+
 class ReclassificationResponse(BaseModel):
     """Response model for reclassification feedback."""
 

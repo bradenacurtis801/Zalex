@@ -21,6 +21,12 @@ class OCRNotAvailableException(DocumentProcessingException):
     pass
 
 
+class ClassifierNotAvailableException(DocumentProcessingException):
+    """Raised when document classifier is not available for processing."""
+
+    pass
+
+
 class FileProcessingException(ScanProException):
     """Raised when file processing fails."""
 
@@ -45,6 +51,18 @@ class CategoryNotFoundError(FeedbackException):
     pass
 
 
+class InvalidModelDirectoryError(ScanProException):
+    """Raised when a model directory is invalid or missing required files."""
+
+    pass
+
+
+class InvalidModelMetadataError(ScanProException):
+    """Raised when model metadata is invalid or missing required fields."""
+
+    pass
+
+
 def map_to_http_exception(exc: Exception) -> HTTPException:
     """Map custom exceptions to HTTP exceptions."""
     mapping = {
@@ -52,6 +70,10 @@ def map_to_http_exception(exc: Exception) -> HTTPException:
         OCRNotAvailableException: (
             status.HTTP_503_SERVICE_UNAVAILABLE,
             lambda exc: "OCR service is not available. Please ensure Tesseract is installed.",
+        ),
+        ClassifierNotAvailableException: (
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            lambda exc: "Document classification service is not available. Please contact support.",
         ),
         DocumentProcessingException: (
             status.HTTP_500_INTERNAL_SERVER_ERROR,

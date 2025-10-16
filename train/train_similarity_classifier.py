@@ -8,12 +8,9 @@ Uses SentenceTransformer embeddings with cosine similarity for classification.
 
 import json
 import logging
-import os
-import pickle
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from sklearn.model_selection import train_test_split
@@ -323,7 +320,7 @@ def main():
 
     # Paths
     data_path = str(train_config.DOCUMENT_DATASET_DIR)
-    output_dir = str(train_config.CLASSIFIER_MODEL)
+    output_dir = str(train_config.CLASSIFIER_MODEL / "similarity_classifier")
 
     # Create trainer
     trainer = SimilarityTrainer()

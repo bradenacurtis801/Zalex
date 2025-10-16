@@ -2,12 +2,12 @@
 
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import config as config
-from app_state import get_app_state
 from fastapi import UploadFile
 from src.models.upload import DocumentClassification, UploadResponse
+from src.utils.document_processor import DocumentProcessor
 from src.utils.file_hasher import calculate_file_hash, get_content_based_filename
 
 logger = logging.getLogger(__name__)
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 class UploadService:
     """Service for handling file uploads and document processing."""
 
-    def __init__(self):
-        self.app_state = get_app_state()
+    def __init__(self, document_processor: DocumentProcessor):
+        self.document_processor = document_processor
 
     async def process_upload(self, files: List[UploadFile]) -> UploadResponse:
         """
@@ -36,11 +36,9 @@ class UploadService:
             logger.debug("No files provided or empty filename")
             raise ValueError("No selected files")
 
-        # Get the document processor
-        processor = self.app_state.document_processor
-        logger.debug(
-            f"Document processor status: {'Available' if processor else 'None'}"
-        )
+        # Use the injected document processor
+        processor = self.document_processor
+        logger.debug("Using injected document processor")
         logger.debug(f"Upload directory: {config.UPLOAD_DIR}")
 
         # Ensure upload directory exists
@@ -48,20 +46,39 @@ class UploadService:
 
         # Process all files - if any fail, the whole operation fails
         classifications = []
+        already_classified_count = 0
+
         for i, file in enumerate(files):
             logger.debug(f"Processing file {i+1}/{len(files)}: {file.filename}")
-            classification = await self._process_single_file(file, processor)
+            classification, was_already_classified = await self._process_single_file(
+                file, processor
+            )
             if classification:
                 classifications.append(classification)
+                if was_already_classified:
+                    already_classified_count += 1
             logger.debug(f"Successfully processed {file.filename}")
 
-        message = f"Successfully processed {len(files)} file(s)."
+        # Generate appropriate message based on whether files were already classified
+        if already_classified_count > 0:
+            if already_classified_count == len(files):
+                message = f"All {len(files)} file(s) were already classified and returned from cache."
+            else:
+                message = f"Successfully processed {len(files)} file(s). {already_classified_count} were already classified."
+        else:
+            message = f"Successfully processed {len(files)} file(s)."
+
         logger.info(
-            f"Upload processing complete. All {len(files)} files processed successfully."
+            f"Upload processing complete. All {len(files)} files processed successfully. "
+            f"{already_classified_count} were already classified."
         )
         logger.debug(f"Final message: {message}")
 
-        return UploadResponse(message=message, classifications=classifications)
+        return UploadResponse(
+            message=message,
+            classifications=classifications,
+            already_classified=already_classified_count > 0,
+        )
 
     def _ensure_upload_directory(self) -> None:
         """Ensure the upload directory exists."""
@@ -70,7 +87,7 @@ class UploadService:
 
     async def _process_single_file(
         self, file: UploadFile, processor
-    ) -> DocumentClassification:
+    ) -> tuple[DocumentClassification, bool]:
         """
         Process a single uploaded file.
 
@@ -101,7 +118,7 @@ class UploadService:
         )
         final_file_path = os.path.join(config.UPLOAD_DIR, content_based_filename)
 
-        # Check if file already exists (deduplication)
+        # Check if file already exists and has been classified (deduplication)
         if os.path.exists(final_file_path):
             logger.info(
                 f"File with same content already exists: {content_based_filename}"
@@ -110,6 +127,15 @@ class UploadService:
             os.remove(temp_file_path)
             filename = content_based_filename
             file_path = final_file_path
+
+            # Check if this file has already been classified
+            existing_classification = self._get_existing_classification(filename)
+            if existing_classification:
+                logger.info(
+                    f"File {filename} already classified as {existing_classification.category} "
+                    f"(confidence: {existing_classification.confidence:.3f}) - returning cached result"
+                )
+                return existing_classification, True
         else:
             # Move temp file to final location
             os.rename(temp_file_path, final_file_path)
@@ -179,9 +205,50 @@ class UploadService:
         logger.debug(
             f"Final classification result: category={category}, confidence={confidence}"
         )
-        return DocumentClassification(
-            filename=filename, category=category, confidence=confidence
+        return (
+            DocumentClassification(
+                filename=filename, category=category, confidence=confidence
+            ),
+            False,
         )
+
+    def _get_existing_classification(
+        self, filename: str
+    ) -> Optional[DocumentClassification]:
+        """
+        Check if a file with the given filename has already been classified.
+
+        Args:
+            filename: The content-based filename to look for
+
+        Returns:
+            DocumentClassification if found, None otherwise
+        """
+        try:
+            # Search through all categories in the category metadata
+            for (
+                category,
+                documents,
+            ) in self.document_processor.category_metadata.items():
+                if filename in documents:
+                    doc_entry = documents[filename]
+                    logger.debug(
+                        f"Found existing classification for {filename} in category {category}"
+                    )
+                    return DocumentClassification(
+                        filename=filename,
+                        category=doc_entry.get("category", category),
+                        confidence=doc_entry.get("confidence", 0.0),
+                    )
+
+            logger.debug(f"No existing classification found for {filename}")
+            return None
+
+        except Exception as e:
+            logger.warning(
+                f"Error checking for existing classification of {filename}: {e}"
+            )
+            return None
 
     async def _save_file(self, file: UploadFile, file_path: str) -> None:
         """

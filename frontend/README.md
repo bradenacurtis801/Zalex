@@ -212,7 +212,7 @@ The frontend provides comprehensive error handling with visual feedback:
 
 ### Error Categories
 
-- **503 Service Unavailable**: OCR service not available
+- **503 Service Unavailable**: Service temporarily unavailable (OCR or classification service)
 - **500 Internal Server Error**: Server processing errors
 - **400 Bad Request**: Invalid requests or file validation
 - **413 Payload Too Large**: File size exceeded
@@ -221,7 +221,7 @@ The frontend provides comprehensive error handling with visual feedback:
 
 ```typescript
 <StatusMessage 
-  message="Error: OCR service is not available" 
+  message="Error: Service temporarily unavailable" 
   type="error" 
 />
 ```

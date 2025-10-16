@@ -39,7 +39,7 @@ async def get_model_info():
         # Try to load the classifier
         classifier = load_pretrained_classifier(model_dir)
 
-        if not classifier or not classifier.is_available():
+        if not classifier or not classifier.is_initialized:
             raise HTTPException(
                 status_code=404, detail="No trained model found or model not available"
             )
@@ -79,7 +79,7 @@ async def get_model_categories():
         # Try to load the classifier
         classifier = load_pretrained_classifier(model_dir)
 
-        if not classifier or not classifier.is_available():
+        if not classifier or not classifier.is_initialized:
             raise HTTPException(
                 status_code=404, detail="No trained model found or model not available"
             )

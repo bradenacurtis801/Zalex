@@ -10,7 +10,9 @@ import os
 import config as config
 import faiss
 from sentence_transformers import SentenceTransformer
+from src.ml.classification.finetune_classifier import PreTrainedFinetuneClassifier
 from src.ml.classification.model_loader import load_pretrained_classifier
+from src.ocr.factory import get_default_ocr_engine
 from src.utils.document_processor import DocumentProcessor
 from src.utils.model_downloader import ModelDownloader
 
@@ -30,118 +32,8 @@ class AppState:
         self.dimension = None
         self.document_classifier = None
         self.category_metadata: dict = {}
-        self.model_path: str = None
-        self.model_url: str = None
         self.model_downloader: ModelDownloader = None
-
-    def set_model_path(self, model_path: str):
-        """Set the model path for the application."""
-        self.model_path = model_path
-        logger.debug(f"Model path set to: {model_path}")
-
-    def set_model_url(self, model_url: str):
-        """Set the model URL for downloading in production."""
-        self.model_url = model_url
-        logger.debug(f"Model URL set to: {model_url}")
-
-    def _get_model_directory(self) -> str:
-        """
-        Get the model directory path, either from local path or by downloading from URL.
-
-        Returns:
-            str: Path to the model directory, or None if not available
-        """
-        # First, try to use the configured local path
-        if self.model_path and os.path.exists(self.model_path):
-            if config.validate_model_directory(self.model_path):
-                logger.debug(f"Using local model path: {self.model_path}")
-                return self.model_path
-            else:
-                logger.warning(
-                    f"Model directory exists but is invalid: {self.model_path}"
-                )
-
-        # Check if model exists in ML_MODELS_DIR (development default)
-        default_model_path = str(config.DEFAULT_MODEL_PATH)
-        if os.path.exists(default_model_path):
-            if config.validate_model_directory(default_model_path):
-                logger.info(f"Found valid model in ML_MODELS_DIR: {default_model_path}")
-                # Set the model path for future reference
-                self.model_path = default_model_path
-                return default_model_path
-            else:
-                logger.warning(
-                    f"Model directory exists but is invalid: {default_model_path}"
-                )
-
-        # If no local model found and no URL configured, return None
-        if not self.model_url:
-            logger.warning("No local model found and no model URL configured")
-            logger.info(
-                "To resolve this issue, please choose one of the following options:"
-            )
-            logger.info("")
-            logger.info("OPTION 1 - Mount a trained model directory:")
-            logger.info(
-                "  docker run -v /path/to/your/model:/app/APP_DATA/ml_models/classifier_model \\"
-            )
-            logger.info("    -p 3000:3000 -p 5000:5000 bradenacurtis801/scanpro:latest")
-            logger.info("")
-            logger.info("OPTION 2 - Set a model download URL:")
-            logger.info(
-                "  docker run -e SCANPRO_MODEL_URL=https://your-model-url.com/model.zip \\"
-            )
-            logger.info("    -p 3000:3000 -p 5000:5000 bradenacurtis801/scanpro:latest")
-            logger.info("")
-            logger.info("OPTION 3 - Train a model locally first:")
-            logger.info("  python train/train_similarity_classifier.py")
-            logger.info("  Then use OPTION 1 to mount the trained model")
-            logger.info("")
-            logger.info(f"Required model files: {default_model_path}")
-            logger.info("  - model_metadata.json")
-            logger.info("  - category_embeddings.json")
-            raise RuntimeError("No model path configured and no model URL provided")
-
-        # Try to download from URL
-        try:
-            if not self.model_downloader:
-                download_dir = config.get_model_download_dir()
-                self.model_downloader = ModelDownloader(download_dir)
-
-            # Check if model is already downloaded
-            model_name = "classifier_model"
-            if self.model_downloader.is_model_downloaded(model_name):
-                model_path = self.model_downloader.get_model_path(model_name)
-                if config.validate_model_directory(model_path):
-                    logger.info(f"Using previously downloaded model: {model_path}")
-                    # Set the model path for future reference
-                    self.model_path = model_path
-                    return model_path
-                else:
-                    logger.warning(
-                        f"Downloaded model is invalid, will re-download: {model_path}"
-                    )
-
-                    # Download the model
-                    logger.info(f"Downloading model from URL: {self.model_url}")
-                    model_path = self.model_downloader.download_model(
-                        self.model_url, model_name
-                    )
-                    if model_path and config.validate_model_directory(model_path):
-                        logger.info(f"Model downloaded successfully to: {model_path}")
-                        # Set the model path for future reference
-                        self.model_path = model_path
-                        return model_path
-                    else:
-                        logger.error(f"Downloaded model is invalid: {model_path}")
-                        return None
-
-        except Exception as e:
-            logger.error(f"Failed to download model from URL: {e}")
-            logger.error(
-                "Please ensure the model URL is accessible and the model package is valid"
-            )
-            return None
+        self.ocr_engine = None
 
     def initialize(self):
         """Initialize all application components."""
@@ -157,6 +49,16 @@ class AppState:
             logger.error(f"Failed to load Sentence Transformer model: {e}")
             raise e
 
+        # Initialize OCR engine
+        try:
+            logger.info("Initializing OCR engine...")
+            self.ocr_engine = get_default_ocr_engine()
+            self.ocr_engine.initialize()
+            logger.info("OCR engine initialized successfully.")
+        except Exception as e:
+            logger.error(f"Failed to initialize OCR engine: {e}")
+            raise e
+
         # Load FAISS index and metadata
         self.load_index_and_metadata()
 
@@ -170,7 +72,7 @@ class AppState:
         if (
             not self.category_metadata
             and self.document_classifier
-            and self.document_classifier.is_available()
+            and self.document_classifier.is_initialized
         ):
             model_categories = self.document_classifier.get_supported_categories()
             for category in model_categories:
@@ -185,6 +87,7 @@ class AppState:
             self.model,
             self.index,
             self.metadata,
+            self.ocr_engine,
             self.document_classifier,
             self.category_metadata,
         )
@@ -252,28 +155,26 @@ class AppState:
         try:
             logger.info("Loading pre-trained document classifier...")
 
-            # Determine model path (local or download from URL)
-            model_dir = self._get_model_directory()
+            # Try to load from hardcoded Hugging Face model first
+            hf_model_id = "bradenacurtis/scanpro-classifier-v1-finetune"
+            logger.info(f"Loading model from Hugging Face: {hf_model_id}")
+            hf_token = (
+                config.settings.scanpro_hf_token
+                if config.settings.scanpro_hf_token
+                else None
+            )
 
-            if not model_dir:
-                raise RuntimeError(
-                    "No model directory found - cannot initialize classifier"
-                )
+            # Create fine-tuned classifier from Hugging Face
+            logger.info("Creating fine-tuned classifier from Hugging Face")
+            self.document_classifier = PreTrainedFinetuneClassifier(
+                model_path_or_id=hf_model_id, token=hf_token
+            )
 
-            if not os.path.exists(model_dir):
-                raise RuntimeError(
-                    f"Model directory not found: {model_dir}. Please run the training script first: python train/train_similarity_classifier.py"
-                )
-
-            # Load the pre-trained classifier
-            self.document_classifier = load_pretrained_classifier(model_dir)
-
-            if self.document_classifier and self.document_classifier.is_available():
-                logger.info("Pre-trained document classifier loaded successfully.")
+            if self.document_classifier and self.document_classifier.is_initialized:
+                logger.info("Hugging Face model loaded successfully.")
                 model_info = self.document_classifier.get_model_info()
                 logger.info(f"Model info: {model_info}")
-            else:
-                raise RuntimeError("Failed to load pre-trained document classifier")
+                return
 
         except Exception as e:
             logger.error(f"Failed to initialize classifier: {e}")
