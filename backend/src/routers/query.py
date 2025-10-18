@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 import logging
-from src.models.query import QueryRequest, QueryResponse
+from src.models.schemas.query import QueryRequest, QueryResponse
 from src.services.query_service import QueryService
 from src.dependencies import get_query_service
 

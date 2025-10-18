@@ -6,10 +6,16 @@ A modern React/Next.js frontend for the ScanPro AI Document Agent.
 
 ## Features
 
+- **User Authentication**: Secure login/logout with session management
+- **Role-Based Access**: Admin and user roles with different permissions
+- **Dashboard**: Overview of documents, categories, and system statistics
 - **Document Upload**: Drag & drop interface for PDF, JPG, PNG files
 - **Real-time Progress**: WebSocket-based progress tracking with animated progress bars
 - **Category Management**: Browse and view documents organized by classification categories
 - **Document Classification**: Real-time document type classification with confidence scores
+- **User Management**: Admin interface for creating and managing users
+- **User Profile**: Users can view and edit their profile information
+- **Password Management**: Users can change passwords, admins can reset passwords
 - **Dynamic UI**: Scrollable lists, clear buttons, and responsive design
 - **Real-time Search**: Chat interface for querying documents
 - **Error Handling**: Color-coded status messages with proper error feedback
@@ -43,6 +49,48 @@ Create a `.env.local` file:
 ```
 NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
+
+### Production Scripts
+
+The application uses a custom server for both development and production:
+
+- **Development**: `npm run dev` → Uses `server.js` with API/WebSocket proxies
+- **Production**: `npm run start` → Uses `server.js` with production build
+
+This ensures consistent behavior between development and production environments.
+
+## 🔐 Authentication & User Management
+
+The frontend includes a comprehensive authentication system with role-based access control:
+
+### User Authentication
+- **Login/Logout**: Secure session-based authentication
+- **Session Management**: Automatic token refresh and session validation
+- **Protected Routes**: All pages require authentication
+- **Error Handling**: Clear error messages for authentication failures
+
+### User Roles
+- **Admin Users**: Full access to all features including user management
+- **Regular Users**: Access to document upload, search, and profile management
+
+### User Management (Admin Only)
+- **Create Users**: Add new users with username, email, and role assignment
+- **Edit Users**: Update user information and roles
+- **Reset Passwords**: Admin can reset any user's password
+- **Delete Users**: Remove users from the system (cannot delete self)
+- **Role Management**: Assign admin or user roles
+
+### User Profile
+- **View Profile**: See username, email, full name, and role
+- **Edit Profile**: Update email and full name (username cannot be changed)
+- **Change Password**: Users can change their own password
+- **Security**: Current password required for password changes
+
+### Security Features
+- **Session Invalidation**: All sessions invalidated when password is changed
+- **Self-Protection**: Users cannot delete themselves or change their own role
+- **Password Requirements**: Minimum 8 characters for all passwords
+- **Real-time Logout**: Users are logged out when admin resets their password
 
 ## Real-time Progress Tracking
 

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 class ReclassificationRequest(BaseModel):
     """Request model for document reclassification feedback."""
 
+    id: str  # Document ID
     filename: str
     current_category: str
     new_category: str
@@ -31,7 +32,6 @@ class ReclassificationResponse(BaseModel):
     success: bool
     message: str
     updated_categories: Optional[List[str]] = None
-    model_updated: bool = False
 
 
 class FeedbackSummary(BaseModel):

@@ -3,8 +3,9 @@
 import logging
 
 from fastapi import APIRouter, Depends
-from src.dependencies import get_feedback_service
-from src.models.feedback import (
+from src.dependencies import get_feedback_service, get_current_user
+from src.models.database import User
+from src.models.schemas.feedback import (
     FeedbackSummary,
     ReclassificationRequest,
     ReclassificationResponse,
@@ -19,6 +20,7 @@ router = APIRouter()
 async def reclassify_document(
     request: ReclassificationRequest,
     feedback_service: FeedbackService = Depends(get_feedback_service),
+    current_user: User = Depends(get_current_user),
 ) -> ReclassificationResponse:
     """
     Reclassify a document based on user feedback.
@@ -26,63 +28,29 @@ async def reclassify_document(
     Args:
         request: Reclassification request with document details
         feedback_service: Feedback service instance
+        current_user: Authenticated user
 
     Returns:
         ReclassificationResponse with processing results
     """
-    logger.info(f"Received reclassification request for {request.filename}")
-
-    response = feedback_service.process_reclassification(request)
-    logger.info(f"Reclassification completed: {response.success}")
-    return response
+    logger.info(f"Received reclassification request for {request.filename} from user {current_user.id}")
+    return feedback_service.process_reclassification(request, current_user.id)
 
 
 @router.get("/feedback/summary", response_model=FeedbackSummary)
 async def get_feedback_summary(
     feedback_service: FeedbackService = Depends(get_feedback_service),
+    current_user: User = Depends(get_current_user),
 ) -> FeedbackSummary:
     """
     Get a summary of feedback corrections and model updates.
 
     Args:
         feedback_service: Feedback service instance
+        current_user: Authenticated user
 
     Returns:
         FeedbackSummary with correction statistics
     """
-    logger.info("Received request for feedback summary")
-
-    summary = feedback_service.get_feedback_summary()
-    logger.info(f"Feedback summary: {summary.total_corrections} total corrections")
-    return summary
-
-
-@router.post("/feedback/update-model")
-async def trigger_model_update(
-    feedback_service: FeedbackService = Depends(get_feedback_service),
-) -> dict:
-    """
-    Manually trigger a model update based on accumulated feedback.
-
-    Args:
-        feedback_service: Feedback service instance
-
-    Returns:
-        dict: Update status and results
-    """
-    logger.info("Received request to trigger model update")
-
-    # Force a model update
-    model_updated = feedback_service._update_model_embeddings()
-
-    if model_updated:
-        return {
-            "success": True,
-            "message": "Model updated successfully",
-            "timestamp": feedback_service.feedback_data["last_updated"],
-        }
-    else:
-        return {
-            "success": False,
-            "message": "Model update failed or no updates needed",
-        }
+    logger.info(f"Received request for feedback summary from user {current_user.id}")
+    return feedback_service.get_feedback_summary()

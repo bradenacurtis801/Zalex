@@ -20,6 +20,13 @@ import {
     DocumentClassificationToJSON,
     DocumentClassificationToJSONTyped,
 } from './DocumentClassification';
+import type { DocumentInfo } from './DocumentInfo';
+import {
+    DocumentInfoFromJSON,
+    DocumentInfoFromJSONTyped,
+    DocumentInfoToJSON,
+    DocumentInfoToJSONTyped,
+} from './DocumentInfo';
 
 /**
  * 
@@ -45,6 +52,12 @@ export interface UploadResponse {
      * @memberof UploadResponse
      */
     alreadyClassified?: boolean | null;
+    /**
+     * 
+     * @type {DocumentInfo}
+     * @memberof UploadResponse
+     */
+    documentInfo?: DocumentInfo | null;
 }
 
 /**
@@ -68,6 +81,7 @@ export function UploadResponseFromJSONTyped(json: any, ignoreDiscriminator: bool
         'message': json['message'],
         'classifications': json['classifications'] == null ? undefined : ((json['classifications'] as Array<any>).map(DocumentClassificationFromJSON)),
         'alreadyClassified': json['already_classified'] == null ? undefined : json['already_classified'],
+        'documentInfo': json['document_info'] == null ? undefined : DocumentInfoFromJSON(json['document_info']),
     };
 }
 
@@ -85,6 +99,7 @@ export function UploadResponseToJSONTyped(value?: UploadResponse | null, ignoreD
         'message': value['message'],
         'classifications': value['classifications'] == null ? undefined : ((value['classifications'] as Array<any>).map(DocumentClassificationToJSON)),
         'already_classified': value['alreadyClassified'],
+        'document_info': DocumentInfoToJSON(value['documentInfo']),
     };
 }
 

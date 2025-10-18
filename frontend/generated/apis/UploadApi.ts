@@ -25,21 +25,21 @@ import {
     UploadResponseToJSON,
 } from '../models/index';
 
-export interface DownloadDocumentApiDocumentsFilenameDownloadGetRequest {
-    filename: string;
+export interface DownloadDocumentApiDocumentsDocumentIdDownloadGetRequest {
+    documentId: string;
 }
 
-export interface GetDocumentContentApiDocumentsFilenameContentGetRequest {
-    filename: string;
+export interface GetDocumentContentApiDocumentsDocumentIdContentGetRequest {
+    documentId: string;
 }
 
-export interface GetPdfPagesApiDocumentsFilenamePagesGetRequest {
-    filename: string;
+export interface GetPdfPagesApiDocumentsDocumentIdPagesGetRequest {
+    documentId: string;
+    maxPages?: number;
 }
 
 export interface UploadFilesApiUploadPostRequest {
     files: Array<Blob>;
-    clientId?: string;
 }
 
 /**
@@ -50,88 +50,58 @@ export interface UploadFilesApiUploadPostRequest {
  */
 export interface UploadApiInterface {
     /**
-     * Clean up expired PDF cache files.  Args:     pdf_service: PDF service instance  Returns:     Cleanup results
-     * @summary Cleanup Pdf Cache
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof UploadApiInterface
-     */
-    cleanupPdfCacheApiPdfCacheCleanupPostRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>>;
-
-    /**
-     * Clean up expired PDF cache files.  Args:     pdf_service: PDF service instance  Returns:     Cleanup results
-     * Cleanup Pdf Cache
-     */
-    cleanupPdfCacheApiPdfCacheCleanupPost(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any>;
-
-    /**
-     * Download a document file.  Args:     filename: Name of the file to download  Returns:     File download response
+     * Download a document file.  Args:     document_id: Document ID (SHA256 hash)     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     File download response
      * @summary Download Document
-     * @param {string} filename Document filename (content-based hash format)
+     * @param {string} documentId 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof UploadApiInterface
      */
-    downloadDocumentApiDocumentsFilenameDownloadGetRaw(requestParameters: DownloadDocumentApiDocumentsFilenameDownloadGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>>;
+    downloadDocumentApiDocumentsDocumentIdDownloadGetRaw(requestParameters: DownloadDocumentApiDocumentsDocumentIdDownloadGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>>;
 
     /**
-     * Download a document file.  Args:     filename: Name of the file to download  Returns:     File download response
+     * Download a document file.  Args:     document_id: Document ID (SHA256 hash)     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     File download response
      * Download Document
      */
-    downloadDocumentApiDocumentsFilenameDownloadGet(requestParameters: DownloadDocumentApiDocumentsFilenameDownloadGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any>;
+    downloadDocumentApiDocumentsDocumentIdDownloadGet(requestParameters: DownloadDocumentApiDocumentsDocumentIdDownloadGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any>;
 
     /**
-     * Get the content of a document for viewing.  Args:     filename: Name of the file to retrieve  Returns:     File content or text content
+     * Get the content of a document for viewing.  Args:     document_id: Document ID (SHA256 hash)     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     File content or text content
      * @summary Get Document Content
-     * @param {string} filename Document filename (content-based hash format)
+     * @param {string} documentId 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof UploadApiInterface
      */
-    getDocumentContentApiDocumentsFilenameContentGetRaw(requestParameters: GetDocumentContentApiDocumentsFilenameContentGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>>;
+    getDocumentContentApiDocumentsDocumentIdContentGetRaw(requestParameters: GetDocumentContentApiDocumentsDocumentIdContentGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>>;
 
     /**
-     * Get the content of a document for viewing.  Args:     filename: Name of the file to retrieve  Returns:     File content or text content
+     * Get the content of a document for viewing.  Args:     document_id: Document ID (SHA256 hash)     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     File content or text content
      * Get Document Content
      */
-    getDocumentContentApiDocumentsFilenameContentGet(requestParameters: GetDocumentContentApiDocumentsFilenameContentGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any>;
+    getDocumentContentApiDocumentsDocumentIdContentGet(requestParameters: GetDocumentContentApiDocumentsDocumentIdContentGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any>;
 
     /**
-     * Get PDF cache statistics.  Args:     pdf_service: PDF service instance  Returns:     Cache statistics
-     * @summary Get Pdf Cache Stats
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof UploadApiInterface
-     */
-    getPdfCacheStatsApiPdfCacheStatsGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>>;
-
-    /**
-     * Get PDF cache statistics.  Args:     pdf_service: PDF service instance  Returns:     Cache statistics
-     * Get Pdf Cache Stats
-     */
-    getPdfCacheStatsApiPdfCacheStatsGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any>;
-
-    /**
-     * Convert PDF to images and return page information.  Args:     filename: Name of the PDF file     pdf_service: PDF service instance  Returns:     JSON with page information and image URLs
+     * Get PDF pages with caching - first check cache, then convert if needed.  Args:     document_id: Document ID (SHA256 hash)     max_pages: Maximum number of pages to convert     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     JSON with page information and image data
      * @summary Get Pdf Pages
-     * @param {string} filename PDF filename (content-based hash format)
+     * @param {string} documentId 
+     * @param {number} [maxPages] Maximum number of pages to convert
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof UploadApiInterface
      */
-    getPdfPagesApiDocumentsFilenamePagesGetRaw(requestParameters: GetPdfPagesApiDocumentsFilenamePagesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>>;
+    getPdfPagesApiDocumentsDocumentIdPagesGetRaw(requestParameters: GetPdfPagesApiDocumentsDocumentIdPagesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>>;
 
     /**
-     * Convert PDF to images and return page information.  Args:     filename: Name of the PDF file     pdf_service: PDF service instance  Returns:     JSON with page information and image URLs
+     * Get PDF pages with caching - first check cache, then convert if needed.  Args:     document_id: Document ID (SHA256 hash)     max_pages: Maximum number of pages to convert     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     JSON with page information and image data
      * Get Pdf Pages
      */
-    getPdfPagesApiDocumentsFilenamePagesGet(requestParameters: GetPdfPagesApiDocumentsFilenamePagesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any>;
+    getPdfPagesApiDocumentsDocumentIdPagesGet(requestParameters: GetPdfPagesApiDocumentsDocumentIdPagesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any>;
 
     /**
      * Handles the file upload and initiates the processing pipeline.
      * @summary Upload Files
      * @param {Array<Blob>} files 
-     * @param {string} [clientId] Client ID for WebSocket progress updates
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof UploadApiInterface
@@ -152,49 +122,14 @@ export interface UploadApiInterface {
 export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
 
     /**
-     * Clean up expired PDF cache files.  Args:     pdf_service: PDF service instance  Returns:     Cleanup results
-     * Cleanup Pdf Cache
-     */
-    async cleanupPdfCacheApiPdfCacheCleanupPostRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>> {
-        const queryParameters: any = {};
-
-        const headerParameters: runtime.HTTPHeaders = {};
-
-
-        let urlPath = `/api/pdf-cache/cleanup`;
-
-        const response = await this.request({
-            path: urlPath,
-            method: 'POST',
-            headers: headerParameters,
-            query: queryParameters,
-        }, initOverrides);
-
-        if (this.isJsonMime(response.headers.get('content-type'))) {
-            return new runtime.JSONApiResponse<any>(response);
-        } else {
-            return new runtime.TextApiResponse(response) as any;
-        }
-    }
-
-    /**
-     * Clean up expired PDF cache files.  Args:     pdf_service: PDF service instance  Returns:     Cleanup results
-     * Cleanup Pdf Cache
-     */
-    async cleanupPdfCacheApiPdfCacheCleanupPost(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any> {
-        const response = await this.cleanupPdfCacheApiPdfCacheCleanupPostRaw(initOverrides);
-        return await response.value();
-    }
-
-    /**
-     * Download a document file.  Args:     filename: Name of the file to download  Returns:     File download response
+     * Download a document file.  Args:     document_id: Document ID (SHA256 hash)     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     File download response
      * Download Document
      */
-    async downloadDocumentApiDocumentsFilenameDownloadGetRaw(requestParameters: DownloadDocumentApiDocumentsFilenameDownloadGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>> {
-        if (requestParameters['filename'] == null) {
+    async downloadDocumentApiDocumentsDocumentIdDownloadGetRaw(requestParameters: DownloadDocumentApiDocumentsDocumentIdDownloadGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>> {
+        if (requestParameters['documentId'] == null) {
             throw new runtime.RequiredError(
-                'filename',
-                'Required parameter "filename" was null or undefined when calling downloadDocumentApiDocumentsFilenameDownloadGet().'
+                'documentId',
+                'Required parameter "documentId" was null or undefined when calling downloadDocumentApiDocumentsDocumentIdDownloadGet().'
             );
         }
 
@@ -202,9 +137,17 @@ export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("HTTPBearer", []);
 
-        let urlPath = `/api/documents/{filename}/download`;
-        urlPath = urlPath.replace(`{${"filename"}}`, encodeURIComponent(String(requestParameters['filename'])));
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/documents/{document_id}/download`;
+        urlPath = urlPath.replace(`{${"document_id"}}`, encodeURIComponent(String(requestParameters['documentId'])));
 
         const response = await this.request({
             path: urlPath,
@@ -221,23 +164,23 @@ export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
     }
 
     /**
-     * Download a document file.  Args:     filename: Name of the file to download  Returns:     File download response
+     * Download a document file.  Args:     document_id: Document ID (SHA256 hash)     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     File download response
      * Download Document
      */
-    async downloadDocumentApiDocumentsFilenameDownloadGet(requestParameters: DownloadDocumentApiDocumentsFilenameDownloadGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any> {
-        const response = await this.downloadDocumentApiDocumentsFilenameDownloadGetRaw(requestParameters, initOverrides);
+    async downloadDocumentApiDocumentsDocumentIdDownloadGet(requestParameters: DownloadDocumentApiDocumentsDocumentIdDownloadGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any> {
+        const response = await this.downloadDocumentApiDocumentsDocumentIdDownloadGetRaw(requestParameters, initOverrides);
         return await response.value();
     }
 
     /**
-     * Get the content of a document for viewing.  Args:     filename: Name of the file to retrieve  Returns:     File content or text content
+     * Get the content of a document for viewing.  Args:     document_id: Document ID (SHA256 hash)     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     File content or text content
      * Get Document Content
      */
-    async getDocumentContentApiDocumentsFilenameContentGetRaw(requestParameters: GetDocumentContentApiDocumentsFilenameContentGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>> {
-        if (requestParameters['filename'] == null) {
+    async getDocumentContentApiDocumentsDocumentIdContentGetRaw(requestParameters: GetDocumentContentApiDocumentsDocumentIdContentGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>> {
+        if (requestParameters['documentId'] == null) {
             throw new runtime.RequiredError(
-                'filename',
-                'Required parameter "filename" was null or undefined when calling getDocumentContentApiDocumentsFilenameContentGet().'
+                'documentId',
+                'Required parameter "documentId" was null or undefined when calling getDocumentContentApiDocumentsDocumentIdContentGet().'
             );
         }
 
@@ -245,9 +188,17 @@ export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("HTTPBearer", []);
 
-        let urlPath = `/api/documents/{filename}/content`;
-        urlPath = urlPath.replace(`{${"filename"}}`, encodeURIComponent(String(requestParameters['filename'])));
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/documents/{document_id}/content`;
+        urlPath = urlPath.replace(`{${"document_id"}}`, encodeURIComponent(String(requestParameters['documentId'])));
 
         const response = await this.request({
             path: urlPath,
@@ -264,68 +215,45 @@ export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
     }
 
     /**
-     * Get the content of a document for viewing.  Args:     filename: Name of the file to retrieve  Returns:     File content or text content
+     * Get the content of a document for viewing.  Args:     document_id: Document ID (SHA256 hash)     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     File content or text content
      * Get Document Content
      */
-    async getDocumentContentApiDocumentsFilenameContentGet(requestParameters: GetDocumentContentApiDocumentsFilenameContentGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any> {
-        const response = await this.getDocumentContentApiDocumentsFilenameContentGetRaw(requestParameters, initOverrides);
+    async getDocumentContentApiDocumentsDocumentIdContentGet(requestParameters: GetDocumentContentApiDocumentsDocumentIdContentGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any> {
+        const response = await this.getDocumentContentApiDocumentsDocumentIdContentGetRaw(requestParameters, initOverrides);
         return await response.value();
     }
 
     /**
-     * Get PDF cache statistics.  Args:     pdf_service: PDF service instance  Returns:     Cache statistics
-     * Get Pdf Cache Stats
-     */
-    async getPdfCacheStatsApiPdfCacheStatsGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>> {
-        const queryParameters: any = {};
-
-        const headerParameters: runtime.HTTPHeaders = {};
-
-
-        let urlPath = `/api/pdf-cache/stats`;
-
-        const response = await this.request({
-            path: urlPath,
-            method: 'GET',
-            headers: headerParameters,
-            query: queryParameters,
-        }, initOverrides);
-
-        if (this.isJsonMime(response.headers.get('content-type'))) {
-            return new runtime.JSONApiResponse<any>(response);
-        } else {
-            return new runtime.TextApiResponse(response) as any;
-        }
-    }
-
-    /**
-     * Get PDF cache statistics.  Args:     pdf_service: PDF service instance  Returns:     Cache statistics
-     * Get Pdf Cache Stats
-     */
-    async getPdfCacheStatsApiPdfCacheStatsGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any> {
-        const response = await this.getPdfCacheStatsApiPdfCacheStatsGetRaw(initOverrides);
-        return await response.value();
-    }
-
-    /**
-     * Convert PDF to images and return page information.  Args:     filename: Name of the PDF file     pdf_service: PDF service instance  Returns:     JSON with page information and image URLs
+     * Get PDF pages with caching - first check cache, then convert if needed.  Args:     document_id: Document ID (SHA256 hash)     max_pages: Maximum number of pages to convert     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     JSON with page information and image data
      * Get Pdf Pages
      */
-    async getPdfPagesApiDocumentsFilenamePagesGetRaw(requestParameters: GetPdfPagesApiDocumentsFilenamePagesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>> {
-        if (requestParameters['filename'] == null) {
+    async getPdfPagesApiDocumentsDocumentIdPagesGetRaw(requestParameters: GetPdfPagesApiDocumentsDocumentIdPagesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>> {
+        if (requestParameters['documentId'] == null) {
             throw new runtime.RequiredError(
-                'filename',
-                'Required parameter "filename" was null or undefined when calling getPdfPagesApiDocumentsFilenamePagesGet().'
+                'documentId',
+                'Required parameter "documentId" was null or undefined when calling getPdfPagesApiDocumentsDocumentIdPagesGet().'
             );
         }
 
         const queryParameters: any = {};
 
+        if (requestParameters['maxPages'] != null) {
+            queryParameters['max_pages'] = requestParameters['maxPages'];
+        }
+
         const headerParameters: runtime.HTTPHeaders = {};
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("HTTPBearer", []);
 
-        let urlPath = `/api/documents/{filename}/pages`;
-        urlPath = urlPath.replace(`{${"filename"}}`, encodeURIComponent(String(requestParameters['filename'])));
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/documents/{document_id}/pages`;
+        urlPath = urlPath.replace(`{${"document_id"}}`, encodeURIComponent(String(requestParameters['documentId'])));
 
         const response = await this.request({
             path: urlPath,
@@ -342,11 +270,11 @@ export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
     }
 
     /**
-     * Convert PDF to images and return page information.  Args:     filename: Name of the PDF file     pdf_service: PDF service instance  Returns:     JSON with page information and image URLs
+     * Get PDF pages with caching - first check cache, then convert if needed.  Args:     document_id: Document ID (SHA256 hash)     max_pages: Maximum number of pages to convert     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     JSON with page information and image data
      * Get Pdf Pages
      */
-    async getPdfPagesApiDocumentsFilenamePagesGet(requestParameters: GetPdfPagesApiDocumentsFilenamePagesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any> {
-        const response = await this.getPdfPagesApiDocumentsFilenamePagesGetRaw(requestParameters, initOverrides);
+    async getPdfPagesApiDocumentsDocumentIdPagesGet(requestParameters: GetPdfPagesApiDocumentsDocumentIdPagesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any> {
+        const response = await this.getPdfPagesApiDocumentsDocumentIdPagesGetRaw(requestParameters, initOverrides);
         return await response.value();
     }
 
@@ -364,12 +292,16 @@ export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
 
         const queryParameters: any = {};
 
-        if (requestParameters['clientId'] != null) {
-            queryParameters['client_id'] = requestParameters['clientId'];
-        }
-
         const headerParameters: runtime.HTTPHeaders = {};
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("HTTPBearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
         const consumes: runtime.Consume[] = [
             { contentType: 'multipart/form-data' },
         ];

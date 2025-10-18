@@ -4,6 +4,9 @@ A FastAPI-based document processing and search backend that provides OCR, text e
 
 ## 🚀 Features
 
+- **User Authentication & Authorization**: Secure login/logout with session management and role-based access control
+- **User Management**: Admin interface for creating, editing, and managing user accounts
+- **Password Security**: Users can change passwords, admins can reset passwords with session invalidation
 - **Document Upload & Processing**: Support for PDF and image files (JPG, PNG, JPEG)
 - **OCR Text Extraction**: Tesseract integration for accurate text recognition
 - **Document Classification**: Similarity-based document type classification (personas, mercantil, inmuebles)
@@ -13,7 +16,8 @@ A FastAPI-based document processing and search backend that provides OCR, text e
 - **RESTful API**: Clean FastAPI endpoints with automatic OpenAPI documentation
 - **Layered Architecture**: Service layer with dependency injection for maintainable code
 - **Centralized Exception Handling**: Global exception mapping with proper HTTP status codes
-- **Comprehensive Logging**: Debug-level logging for troubleshooting and monitoring
+- **WebSocket Integration**: Real-time progress tracking and notifications
+- **Production Ready**: Optimized logging and error handling for production deployment
 
 ## 🏗️ Architecture
 
@@ -142,6 +146,116 @@ Once the server is running, visit:
 - **OpenAPI Schema**: `http://127.0.0.1:5000/openapi.json`
 
 ## 🔌 API Endpoints
+
+### Authentication Endpoints
+
+#### `POST /api/auth/login`
+Authenticate user and create session.
+
+**Request:**
+```json
+{
+  "username": "admin",
+  "password": "password123"
+}
+```
+
+**Response:**
+```json
+{
+  "session_token": "abc123...",
+  "token_type": "bearer",
+  "expires_in": 3600
+}
+```
+
+#### `GET /api/auth/me`
+Get current user information.
+
+**Response:**
+```json
+{
+  "id": 1,
+  "username": "admin",
+  "email": "admin@example.com",
+  "full_name": "Administrator",
+  "user_role": "admin",
+  "is_active": true,
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:30:00Z"
+}
+```
+
+#### `POST /api/auth/change-password`
+Change current user's password.
+
+**Request:**
+```json
+{
+  "current_password": "oldpassword",
+  "new_password": "newpassword123"
+}
+```
+
+### User Management Endpoints (Admin Only)
+
+#### `GET /api/auth/users`
+Get all users (admin only).
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "username": "admin",
+    "email": "admin@example.com",
+    "full_name": "Administrator",
+    "user_role": "admin",
+    "is_active": true,
+    "created_at": "2024-01-15T10:30:00Z",
+    "updated_at": "2024-01-15T10:30:00Z"
+  }
+]
+```
+
+#### `POST /api/auth/users`
+Create new user (admin only).
+
+**Request:**
+```json
+{
+  "username": "newuser",
+  "email": "user@example.com",
+  "full_name": "New User",
+  "password": "password123",
+  "user_role": "user"
+}
+```
+
+#### `PUT /api/auth/users/{user_id}`
+Update user (admin only).
+
+**Request:**
+```json
+{
+  "email": "updated@example.com",
+  "full_name": "Updated Name",
+  "user_role": "admin"
+}
+```
+
+#### `POST /api/auth/users/{user_id}/reset-password`
+Reset user password (admin only).
+
+**Request:**
+```json
+{
+  "new_password": "newpassword123"
+}
+```
+
+#### `DELETE /api/auth/users/{user_id}`
+Delete user (admin only, cannot delete self).
 
 ### Upload Endpoints
 

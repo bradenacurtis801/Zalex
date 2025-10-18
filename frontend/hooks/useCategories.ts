@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { categoryApi } from '@/api'
-import { CategoriesResponse, CategoryResponse } from '@/generated'
+import { CategoriesResponse, CategoryResponse, DocumentEntry } from '@/generated'
 
 export interface CategorySummary {
   category: string
@@ -9,8 +9,8 @@ export interface CategorySummary {
 }
 
 export interface CategoryDocument {
+  id: string
   filename: string
-  filePath: string
   category: string
   confidence: number
   timestamp: string
@@ -26,7 +26,6 @@ export function useCategories() {
     setError(null)
     try {
       const response = await categoryApi.getAllCategoriesApiCategoriesGet()
-      console.log('API Response:', response)
       
       // Ensure response.categories exists and is an object
       if (!response || typeof response.categories !== 'object') {
@@ -56,7 +55,6 @@ export function useCategories() {
         }
       })
 
-      console.log('Processed categories:', categoriesArray)
       setCategories(categoriesArray)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch categories')
@@ -80,11 +78,11 @@ export function useCategories() {
     try {
       const response = await categoryApi.getDocumentsByCategoryApiCategoriesCategoryGet({ category })
       // Convert the response to match our CategoryDocument interface
-      const documents: CategoryDocument[] = (response.documents || []).map((doc: any) => ({
-        filename: doc.filename || '',
-        filePath: doc.filePath || doc.file_path || '',
-        category: doc.category || category,
-        confidence: doc.confidence || 0,
+      const documents: CategoryDocument[] = (response.documents || []).map((doc: DocumentEntry) => ({
+        id: doc.id,
+        filename: doc.filename,
+        category: doc.category,
+        confidence: doc.confidence,
         timestamp: doc.timestamp || ''
       }))
       return { ...response, documents }

@@ -1,3 +1,4 @@
+apis/AuthApi.ts
 apis/CategoryApi.ts
 apis/DefaultApi.ts
 apis/FeedbackApi.ts
@@ -5,10 +6,13 @@ apis/QueryApi.ts
 apis/UploadApi.ts
 apis/index.ts
 index.ts
+models/AdminPasswordReset.ts
 models/CategoriesResponse.ts
+models/CategoryDocument.ts
 models/CategoryResponse.ts
 models/DocumentClassification.ts
 models/DocumentEntry.ts
+models/DocumentInfo.ts
 models/FeedbackSummary.ts
 models/HTTPValidationError.ts
 models/QueryRequest.ts
@@ -16,7 +20,14 @@ models/QueryResponse.ts
 models/ReclassificationRequest.ts
 models/ReclassificationResponse.ts
 models/SearchResult.ts
+models/TokenResponse.ts
 models/UploadResponse.ts
+models/UserChangePassword.ts
+models/UserCreate.ts
+models/UserLogin.ts
+models/UserResponse.ts
+models/UserRole.ts
+models/UserUpdate.ts
 models/ValidationError.ts
 models/ValidationErrorLocInner.ts
 models/index.ts

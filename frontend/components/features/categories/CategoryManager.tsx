@@ -37,10 +37,6 @@ export default function CategoryManager() {
     }
   }
 
-  // Debug logging
-  console.log('CategoryManager - categories:', categories)
-  console.log('CategoryManager - loading:', loading)
-  console.log('CategoryManager - error:', error)
 
   if (loading && categories.length === 0) {
     return (

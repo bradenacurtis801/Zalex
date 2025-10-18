@@ -1,11 +1,12 @@
 """Category service for managing document categories and retrieval."""
 
 import logging
-import os
 from typing import Any, Dict, List, Optional
+from sqlmodel import Session, select
 
 from src.ml.classification.base_classifier import BaseDocumentClassifier
-from src.models.category import CategoriesResponse, CategoryResponse, DocumentEntry
+from src.models.schemas.category import CategoriesResponse, CategoryResponse, DocumentEntry, CategoryDocument
+from src.models.database import Document, DocumentClassification
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +15,11 @@ class CategoryService:
     """Service for handling document category operations."""
 
     def __init__(
-        self, document_classifier: BaseDocumentClassifier, category_metadata: dict
+        self, document_classifier: BaseDocumentClassifier, category_metadata: dict, db: Session
     ):
         self.document_classifier = document_classifier
         self.category_metadata = category_metadata
+        self.db = db
         self._model_categories = None
 
     def _get_model_categories(self) -> List[str]:
@@ -62,27 +64,33 @@ class CategoryService:
         # First check if category exists in the model
         available_categories = self._get_model_categories()
         if category not in available_categories:
-            logger.warning(f"Category '{category}' not found in directory structure")
+            logger.warning(f"Category '{category}' not found in model")
             return CategoryResponse(
                 category=category,
                 documents=[],
                 total_count=0,
             )
 
-        # Get documents from category metadata
-        category_metadata = self.category_metadata
-        documents = category_metadata.get(category, {})
-
+        # Query database for documents in this category
+        stmt = select(Document, DocumentClassification).join(
+            DocumentClassification, Document.id == DocumentClassification.document_id
+        ).where(DocumentClassification.category == category)
+        
+        results = self.db.exec(stmt).all()
+        
         # Convert to DocumentEntry objects
         document_entries = []
-        for filename, doc in documents.items():
+        for document, classification in results:
             document_entries.append(
                 DocumentEntry(
-                    filename=filename,
-                    file_path=doc.get("file_path", ""),
-                    category=doc.get("category", "other"),
-                    confidence=doc.get("confidence", 0.0),
-                    timestamp=doc.get("timestamp", ""),
+                    id=document.id,  # Document ID (file hash)
+                    filename=document.filename,
+                    category=classification.category,
+                    confidence=classification.confidence,
+                    timestamp=document.created_at.isoformat() if document.created_at else "",
+                    file_size=document.file_size or 0,
+                    mime_type=document.mime_type or "application/octet-stream",
+                    status=document.status.value if document.status else "unknown",
                 )
             )
 
@@ -106,31 +114,42 @@ class CategoryService:
         # Get categories from model
         available_categories = self._get_model_categories()
 
-        # Get category summary from model metadata only
-        category_summary = {}
-
-        # Get metadata from injected dependency
-        category_metadata = self.category_metadata
-
-        # Merge model-based categories with category metadata
-        merged_categories = {}
-        for category in available_categories:
-            if category in category_metadata:
-                merged_categories[category] = category_metadata[category]
-            else:
-                # Create basic structure for categories found in model but not in metadata
-                merged_categories[category] = {}
+        # Query database for all documents with their classifications
+        stmt = select(Document, DocumentClassification).join(
+            DocumentClassification, Document.id == DocumentClassification.document_id
+        )
+        
+        results = self.db.exec(stmt).all()
+        
+        # Group documents by category
+        categories_data = {}
+        for document, classification in results:
+            category = classification.category
+            if category not in categories_data:
+                categories_data[category] = {}
+            
+            # Convert to CategoryDocument model
+            categories_data[category][document.filename] = CategoryDocument(
+                id=document.id,  # Document ID (file hash)
+                filename=document.filename,
+                category=classification.category,
+                confidence=classification.confidence,
+                timestamp=document.created_at.isoformat() if document.created_at else "",
+                file_size=document.file_size or 0,
+                mime_type=document.mime_type or "application/octet-stream",
+                status=document.status.value if document.status else "unknown",
+            )
 
         total_documents = sum(
-            len(docs) for docs in merged_categories.values() if isinstance(docs, dict)
+            len(docs) for docs in categories_data.values() if isinstance(docs, dict)
         )
 
         logger.info(
-            f"Found {len(available_categories)} categories with {total_documents} total documents"
+            f"Found {len(categories_data)} categories with {total_documents} total documents"
         )
 
         return CategoriesResponse(
-            categories=merged_categories, total_documents=total_documents
+            categories=categories_data, total_documents=total_documents
         )
 
     def get_categories_summary(self) -> Dict[str, int]:
@@ -142,8 +161,14 @@ class CategoryService:
         """
         logger.info("Retrieving categories summary")
 
-        # Get summary from model metadata only
+        # Query database for document counts per category
+        stmt = select(DocumentClassification.category, DocumentClassification.id).distinct()
+        results = self.db.exec(stmt).all()
+        
+        # Count documents per category
         summary = {}
+        for category, _ in results:
+            summary[category] = summary.get(category, 0) + 1
 
         logger.info(f"Categories summary: {summary}")
 

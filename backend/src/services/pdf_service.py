@@ -7,78 +7,166 @@ import json
 import logging
 import os
 import time
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import config
 import fitz  # PyMuPDF
 from PIL import Image
+from sqlmodel import Session, select
+
+from src.models.database import PDFCache, Document
+from fastapi.responses import Response, JSONResponse
 
 logger = logging.getLogger(__name__)
 
 
 class PDFService:
-    """Service for handling PDF operations with caching."""
+    """Service for handling PDF operations with database caching."""
 
-    def __init__(self):
+    def __init__(self, db: Session):
         """Initialize the PDF service."""
-        self.cache_dir = config.APP_DIR / "pdf_cache"
-        self.cache_dir.mkdir(exist_ok=True)
-        self.cache_ttl_hours = 24  # Cache for 24 hours
+        self.db = db
 
-    def convert_pdf_to_pages(
-        self, filename: str, max_pages: int = 20
-    ) -> Dict[str, Any]:
+    def get_pdf_pages(
+        self, document_id: str, max_pages: int = 20
+    ) -> JSONResponse:
         """
-        Convert a PDF file to images and return page information.
+        Get PDF pages with caching - first check cache, then convert if needed.
 
         Args:
-            filename: Name of the PDF file
+            document_id: Document ID (file hash)
+            max_pages: Maximum number of pages to convert
+
+        Returns:
+            JSONResponse with page information and image data
+
+        Raises:
+            FileNotFoundError: If the document doesn't exist
+            ValueError: If the file is not a PDF
+            Exception: If conversion fails
+        """
+        logger.info(f"Getting PDF pages for document ID: {document_id}")
+
+        # First, try to get from cache
+        cached_data = self._get_from_db_cache(document_id, max_pages)
+        if cached_data:
+            logger.info(f"Using cached PDF pages for document {document_id}")
+            return self._to_json_response(cached_data, document_id, max_pages)
+
+        # Cache miss - get document and convert
+        document = self.db.get(Document, document_id)
+        if not document:
+            raise FileNotFoundError(f"Document with ID '{document_id}' not found")
+
+        # Check if it's a PDF
+        if not document.mime_type.startswith("application/pdf"):
+            raise ValueError(f"Document is not a PDF: {document.filename}")
+
+        try:
+            # Convert PDF to images in memory
+            pages = self._convert_pdf_to_images_in_memory(document.file_content, max_pages)
+
+            if not pages:
+                raise Exception("Failed to convert PDF to images")
+
+            result = {
+                "filename": document.filename, 
+                "total_pages": len(pages), 
+                "pages": pages
+            }
+
+            # Cache the result in database
+            self._save_to_db_cache(document_id, max_pages, result)
+
+            return self._to_json_response(result, document_id, max_pages)
+
+        except Exception as e:
+            logger.error(f"Error converting PDF to pages: {e}")
+            raise Exception(f"Failed to convert PDF: {str(e)}")
+
+    def _to_json_response(self, data: Dict[str, Any], document_id: str, max_pages: int) -> JSONResponse:
+        """
+        Convert data to JSONResponse with caching headers.
+
+        Args:
+            data: The data to return
+            document_id: Document ID for ETag
+            max_pages: Max pages for ETag
+
+        Returns:
+            JSONResponse with caching headers
+        """
+        response = JSONResponse(content=data)
+        response.headers["Cache-Control"] = "public, max-age=3600"  # Cache for 1 hour
+        response.headers["ETag"] = f'"{document_id}_{max_pages}"'  # Use document_id + max_pages as ETag
+        return response
+
+    def _to_content_response(self, content: bytes, media_type: str, filename: str, disposition: str) -> Response:
+        """
+        Convert content to Response with proper headers.
+
+        Args:
+            content: The file content
+            media_type: MIME type
+            filename: Original filename
+            disposition: Content disposition (inline/attachment)
+
+        Returns:
+            Response with proper headers
+        """
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={"Content-Disposition": f"{disposition}; filename={filename}"},
+        )
+
+    def convert_pdf_to_pages(
+        self, document_id: str, max_pages: int = 20
+    ) -> Dict[str, Any]:
+        """
+        Convert a PDF document to images and return page information.
+        This method bypasses cache and always converts fresh.
+
+        Args:
+            document_id: Document ID (file hash)
             max_pages: Maximum number of pages to convert
 
         Returns:
             Dictionary with page information and image data
 
         Raises:
-            FileNotFoundError: If the PDF file doesn't exist
+            FileNotFoundError: If the document doesn't exist
             ValueError: If the file is not a PDF
             Exception: If conversion fails
         """
-        logger.info(f"Converting PDF to pages: {filename}")
+        logger.info(f"Converting PDF to pages for document ID: {document_id}")
 
-        # Security check - ensure filename doesn't contain path traversal
-        if ".." in filename or "/" in filename or "\\" in filename:
-            raise ValueError("Invalid filename")
-
-        file_path = os.path.join(config.UPLOAD_DIR, filename)
-
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"PDF file not found: {filename}")
+        # Get document from database
+        document = self.db.get(Document, document_id)
+        if not document:
+            raise FileNotFoundError(f"Document with ID '{document_id}' not found")
 
         # Check if it's a PDF
-        file_extension = filename.lower().split(".")[-1]
-        if file_extension != "pdf":
-            raise ValueError(f"File is not a PDF: {filename}")
+        if not document.mime_type.startswith("application/pdf"):
+            raise ValueError(f"Document is not a PDF: {document.filename}")
 
         try:
-            # Check cache first
-            cache_key = self._get_cache_key(filename, max_pages)
-            cached_data = self._get_from_cache(cache_key)
-
-            if cached_data:
-                logger.info(f"Using cached PDF pages for {filename}")
-                return cached_data
-
             # Convert PDF to images in memory
-            pages = self._convert_pdf_to_images_in_memory(file_path, max_pages)
+            pages = self._convert_pdf_to_images_in_memory(document.file_content, max_pages)
 
             if not pages:
                 raise Exception("Failed to convert PDF to images")
 
-            result = {"filename": filename, "total_pages": len(pages), "pages": pages}
+            result = {
+                "filename": document.filename, 
+                "total_pages": len(pages), 
+                "pages": pages
+            }
 
-            # Cache the result
-            self._save_to_cache(cache_key, result)
+            # Cache the result in database
+            self._save_to_db_cache(document_id, max_pages, result)
 
             return result
 
@@ -87,21 +175,21 @@ class PDFService:
             raise Exception(f"Failed to convert PDF: {str(e)}")
 
     def _convert_pdf_to_images_in_memory(
-        self, pdf_path: str, max_pages: int
+        self, pdf_content: bytes, max_pages: int
     ) -> List[Dict[str, Any]]:
         """
         Convert PDF pages to images in memory.
 
         Args:
-            pdf_path: Path to the PDF file
+            pdf_content: PDF file content as bytes
             max_pages: Maximum number of pages to convert
 
         Returns:
             List of page dictionaries with image data
         """
         try:
-            # Open the PDF
-            pdf_document = fitz.open(pdf_path)
+            # Open the PDF from memory
+            pdf_document = fitz.open(stream=pdf_content, filetype="pdf")
             total_pages = pdf_document.page_count
             pages_to_convert = min(total_pages, max_pages)
 
@@ -128,8 +216,6 @@ class PDFService:
                     width, height = img.size
 
                     # Convert image to base64 for direct serving
-                    import base64
-
                     img_buffer = io.BytesIO()
                     img.save(img_buffer, format="PNG")
                     img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
@@ -157,155 +243,223 @@ class PDFService:
             logger.error(f"Error converting PDF to images: {e}")
             return []
 
-    def _get_cache_key(self, filename: str, max_pages: int) -> str:
+    def _get_from_db_cache(self, document_id: str, max_pages: int) -> Optional[Dict[str, Any]]:
         """
-        Generate a cache key for the PDF file and max_pages.
+        Retrieve PDF cache data from database if it exists and is not expired.
 
         Args:
-            filename: Name of the PDF file (should be content-based)
+            document_id: Document ID
             max_pages: Maximum number of pages
-
-        Returns:
-            Cache key string
-        """
-        # For content-based filenames, we can use the hash directly
-        # Format: {hash}_{original_name}.pdf
-        from src.utils.file_hasher import extract_hash_from_filename
-
-        file_hash = extract_hash_from_filename(filename)
-        if file_hash:
-            # Use the content hash directly since it's unique per content
-            key_data = f"{file_hash}_{max_pages}"
-            return hashlib.md5(key_data.encode()).hexdigest()
-        else:
-            # Fallback for non-content-based filenames (legacy)
-            file_path = os.path.join(config.UPLOAD_DIR, filename)
-            try:
-                file_mtime = os.path.getmtime(file_path)
-                key_data = f"{filename}_{max_pages}_{file_mtime}"
-                return hashlib.md5(key_data.encode()).hexdigest()
-            except OSError:
-                # Fallback if file doesn't exist
-                key_data = f"{filename}_{max_pages}"
-                return hashlib.md5(key_data.encode()).hexdigest()
-
-    def _get_from_cache(self, cache_key: str) -> Optional[Dict[str, Any]]:
-        """
-        Retrieve data from cache if it exists and is not expired.
-
-        Args:
-            cache_key: Cache key to look up
 
         Returns:
             Cached data or None if not found/expired
         """
-        cache_file = self.cache_dir / f"{cache_key}.json"
-
-        if not cache_file.exists():
-            return None
-
         try:
-            with open(cache_file, "r", encoding="utf-8") as f:
-                cache_data = json.load(f)
+            # Find cache record for this document and max_pages
+            stmt = select(PDFCache).where(
+                PDFCache.document_id == document_id,
+                PDFCache.max_pages == max_pages
+            )
+            cache_record = self.db.exec(stmt).first()
 
-            # Check if cache is expired
-            cache_time = cache_data.get("timestamp", 0)
-            current_time = time.time()
-            if current_time - cache_time > (self.cache_ttl_hours * 3600):
-                logger.debug(f"Cache expired for key {cache_key}")
-                cache_file.unlink()  # Delete expired cache file
+            if not cache_record:
                 return None
 
-            logger.debug(f"Cache hit for key {cache_key}")
-            return cache_data.get("data")
+            # Check if cache is expired
+            current_time = datetime.now(timezone.utc)
+            # Ensure expires_at is timezone-aware for comparison
+            expires_at = cache_record.expires_at
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            
+            if current_time > expires_at:
+                logger.debug(f"Cache expired for document {document_id}")
+                # Delete expired cache record
+                self.db.delete(cache_record)
+                self.db.commit()
+                return None
 
-        except (json.JSONDecodeError, KeyError, OSError) as e:
-            logger.warning(f"Error reading cache file {cache_file}: {e}")
-            # Clean up corrupted cache file
-            try:
-                cache_file.unlink()
-            except OSError:
-                pass
+            logger.debug(f"Cache hit for document {document_id}")
+            return json.loads(cache_record.pages_data)
+
+        except (json.JSONDecodeError, Exception) as e:
+            logger.warning(f"Error reading cache for document {document_id}: {e}")
             return None
 
-    def _save_to_cache(self, cache_key: str, data: Dict[str, Any]) -> None:
+    def _save_to_db_cache(self, document_id: str, max_pages: int, data: Dict[str, Any]) -> None:
         """
-        Save data to cache.
+        Save PDF cache data to database.
 
         Args:
-            cache_key: Cache key
+            document_id: Document ID
+            max_pages: Maximum number of pages
             data: Data to cache
         """
-        cache_file = self.cache_dir / f"{cache_key}.json"
-
         try:
-            cache_data = {"timestamp": time.time(), "data": data}
+            # Check if cache record already exists
+            stmt = select(PDFCache).where(
+                PDFCache.document_id == document_id,
+                PDFCache.max_pages == max_pages
+            )
+            existing_cache = self.db.exec(stmt).first()
 
-            with open(cache_file, "w", encoding="utf-8") as f:
-                json.dump(cache_data, f, indent=2)
+            if existing_cache:
+                # Update existing cache
+                existing_cache.total_pages = data.get("total_pages", 0)
+                existing_cache.pages_data = json.dumps(data)
+                existing_cache.expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+                self.db.add(existing_cache)
+            else:
+                # Create new cache record
+                cache_record = PDFCache(
+                    document_id=document_id,
+                    max_pages=max_pages,
+                    total_pages=data.get("total_pages", 0),
+                    pages_data=json.dumps(data),
+                    expires_at=datetime.now(timezone.utc) + timedelta(hours=24)
+                )
+                self.db.add(cache_record)
 
-            logger.debug(f"Cached data for key {cache_key}")
+            self.db.commit()
+            logger.debug(f"Cached PDF data for document {document_id}")
 
-        except OSError as e:
-            logger.warning(f"Error saving cache file {cache_file}: {e}")
+        except Exception as e:
+            logger.warning(f"Error saving cache for document {document_id}: {e}")
+            self.db.rollback()
 
     def cleanup_expired_cache(self) -> int:
         """
-        Clean up expired cache files.
+        Clean up expired cache records from database.
 
         Returns:
-            Number of files cleaned up
+            Number of records cleaned up
         """
         cleaned_count = 0
-        current_time = time.time()
+        current_time = datetime.now(timezone.utc)
 
         try:
-            for cache_file in self.cache_dir.glob("*.json"):
-                try:
-                    with open(cache_file, "r", encoding="utf-8") as f:
-                        cache_data = json.load(f)
+            # Find all expired cache records
+            # Use a more explicit timezone-aware comparison
+            stmt = select(PDFCache).where(
+                PDFCache.expires_at < current_time
+            )
+            expired_records = self.db.exec(stmt).all()
 
-                    cache_time = cache_data.get("timestamp", 0)
-                    if current_time - cache_time > (self.cache_ttl_hours * 3600):
-                        cache_file.unlink()
-                        cleaned_count += 1
-                        logger.debug(f"Cleaned up expired cache file: {cache_file}")
+            for record in expired_records:
+                self.db.delete(record)
+                cleaned_count += 1
+                logger.debug(f"Cleaned up expired cache record for document {record.document_id}")
 
-                except (json.JSONDecodeError, KeyError, OSError):
-                    # Clean up corrupted files
-                    try:
-                        cache_file.unlink()
-                        cleaned_count += 1
-                        logger.debug(f"Cleaned up corrupted cache file: {cache_file}")
-                    except OSError:
-                        pass
+            self.db.commit()
 
-        except OSError as e:
+        except Exception as e:
             logger.error(f"Error during cache cleanup: {e}")
+            self.db.rollback()
 
         if cleaned_count > 0:
-            logger.info(f"Cleaned up {cleaned_count} expired cache files")
+            logger.info(f"Cleaned up {cleaned_count} expired cache records")
 
         return cleaned_count
 
     def get_cache_stats(self) -> Dict[str, Any]:
         """
-        Get cache statistics.
+        Get cache statistics from database.
 
         Returns:
             Dictionary with cache statistics
         """
         try:
-            cache_files = list(self.cache_dir.glob("*.json"))
-            total_size = sum(f.stat().st_size for f in cache_files)
+            # Count total cache records
+            stmt = select(PDFCache)
+            cache_records = self.db.exec(stmt).all()
+            
+            total_records = len(cache_records)
+            total_size = sum(len(record.pages_data) for record in cache_records)
 
             return {
-                "total_files": len(cache_files),
+                "total_records": total_records,
                 "total_size_bytes": total_size,
                 "total_size_mb": round(total_size / (1024 * 1024), 2),
-                "cache_dir": str(self.cache_dir),
-                "ttl_hours": self.cache_ttl_hours,
+                "ttl_hours": 24,
             }
-        except OSError as e:
+        except Exception as e:
             logger.error(f"Error getting cache stats: {e}")
             return {"error": str(e)}
+
+    def get_document_content_response(self, document_id: str) -> Response:
+        """
+        Get document content as a Response object for viewing.
+
+        Args:
+            document_id: Document ID (SHA256 hash)
+
+        Returns:
+            Response object with document content
+
+        Raises:
+            FileNotFoundError: If document not found
+        """
+        logger.info(f"Getting document content: {document_id}")
+
+        document = self.db.get(Document, document_id)
+        if not document:
+            raise FileNotFoundError(f"Document with ID '{document_id}' not found")
+
+        # Determine file type from MIME type
+        mime_type = document.mime_type.lower()
+
+        if mime_type == "application/pdf":
+            # For PDFs, return with proper MIME type for browser display
+            return self._to_content_response(
+                content=document.file_content,
+                media_type="application/pdf",
+                filename=document.filename,
+                disposition="inline"
+            )
+        elif mime_type.startswith("image/"):
+            # For images, return with proper MIME type
+            return self._to_content_response(
+                content=document.file_content,
+                media_type=mime_type,
+                filename=document.filename,
+                disposition="inline"
+            )
+        else:
+            # For text files, return the content
+            try:
+                content = document.file_content.decode("utf-8")
+                return {"content": content, "filename": document.filename}
+            except UnicodeDecodeError:
+                # If it's not a text file, return as binary
+                return self._to_content_response(
+                    content=document.file_content,
+                    media_type="application/octet-stream",
+                    filename=document.filename,
+                    disposition="attachment"
+                )
+
+    def get_document_download_response(self, document_id: str) -> Response:
+        """
+        Get document as a Response object for download.
+
+        Args:
+            document_id: Document ID (SHA256 hash)
+
+        Returns:
+            Response object with document content for download
+
+        Raises:
+            FileNotFoundError: If document not found
+        """
+        logger.info(f"Getting document for download: {document_id}")
+
+        document = self.db.get(Document, document_id)
+        if not document:
+            raise FileNotFoundError(f"Document with ID '{document_id}' not found")
+
+        return self._to_content_response(
+            content=document.file_content,
+            media_type=document.mime_type,
+            filename=document.filename,
+            disposition="attachment"
+        )

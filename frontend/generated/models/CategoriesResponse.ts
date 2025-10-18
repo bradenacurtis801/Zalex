@@ -13,6 +13,14 @@
  */
 
 import { mapValues } from '../runtime';
+import type { CategoryDocument } from './CategoryDocument';
+import {
+    CategoryDocumentFromJSON,
+    CategoryDocumentFromJSONTyped,
+    CategoryDocumentToJSON,
+    CategoryDocumentToJSONTyped,
+} from './CategoryDocument';
+
 /**
  * 
  * @export
@@ -21,10 +29,10 @@ import { mapValues } from '../runtime';
 export interface CategoriesResponse {
     /**
      * 
-     * @type {{ [key: string]: { [key: string]: any; }; }}
+     * @type {{ [key: string]: { [key: string]: CategoryDocument; }; }}
      * @memberof CategoriesResponse
      */
-    categories: { [key: string]: { [key: string]: any; }; };
+    categories: { [key: string]: { [key: string]: CategoryDocument; }; };
     /**
      * 
      * @type {number}

@@ -159,6 +159,7 @@ export default function CategoryDocuments({ category, onError, availableCategori
           onClose={handleCloseModal}
           onSuccess={handleReclassifySuccess}
           document={{
+            id: reclassifyModal.document.id,
             filename: reclassifyModal.document.filename,
             category: reclassifyModal.document.category,
             confidence: reclassifyModal.document.confidence

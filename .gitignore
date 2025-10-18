@@ -30,6 +30,7 @@ Thumbs.db
 
 # Application data
 APP_DATA/
+test_data/
 *.faiss
 document_metadata.json
 uploads/

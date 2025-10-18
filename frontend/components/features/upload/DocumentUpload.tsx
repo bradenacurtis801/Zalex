@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { uploadApi, createWebSocketUrl, generateClientId } from '@/api'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { uploadApi } from '@/api'
 import { Button } from '@/components/ui'
 import ProgressBar from '@/components/ui/ProgressBar'
 import ClassificationResults from './ClassificationResults'
 import { DocumentClassification } from '@/generated'
-import { useWebSocket } from '@/hooks/useWebSocket'
+import { useWebSocket } from '@/contexts/WebSocketContext'
+import { WebSocketMessageType } from '@/websocket-protocol'
 
 interface DocumentUploadProps {
   onUploadStatus: (status: string, type?: 'success' | 'error' | 'warning') => void
@@ -25,13 +26,8 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
   const [currentFileIndex, setCurrentFileIndex] = useState(0)
   const [showProgress, setShowProgress] = useState(false)
   
-  // WebSocket state
-  const [clientId] = useState(() => generateClientId())
-  const [wsUrl] = useState(() => {
-    const url = createWebSocketUrl(clientId)
-    console.log('WebSocket URL:', url)
-    return url
-  })
+  // WebSocket context
+  const { register } = useWebSocket()
   
 
   const handleFileSelect = (selectedFiles: FileList | null) => {
@@ -61,61 +57,57 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
     }
   }
 
-  // WebSocket message handler
-  const handleWebSocketMessage = (message: any) => {
-    console.log('📨 WebSocket message received:', message)
-    
-    if (message.type === 'file_start') {
-      console.log('🚀 File start:', message.filename)
-      setCurrentFile(message.filename)
-      setTotalFiles(message.total_files)
-      setCurrentFileIndex(message.current_file)
-      setProgress(message.progress_percent)
-      setShowProgress(true)
-    } else if (message.type === 'file_complete') {
-      console.log('✅ File complete:', message.filename, 'Progress:', message.progress_percent + '%')
-      setProgress(message.progress_percent)
-      setCurrentFileIndex(message.current_file)
-      
-      // If this is the last file, hide progress after a short delay
-      if (message.current_file === message.total_files) {
-        console.log('🎉 All files processed!')
-        setTimeout(() => {
-          setShowProgress(false)
-          setProgress(0)
-          setCurrentFile('')
-        }, 1000)
-      }
-    } else if (message.type === 'error') {
-      console.error('❌ WebSocket error message:', message.error)
-      onUploadStatus(`WebSocket Error: ${message.error}`, 'error')
-      setShowProgress(false)
-    } else {
-      console.log('❓ Unknown message type:', message.type)
-    }
-  }
-
-  // WebSocket connection
-  const { isConnected, connect, disconnect } = useWebSocket({
-    url: wsUrl,
-    onMessage: handleWebSocketMessage,
-    onError: (error) => {
-      console.error('WebSocket error:', error)
-      console.error('WebSocket URL:', wsUrl)
-    },
-    onOpen: () => {
-      console.log('WebSocket connected successfully')
-    },
-    onClose: () => {
-      console.log('WebSocket disconnected')
-    }
-  })
-
-  // Connect to WebSocket when component mounts
-  useEffect(() => {
-    connect()
-    return () => disconnect()
+  // WebSocket event handlers
+  const handleFileStart = useCallback((data: Record<string, any>) => {
+    setCurrentFile(data.filename)
+    setTotalFiles(data.total_files)
+    setCurrentFileIndex(data.current_file)
+    setProgress(data.progress_percent)
+    setShowProgress(true)
   }, [])
+
+  const handleFileComplete = useCallback((data: Record<string, any>) => {
+    setProgress(data.progress_percent)
+    setCurrentFileIndex(data.current_file)
+    
+    // If this is the last file, hide progress after a short delay
+    if (data.current_file === data.total_files) {
+      setTimeout(() => {
+        setShowProgress(false)
+        setProgress(0)
+        setCurrentFile('')
+      }, 1000)
+    }
+  }, [])
+
+  const handleError = useCallback((data: Record<string, any>) => {
+    console.error('❌ WebSocket error message:', data.message)
+    onUploadStatus(`WebSocket Error: ${data.message}`, 'error')
+    setShowProgress(false)
+  }, [onUploadStatus])
+
+  // Handle upload progress messages that contain nested file events
+  const handleUploadProgress = useCallback((data: Record<string, any>) => {
+    
+    // Check the nested type in the data
+    if (data.type === 'file_start') {
+      handleFileStart(data)
+    } else if (data.type === 'file_complete') {
+      handleFileComplete(data)
+    }
+  }, [handleFileStart, handleFileComplete])
+
+  // Register for WebSocket events
+  useEffect(() => {
+    const unsubscribeUploadProgress = register(WebSocketMessageType.UPLOAD_PROGRESS, handleUploadProgress)
+    const unsubscribeError = register(WebSocketMessageType.ERROR, handleError)
+    
+    return () => {
+      unsubscribeUploadProgress()
+      unsubscribeError()
+    }
+  }, [register, handleUploadProgress, handleError])
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -129,8 +121,7 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
     setShowProgress(true) // Show progress bar
     try {
       const result = await uploadApi.uploadFilesApiUploadPost({ 
-        files,
-        clientId: clientId
+        files
       })
       
       // Handle classification results if available

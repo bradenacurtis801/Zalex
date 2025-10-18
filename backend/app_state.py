@@ -37,24 +37,19 @@ class AppState:
 
     def initialize(self):
         """Initialize all application components."""
-        logger.info("Initializing application state...")
 
         # Load Sentence Transformer model
         try:
-            logger.info("Loading Sentence Transformer model...")
-            self.model = SentenceTransformer("all-MiniLM-L6-v2")
+            self.model = SentenceTransformer("all-MiniLM-L6-v2", cache_folder=config.ML_MODELS_DIR)
             self.dimension = self.model.get_sentence_embedding_dimension()
-            logger.info("Sentence Transformer model loaded successfully.")
         except Exception as e:
             logger.error(f"Failed to load Sentence Transformer model: {e}")
             raise e
 
         # Initialize OCR engine
         try:
-            logger.info("Initializing OCR engine...")
             self.ocr_engine = get_default_ocr_engine()
             self.ocr_engine.initialize()
-            logger.info("OCR engine initialized successfully.")
         except Exception as e:
             logger.error(f"Failed to initialize OCR engine: {e}")
             raise e
@@ -95,35 +90,17 @@ class AppState:
         logger.info("Application state initialized successfully.")
 
     def load_index_and_metadata(self):
-        """Loads the FAISS index and metadata from disk if they exist."""
-        if os.path.exists(config.INDEX_FILE) and os.path.getsize(config.INDEX_FILE) > 0:
-            logger.info(f"Loading FAISS index from {config.INDEX_FILE}")
-            self.index = faiss.read_index(str(config.INDEX_FILE))
-            logger.info(f"Index loaded. Contains {self.index.ntotal} vectors.")
-        else:
-            logger.info("No FAISS index found. Initializing a new one.")
-            self.index = faiss.IndexFlatL2(self.dimension)
-
-        if (
-            os.path.exists(config.METADATA_FILE)
-            and os.path.getsize(config.METADATA_FILE) > 0
-        ):
-            logger.info(f"Loading metadata from {config.METADATA_FILE}")
-            with open(config.METADATA_FILE, "r", encoding="utf-8") as f:
-                self.metadata = json.load(f)
-            logger.info(f"Metadata loaded. Contains {len(self.metadata)} entries.")
-        else:
-            logger.info("No metadata file found. Initializing empty list.")
-            self.metadata = []
+        """Initialize FAISS index and metadata for database-only operation."""
+        logger.info("Initializing FAISS index for database-only operation.")
+        self.index = faiss.IndexFlatL2(self.dimension)
+        logger.info("FAISS index initialized.")
+        
+        logger.info("Initializing empty metadata list for database-only operation.")
+        self.metadata = []
 
     def save_index_and_metadata(self):
-        """Saves the current FAISS index and metadata to disk."""
-        logger.info(f"Saving FAISS index to {config.INDEX_FILE}")
-        faiss.write_index(self.index, str(config.INDEX_FILE))
-        logger.info(f"Saving metadata to {config.METADATA_FILE}")
-        with open(config.METADATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(self.metadata, f, indent=4)
-        logger.info("Index and metadata saved successfully.")
+        """No-op for database-only operation - data is stored in database."""
+        logger.info("Skipping file-based save - using database-only storage.")
 
     def load_category_metadata(self):
         """Loads the category metadata from disk if it exists."""
@@ -156,8 +133,7 @@ class AppState:
             logger.info("Loading pre-trained document classifier...")
 
             # Try to load from hardcoded Hugging Face model first
-            hf_model_id = "bradenacurtis/scanpro-classifier-v1-finetune"
-            logger.info(f"Loading model from Hugging Face: {hf_model_id}")
+            logger.info(f"Loading model from Hugging Face: {config.CLASSIFIER_MODEL_ID}")
             hf_token = (
                 config.settings.scanpro_hf_token
                 if config.settings.scanpro_hf_token
@@ -167,7 +143,7 @@ class AppState:
             # Create fine-tuned classifier from Hugging Face
             logger.info("Creating fine-tuned classifier from Hugging Face")
             self.document_classifier = PreTrainedFinetuneClassifier(
-                model_path_or_id=hf_model_id, token=hf_token
+                model_path_or_id=config.CLASSIFIER_MODEL_ID, token=hf_token
             )
 
             if self.document_classifier and self.document_classifier.is_initialized:

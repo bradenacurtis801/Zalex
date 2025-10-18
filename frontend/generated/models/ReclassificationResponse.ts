@@ -37,12 +37,6 @@ export interface ReclassificationResponse {
      * @memberof ReclassificationResponse
      */
     updatedCategories?: Array<string> | null;
-    /**
-     * 
-     * @type {boolean}
-     * @memberof ReclassificationResponse
-     */
-    modelUpdated?: boolean;
 }
 
 /**
@@ -67,7 +61,6 @@ export function ReclassificationResponseFromJSONTyped(json: any, ignoreDiscrimin
         'success': json['success'],
         'message': json['message'],
         'updatedCategories': json['updated_categories'] == null ? undefined : json['updated_categories'],
-        'modelUpdated': json['model_updated'] == null ? undefined : json['model_updated'],
     };
 }
 
@@ -85,7 +78,6 @@ export function ReclassificationResponseToJSONTyped(value?: ReclassificationResp
         'success': value['success'],
         'message': value['message'],
         'updated_categories': value['updatedCategories'],
-        'model_updated': value['modelUpdated'],
     };
 }
 

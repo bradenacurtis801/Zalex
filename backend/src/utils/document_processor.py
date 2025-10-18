@@ -201,6 +201,112 @@ class DocumentProcessor:
         logger.debug("Index and metadata saved successfully")
         return {"status": "success", "message": f"Successfully indexed {filename}."}
 
+    def process_document_from_content(self, file_content: bytes, filename: str) -> dict:
+        """
+        Processes a document from its content (bytes) instead of a file path.
+        This is used for database-only operations where files are stored in memory.
+
+        Args:
+            file_content: The document content as bytes
+            filename: Name of the file
+
+        Returns:
+            dict: Status and message of the processing operation
+        """
+        logger.debug(f"Starting document processing from content for {filename}")
+        logger.debug(f"Content size: {len(file_content)} bytes")
+
+        texts_to_index = []
+
+        file_extension = os.path.splitext(filename)[1].lower()
+        logger.debug(f"File extension: {file_extension}")
+
+        if file_extension == ".pdf":
+            logger.info(f"Processing PDF from content: {filename}")
+            doc = fitz.open(stream=file_content, filetype="pdf")
+            total_pages = len(doc)
+            logger.debug(f"PDF has {total_pages} pages")
+
+            for page_num, page in enumerate(doc):
+                logger.debug(f"Processing page {page_num + 1}/{total_pages}")
+                # Convert page to image for OCR
+                pix = page.get_pixmap()
+                img_data = pix.tobytes("png")
+                
+                # Extract text using OCR
+                try:
+                    text = self.ocr_engine.extract_text_from_bytes(img_data, "png")
+                    if text and text.strip():
+                        texts_to_index.append(text.strip())
+                        logger.debug(f"Extracted text from page {page_num + 1}: {len(text)} characters")
+                    else:
+                        logger.debug(f"No text extracted from page {page_num + 1}")
+                except Exception as e:
+                    logger.warning(f"OCR failed for page {page_num + 1}: {e}")
+                    continue
+
+            doc.close()
+        else:
+            # For image files, process directly
+            logger.info(f"Processing image from content: {filename}")
+            try:
+                # Determine image format from filename
+                image_format = os.path.splitext(filename)[1].lower().lstrip('.')
+                if image_format not in ['png', 'jpg', 'jpeg', 'tiff', 'bmp']:
+                    image_format = 'png'  # Default fallback
+                
+                text = self.ocr_engine.extract_text_from_bytes(file_content, image_format)
+                if text and text.strip():
+                    texts_to_index.append(text.strip())
+                    logger.debug(f"Extracted text from image: {len(text)} characters")
+                else:
+                    logger.debug("No text extracted from image")
+            except Exception as e:
+                logger.warning(f"OCR failed for image: {e}")
+                raise DocumentProcessingException(f"Failed to extract text from image: {e}")
+
+        if not texts_to_index:
+            logger.warning(f"No text extracted from {filename}")
+            return {"status": "warning", "message": f"No text could be extracted from {filename}."}
+
+        # Classify the document
+        try:
+            category, confidence = self._classify_document(texts_to_index, filename)
+            logger.info(f"Document classified as: {category} (confidence: {confidence:.2f})")
+        except Exception as e:
+            logger.error(f"Classification failed for {filename}: {e}")
+            category, confidence = "other", 0.0
+
+        # Create embeddings and add to index
+        try:
+            combined_text = " ".join(texts_to_index)
+            embedding = self.model.encode([combined_text])
+            self.index.add(embedding.astype('float32'))
+            
+            # Store metadata
+            self.metadata.append({
+                "filename": filename,
+                "category": category,
+                "confidence": confidence,
+                "text_length": len(combined_text),
+                "pages_processed": len(texts_to_index)
+            })
+            
+            logger.info(f"Successfully processed and indexed {filename}")
+        except Exception as e:
+            logger.error(f"Failed to create embeddings for {filename}: {e}")
+            raise DocumentProcessingException(f"Failed to create embeddings: {e}")
+
+        # Note: We don't save to disk in database-only mode
+        logger.debug("Document processed successfully (database-only mode)")
+        return {
+            "status": "success", 
+            "message": f"Successfully processed {filename}.",
+            "extracted_text": " ".join(texts_to_index),
+            "category": category,
+            "confidence": confidence
+        }
+
     def save_index_and_metadata(self):
         """Saves the current FAISS index and metadata to disk."""
         logger.info(f"Saving FAISS index to {config.INDEX_FILE}")
@@ -229,7 +335,11 @@ class DocumentProcessor:
 
         try:
             # Combine all text chunks for classification
-            combined_text = " ".join([item["text"] for item in texts_to_index])
+            # Handle both formats: list of strings or list of dicts with "text" key
+            if texts_to_index and isinstance(texts_to_index[0], dict):
+                combined_text = " ".join([item["text"] for item in texts_to_index])
+            else:
+                combined_text = " ".join(texts_to_index)
 
             # Use classifier interface
             result = self.document_classifier.classify(combined_text, filename)

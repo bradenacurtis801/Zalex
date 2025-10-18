@@ -23,7 +23,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-eng \
     tesseract-ocr-spa \
+    postgresql \
+    postgresql-client \
+    postgresql-contrib \
     && rm -rf /var/lib/apt/lists/*
+
+# Set PostgreSQL environment variables
+ENV PATH="/usr/lib/postgresql/17/bin:$PATH"
+ENV PGDATA="/app/APP_DATA/db/postgres_data"
+
+# Add PostgreSQL bin to system PATH for all users
+RUN echo 'export PATH="/usr/lib/postgresql/17/bin:$PATH"' >> /etc/environment
+
+# Create postgres user and set up permissions
+RUN groupadd -r postgres || true && useradd -r -g postgres postgres || true
+RUN mkdir -p /app/APP_DATA/db && chown -R postgres:postgres /app/APP_DATA/db
 
 # Install Node.js
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
@@ -57,8 +71,13 @@ EXPOSE 3000 5000 5678
 ENV NODE_ENV=production \
     BACKEND_HOST=127.0.0.1 \
     DEBUG=0 \
-    CORS_ORIGINS="http://127.0.0.1:3000" \
-    NEXT_PUBLIC_API_URL=http://127.0.0.1:5000
+    CORS_ORIGINS='["http://127.0.0.1:3000"]' \
+    NEXT_PUBLIC_API_URL=http://127.0.0.1:5000 \
+    POSTGRES_USERNAME=postgres \
+    POSTGRES_PASSWORD=password \
+    POSTGRES_DB_NAME=scanpro_db \
+    POSTGRES_HOST=localhost \
+    POSTGRES_PORT=5432
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

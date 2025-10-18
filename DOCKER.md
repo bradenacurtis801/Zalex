@@ -24,6 +24,65 @@ docker run -it --name scanpro \
   bradenacurtis801/scanpro:latest
 ```
 
+## 🎯 Complete Run Command
+
+### Windows PowerShell
+```powershell
+docker run -it --rm `
+  -p 3000:3000 `
+  -p 5000:5000 `
+  -v "C:\Users\brade\Downloads\ScanPro\ScanPro\APP_DATA:/app/APP_DATA" `
+  -e NODE_ENV=development `
+  -e DEBUG=0 `
+  -e BACKEND_PORT=5000 `
+  -e BACKEND_HOST=0.0.0.0 `
+  -e POSTGRES_USERNAME=postgres `
+  -e POSTGRES_PASSWORD=postgres123 `
+  -e POSTGRES_DB_NAME=scanpro_db `
+  -e POSTGRES_HOST=0.0.0.0 `
+  -e POSTGRES_PORT=5432 `
+  -e CORS_ORIGINS='["http://127.0.0.1:3000"]' `
+  bradenacurtis801/scanpro:v2.0.0-dev
+```
+
+### macOS/Linux
+```bash
+docker run -it --rm \
+  -p 3000:3000 \
+  -p 5000:5000 \
+  -v "$(pwd)/APP_DATA:/app/APP_DATA" \
+  -e NODE_ENV=development \
+  -e DEBUG=0 \
+  -e BACKEND_PORT=5000 \
+  -e BACKEND_HOST=0.0.0.0 \
+  -e POSTGRES_USERNAME=postgres \
+  -e POSTGRES_PASSWORD=postgres123 \
+  -e POSTGRES_DB_NAME=scanpro_db \
+  -e POSTGRES_HOST=0.0.0.0 \
+  -e POSTGRES_PORT=5432 \
+  -e CORS_ORIGINS='["http://127.0.0.1:3000"]' \
+  bradenacurtis801/scanpro:v2.0.0-dev
+```
+
+### Windows Command Prompt
+```cmd
+docker run -it --rm ^
+  -p 3000:3000 ^
+  -p 5000:5000 ^
+  -v "C:\Users\brade\Downloads\ScanPro\ScanPro\APP_DATA:/app/APP_DATA" ^
+  -e NODE_ENV=development ^
+  -e DEBUG=0 ^
+  -e BACKEND_PORT=5000 ^
+  -e BACKEND_HOST=0.0.0.0 ^
+  -e POSTGRES_USERNAME=postgres ^
+  -e POSTGRES_PASSWORD=postgres123 ^
+  -e POSTGRES_DB_NAME=scanpro_db ^
+  -e POSTGRES_HOST=0.0.0.0 ^
+  -e POSTGRES_PORT=5432 ^
+  -e CORS_ORIGINS='["http://127.0.0.1:3000"]' ^
+  bradenacurtis801/scanpro:v2.0.0-dev
+```
+
 ## 🏗️ Multi-Architecture Build (Work in Progress)
 
 > **Note**: The multi-platform build script (`build-and-push.sh`) is currently under development. For now, use the simple build command above.
@@ -96,6 +155,88 @@ docker run [OPTIONS] bradenacurtis801/scanpro:latest
 ```
 
 ## 🐛 Debug Options
+
+### External PostgreSQL for Debugging
+
+For easier debugging, you can use an external PostgreSQL container with your existing data:
+
+#### Start PostgreSQL 17 with Existing Data
+```powershell
+# Windows PowerShell - Persistent database
+docker run -d --name scanpro-postgres `
+  -p 5432:5432 `
+  -v "C:\Users\brade\Downloads\ScanPro\ScanPro\APP_DATA\db\postgres_data:/var/lib/postgresql/data" `
+  -e POSTGRES_USER=postgres `
+  -e POSTGRES_PASSWORD=postgres123 `
+  -e POSTGRES_DB=scanpro_db `
+  postgres:17
+```
+
+```bash
+# macOS/Linux - Persistent database
+docker run -d --name scanpro-postgres \
+  -p 5432:5432 \
+  -v "$(pwd)/APP_DATA/db/postgres_data:/var/lib/postgresql/data" \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres123 \
+  -e POSTGRES_DB=scanpro_db \
+  postgres:17
+```
+
+#### Run ScanPro with External PostgreSQL
+```powershell
+# Windows PowerShell
+docker run -it --rm `
+  -p 3000:3000 `
+  -p 5000:5000 `
+  -v "C:\Users\brade\Downloads\ScanPro\ScanPro\APP_DATA:/app/APP_DATA" `
+  -e NODE_ENV=development `
+  -e DEBUG=0 `
+  -e BACKEND_PORT=5000 `
+  -e BACKEND_HOST=0.0.0.0 `
+  -e POSTGRES_USERNAME=postgres `
+  -e POSTGRES_PASSWORD=postgres123 `
+  -e POSTGRES_DB_NAME=scanpro_db `
+  -e POSTGRES_HOST=host.docker.internal `
+  -e POSTGRES_PORT=5432 `
+  -e CORS_ORIGINS='["http://127.0.0.1:3000"]' `
+  --network host `
+  bradenacurtis801/scanpro:v2.0.0-dev
+```
+
+```bash
+# macOS/Linux
+docker run -it --rm \
+  -p 3000:3000 \
+  -p 5000:5000 \
+  -v "$(pwd)/APP_DATA:/app/APP_DATA" \
+  -e NODE_ENV=development \
+  -e DEBUG=0 \
+  -e BACKEND_PORT=5000 \
+  -e BACKEND_HOST=0.0.0.0 \
+  -e POSTGRES_USERNAME=postgres \
+  -e POSTGRES_PASSWORD=postgres123 \
+  -e POSTGRES_DB_NAME=scanpro_db \
+  -e POSTGRES_HOST=host.docker.internal \
+  -e POSTGRES_PORT=5432 \
+  -e CORS_ORIGINS='["http://127.0.0.1:3000"]' \
+  --network host \
+  bradenacurtis801/scanpro:v2.0.0-dev
+```
+
+#### Benefits of External PostgreSQL
+- **🔍 Easy Debugging**: Direct access to PostgreSQL logs and data
+- **📊 Database Tools**: Use pgAdmin, DBeaver, or psql directly
+- **🔄 Data Persistence**: Your data survives container restarts
+- **⚡ Performance**: No overhead from containerized database
+- **🛠️ Development**: Easier to inspect and modify data
+
+#### Cleanup External PostgreSQL
+```bash
+# Stop and remove PostgreSQL container
+docker stop scanpro-postgres
+docker rm scanpro-postgres
+```
 
 ### Debug Mode Levels
 
@@ -189,11 +330,16 @@ You can customize the following environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `NODE_ENV` | `production` | Environment mode |
+| `NODE_ENV` | `production` | Environment mode (development/production) |
+| `DEBUG` | `0` | Debug mode (0=prod, 1=debug+wait, 2=debug+no-wait) |
 | `BACKEND_PORT` | `5000` | Backend server port |
 | `BACKEND_HOST` | `0.0.0.0` | Backend server host |
-| `DEBUG` | `0` | Debug mode (0=prod, 1=debug+wait, 2=debug+no-wait) |
-| `CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Allowed CORS origins |
+| `POSTGRES_USERNAME` | `postgres` | PostgreSQL username |
+| `POSTGRES_PASSWORD` | `postgres123` | PostgreSQL password |
+| `POSTGRES_DB_NAME` | `scanpro_db` | PostgreSQL database name |
+| `POSTGRES_HOST` | `0.0.0.0` | PostgreSQL server host |
+| `POSTGRES_PORT` | `5432` | PostgreSQL server port |
+| `CORS_ORIGINS` | `["http://127.0.0.1:3000"]` | Allowed CORS origins (JSON array) |
 
 ### Custom Configuration
 
@@ -256,7 +402,25 @@ docker logs -f <container_id>
 
 # Or if you named the container
 docker logs -f scanpro
+
+# View specific log files inside the container
+docker exec <container_id> cat /app/APP_DATA/logs/app.log
+docker exec <container_id> cat /app/APP_DATA/logs/frontend.log
+docker exec <container_id> cat /app/APP_DATA/db/postgres.log
+
+# Follow logs in real-time
+docker exec <container_id> tail -f /app/APP_DATA/logs/frontend.log
 ```
+
+### Log Files
+
+The application creates several log files in `/app/APP_DATA/logs/`:
+
+| File | Description | Location |
+|------|-------------|----------|
+| `app.log` | Backend application logs | `/app/APP_DATA/logs/app.log` |
+| `frontend.log` | Frontend Next.js server logs | `/app/APP_DATA/logs/frontend.log` |
+| `postgres.log` | PostgreSQL database logs | `/app/APP_DATA/db/postgres.log` |
 
 ## 🐛 Troubleshooting
 

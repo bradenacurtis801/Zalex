@@ -18,7 +18,14 @@ A comprehensive document processing and search system that combines OCR, AI-powe
 
 ## 🚀 Overview
 
-ScanPro is a full-stack application that allows users to upload documents, automatically classify them by type, and perform intelligent semantic searches across their document collection. The system is designed to handle Spanish legal documents including birth certificates, marriage certificates, and property deeds.
+ScanPro is a full-stack document management application with user authentication, role-based access control, and intelligent document processing. Users can upload documents, automatically classify them by type, and perform semantic searches across their document collection. The system is designed to handle Spanish legal documents including birth certificates, marriage certificates, and property deeds.
+
+### 🔐 Authentication & User Management
+- **User Authentication**: Secure login/logout with session management
+- **Role-Based Access**: Admin and user roles with different permissions
+- **User Management**: Admins can create, edit, and manage user accounts
+- **Password Security**: Users can change passwords, admins can reset passwords
+- **Session Security**: Automatic session invalidation on password changes
 
 ## 🔄 System Pipeline
 
@@ -47,15 +54,19 @@ ScanPro is a full-stack application that allows users to upload documents, autom
 ### 3. Frontend Interface
 **Location**: `frontend/` directory
 
-1. **Document Upload**: User-friendly interface for file uploads with drag & drop
-2. **Category Management**: Browse and view documents organized by classification categories
-3. **Document Classification**: Real-time document type classification with confidence scores
-4. **Search Interface**: Query interface for semantic search
-5. **Results Display**: Show search results with document metadata
-6. **Document Management**: View and manage uploaded documents by category
-7. **Feedback System**: Correct misclassifications and improve model accuracy through incremental updates
-8. **PDF Viewer**: View PDF documents with page-by-page image conversion
-9. **Reclassification**: Easy document reclassification with "Did we get this wrong?" interface
+1. **User Authentication**: Secure login/logout with session management
+2. **Dashboard**: Overview of documents, categories, and system statistics
+3. **Document Upload**: User-friendly interface for file uploads with drag & drop
+4. **Category Management**: Browse and view documents organized by classification categories
+5. **Document Classification**: Real-time document type classification with confidence scores
+6. **Search Interface**: Query interface for semantic search
+7. **Results Display**: Show search results with document metadata
+8. **Document Management**: View and manage uploaded documents by category
+9. **User Management**: Admin interface for managing users and roles
+10. **User Profile**: Users can view and edit their profile information
+11. **Feedback System**: Correct misclassifications and improve model accuracy through incremental updates
+12. **PDF Viewer**: View PDF documents with page-by-page image conversion
+13. **Reclassification**: Easy document reclassification with "Did we get this wrong?" interface
 
 ## 🛠️ Getting Started
 

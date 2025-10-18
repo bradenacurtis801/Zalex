@@ -5,31 +5,43 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
 
 import config as config
 from fastapi import UploadFile
-from src.models.upload import DocumentClassification, UploadResponse
+from sqlmodel import Session, select, and_
+from src.models.schemas.upload import DocumentClassification, UploadResponse
+from src.models.schemas.events import FileStartEvent, FileCompleteEvent
+from src.models.database import Document, DocumentClassification as DBDocumentClassification, DocumentStatus
 from src.utils.document_processor import DocumentProcessor
 from src.utils.file_hasher import calculate_file_hash, get_content_based_filename
-from src.websocket_manager import ConnectionManager
+import hashlib
+from src.event_bus import EventBus, EventType
 
 logger = logging.getLogger(__name__)
+
+
+def calculate_file_hash_from_content(content: bytes) -> str:
+    """Calculate SHA256 hash from file content."""
+    return hashlib.sha256(content).hexdigest()
 
 
 class UploadService:
     """Service for handling file uploads and document processing."""
 
-    def __init__(self, document_processor: DocumentProcessor, connection_manager: ConnectionManager):
+    def __init__(self, document_processor: DocumentProcessor, db: Session, event_bus: EventBus):
         self.document_processor = document_processor
-        self.connection_manager = connection_manager
+        self.db = db
+        self.event_bus = event_bus
 
 
-    async def process_upload(self, files: List[UploadFile], client_id: str = None) -> UploadResponse:
+    async def process_upload(self, files: List[UploadFile], user_id: Optional[int] = None) -> UploadResponse:
         """
         Process uploaded files and initiate document processing.
 
         Args:
             files: List of uploaded files
+            user_id: User ID for document ownership and progress updates
 
         Returns:
             UploadResponse with processing results
@@ -41,51 +53,45 @@ class UploadService:
             logger.debug("No files provided or empty filename")
             raise ValueError("No selected files")
 
-        # Use the injected document processor
-        processor = self.document_processor
-        logger.debug("Using injected document processor")
-        logger.debug(f"Upload directory: {config.UPLOAD_DIR}")
-
-        # Ensure upload directory exists
-        self._ensure_upload_directory()
-
         # Process all files - if any fail, the whole operation fails
         classifications = []
         already_classified_count = 0
 
         for i, file in enumerate(files):
-            # Send progress update
-            if client_id and self.connection_manager:
-                await self.connection_manager.send_progress(client_id, {
-                    "type": "file_start",
-                    "current_file": i + 1,
-                    "total_files": len(files),
-                    "filename": file.filename,
-                    "progress_percent": int((i / len(files)) * 100)
-                })
+            # Send progress update via event bus
+            if user_id:
+                event = FileStartEvent(
+                    user_id=user_id,
+                    current_file=i + 1,
+                    total_files=len(files),
+                    filename=file.filename,
+                    progress_percent=int((i / len(files)) * 100)
+                )
+                await self.event_bus.publish_async(EventType.UPLOAD_PROGRESS, event.dict(), source="UploadService")
             
             logger.debug(f"Processing file {i+1}/{len(files)}: {file.filename}")
             classification, was_already_classified = await self._process_single_file(
-                file, processor
+                file, user_id
             )
             if classification:
                 classifications.append(classification)
                 if was_already_classified:
                     already_classified_count += 1
             
-            # Send file completion update
-            if client_id and self.connection_manager:
-                await self.connection_manager.send_progress(client_id, {
-                    "type": "file_complete",
-                    "current_file": i + 1,
-                    "total_files": len(files),
-                    "filename": file.filename,
-                    "progress_percent": int(((i + 1) / len(files)) * 100),
-                    "classification": {
+            # Send file completion update via event bus
+            if user_id:
+                event = FileCompleteEvent(
+                    user_id=user_id,
+                    current_file=i + 1,
+                    total_files=len(files),
+                    filename=file.filename,
+                    progress_percent=int(((i + 1) / len(files)) * 100),
+                    classification={
                         "category": classification.category if classification else "unknown",
                         "confidence": classification.confidence if classification else 0.0
-                    }
-                })
+                    } if classification else None
+                )
+                await self.event_bus.publish_async(EventType.UPLOAD_PROGRESS, event.dict(), source="UploadService")
             
             logger.debug(f"Successfully processed {file.filename}")
 
@@ -110,20 +116,15 @@ class UploadService:
             already_classified=already_classified_count > 0,
         )
 
-    def _ensure_upload_directory(self) -> None:
-        """Ensure the upload directory exists."""
-        os.makedirs(config.UPLOAD_DIR, exist_ok=True)
-        logger.debug(f"Upload directory ensured: {config.UPLOAD_DIR}")
-
     async def _process_single_file(
-        self, file: UploadFile, processor
+        self, file: UploadFile, user_id: Optional[int] = None
     ) -> tuple[DocumentClassification, bool]:
         """
-        Process a single uploaded file.
+        Process a single uploaded file and store in database.
 
         Args:
             file: The uploaded file
-            processor: Document processor instance
+            user_id: User ID for document ownership
 
         Returns:
             DocumentClassification: Classification result for the document
@@ -132,118 +133,102 @@ class UploadService:
             DocumentProcessingException: If document processing fails
         """
         original_filename = file.filename
-
-        # First, save to a temporary location to calculate hash
-        temp_file_path = os.path.join(config.UPLOAD_DIR, f"temp_{original_filename}")
-        await self._save_file(file, temp_file_path)
-
-        # Calculate content hash - run in thread pool for large files
+        
+        # Read file content
+        file_content = await file.read()
+        file_size = len(file_content)
+        mime_type = file.content_type or "application/octet-stream"
+        
+        # Calculate content hash
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor() as executor:
             file_hash = await loop.run_in_executor(
-                executor, calculate_file_hash, temp_file_path
+                executor, calculate_file_hash_from_content, file_content
             )
         if not file_hash:
             raise Exception(f"Failed to calculate hash for {original_filename}")
 
-        # Generate content-based filename
-        content_based_filename = get_content_based_filename(
-            original_filename, file_hash
-        )
-        final_file_path = os.path.join(config.UPLOAD_DIR, content_based_filename)
-
-        # Check if file already exists and has been classified (deduplication)
-        if os.path.exists(final_file_path):
-            logger.info(
-                f"File with same content already exists: {content_based_filename}"
-            )
-            # Remove temp file
-            os.remove(temp_file_path)
-            filename = content_based_filename
-            file_path = final_file_path
-
-            # Check if this file has already been classified
-            existing_classification = self._get_existing_classification(filename, original_filename)
+        # Check if document already exists in database
+        existing_document = self.db.exec(
+            select(Document).where(Document.id == file_hash)
+        ).first()
+        
+        if existing_document:
+            logger.info(f"Document with same content already exists: {file_hash}")
+            
+            # Check if it has been classified
+            existing_classification = self.db.exec(
+                select(DBDocumentClassification)
+                .where(DBDocumentClassification.document_id == file_hash)
+                .order_by(DBDocumentClassification.created_at.desc())
+                .limit(1)
+            ).first()
+            
             if existing_classification:
                 logger.info(
-                    f"File {filename} already classified as {existing_classification.category} "
+                    f"Document {original_filename} already classified as {existing_classification.category} "
                     f"(confidence: {existing_classification.confidence:.3f}) - returning cached result"
                 )
-                return existing_classification, True
+                return DocumentClassification(
+                    filename=original_filename,
+                    category=existing_classification.category,
+                    confidence=existing_classification.confidence
+                ), True
+            else:
+                # Document exists but not classified yet - use existing document
+                logger.info(f"Document {original_filename} exists but not classified yet - processing")
+                document = existing_document
         else:
-            # Move temp file to final location
-            os.rename(temp_file_path, final_file_path)
-            filename = content_based_filename
-            file_path = final_file_path
-            logger.info(
-                f"Saved new file with content-based name: {content_based_filename}"
+            # Create new document record
+            document = Document(
+                id=file_hash,
+                filename=original_filename,
+                file_content=file_content,
+                file_size=file_size,
+                mime_type=mime_type,
+                user_id=user_id,
+                status=DocumentStatus.PROCESSING
             )
+            
+            self.db.add(document)
+            self.db.commit()
+            self.db.refresh(document)
+            
+            logger.info(f"Created document record for {original_filename} with hash {file_hash}")
 
-        logger.debug(f"Final file path: {file_path}")
-
-        # Process document - this will throw an exception if it fails
+        # Extract text and classify document in thread pool to avoid blocking API
+        logger.debug(f"Starting document processing for {original_filename}...")
+        
         # Run CPU-intensive processing in a thread pool to avoid blocking the event loop
-        logger.debug(f"Starting document processing for {filename}...")
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor() as executor:
-            result = await loop.run_in_executor(
-                executor, processor.process_document, file_path, filename
+            category, confidence = await loop.run_in_executor(
+                executor, self._process_document_content, file_content, original_filename
             )
-        logger.debug(f"Document processing completed for {filename}")
-
-        # Extract classification information from the processor's category metadata
-        # The most recent entry should be for this file
-        category = "other"
-        confidence = 0.0
-
-        logger.debug(f"Looking for classification for filename: {filename}")
-        logger.debug(
-            f"Processor has category_metadata: {hasattr(processor, 'category_metadata')}"
-        )
-
-        if hasattr(processor, "category_metadata"):
-            logger.debug(
-                f"Available categories in metadata: {list(processor.category_metadata.keys())}"
-            )
-            # Find the most recent entry for this filename by timestamp
-            most_recent_entry = None
-            most_recent_timestamp = None
-
-            for cat_name, documents in processor.category_metadata.items():
-                if isinstance(documents, dict):
-                    logger.debug(
-                        f"Checking category '{cat_name}' with {len(documents)} documents"
-                    )
-                    if filename in documents:
-                        doc = documents[filename]
-                        timestamp = doc.get("timestamp", "")
-                        logger.debug(
-                            f"Found document in category '{cat_name}': category={doc.get('category', 'other')}, confidence={doc.get('confidence', 0.0)}, timestamp={timestamp}"
-                        )
-
-                        # Check if this is the most recent entry
-                        if (
-                            most_recent_timestamp is None
-                            or timestamp > most_recent_timestamp
-                        ):
-                            most_recent_entry = doc
-                            most_recent_timestamp = timestamp
-                            logger.debug(
-                                f"New most recent entry: category={doc.get('category', 'other')}, timestamp={timestamp}"
-                            )
-
-            if most_recent_entry:
-                category = most_recent_entry.get("category", "other")
-                confidence = most_recent_entry.get("confidence", 0.0)
-                logger.debug(
-                    f"Using most recent entry: category={category}, confidence={confidence}, timestamp={most_recent_timestamp}"
-                )
-            else:
-                logger.debug("No document found in any category")
-
+        
         logger.debug(
             f"Final classification result: category={category}, confidence={confidence}"
         )
+        
+        # Store classification in database
+        # Update document status to completed
+        document.status = DocumentStatus.COMPLETED
+        document.updated_at = datetime.now(timezone.utc)
+        self.db.add(document)
+        
+        # Create classification record
+        classification = DBDocumentClassification(
+            document_id=file_hash,
+            category=category,
+            confidence=confidence,
+            model_version="v1.0",
+            user_id=user_id
+        )
+        self.db.add(classification)
+        self.db.commit()
+        
+        logger.info(f"Stored classification for {original_filename}: {category} ({confidence:.3f})")
+        
         return (
             DocumentClassification(
                 filename=original_filename, category=category, confidence=confidence
@@ -302,3 +287,89 @@ class UploadService:
             content = await file.read()
             buffer.write(content)
         logger.debug(f"File saved successfully. Size: {len(content)} bytes")
+
+    def _extract_text_from_content(self, file_content: bytes, filename: str) -> list:
+        """
+        Extract text from file content for classification.
+        
+        Args:
+            file_content: The file content as bytes
+            filename: The filename for format detection
+            
+        Returns:
+            List of extracted text chunks
+        """
+        import fitz
+        import os
+        
+        file_extension = os.path.splitext(filename)[1].lower()
+        extracted_texts = []
+        
+        if file_extension == ".pdf":
+            try:
+                doc = fitz.open(stream=file_content, filetype="pdf")
+                for page_num, page in enumerate(doc):
+                    # Convert page to image for OCR
+                    pix = page.get_pixmap()
+                    img_data = pix.tobytes("png")
+                    
+                    # Extract text using OCR
+                    try:
+                        text = self.document_processor.ocr_engine.extract_text_from_bytes(img_data, "png")
+                        if text and text.strip():
+                            extracted_texts.append(text.strip())
+                            logger.debug(f"Extracted text from page {page_num + 1}: {len(text)} characters")
+                    except Exception as e:
+                        logger.warning(f"OCR failed for page {page_num + 1}: {e}")
+                        continue
+                
+                doc.close()
+            except Exception as e:
+                logger.error(f"PDF processing failed: {e}")
+        else:
+            # For image files, process directly
+            try:
+                image_format = file_extension.lstrip('.')
+                if image_format not in ['png', 'jpg', 'jpeg', 'tiff', 'bmp']:
+                    image_format = 'png'
+                
+                text = self.document_processor.ocr_engine.extract_text_from_bytes(file_content, image_format)
+                if text and text.strip():
+                    extracted_texts.append(text.strip())
+                    logger.debug(f"Extracted text from image: {len(text)} characters")
+            except Exception as e:
+                logger.error(f"Image processing failed: {e}")
+        
+        return extracted_texts
+
+    def _process_document_content(self, file_content: bytes, filename: str) -> tuple:
+        """
+        Process document content (extract text and classify) in a thread pool.
+        
+        Args:
+            file_content: The file content as bytes
+            filename: The filename for format detection
+            
+        Returns:
+            Tuple of (category, confidence)
+        """
+        # Extract text from file content
+        extracted_texts = self._extract_text_from_content(file_content, filename)
+        
+        if not extracted_texts:
+            logger.warning(f"No text extracted from {filename}")
+            return "other", 0.0
+        
+        # Classify the document using the extracted text
+        try:
+            combined_text = " ".join(extracted_texts)
+            logger.debug(f"Classifying text with {len(combined_text)} characters...")
+            classification_result = self.document_processor.document_classifier.classify(combined_text, filename)
+            category = classification_result.category
+            confidence = classification_result.confidence
+            logger.debug(f"Classification result: {category} ({confidence:.3f})")
+            return category, confidence
+        except Exception as e:
+            logger.error(f"Classification failed: {e}")
+            return "other", 0.0
+

@@ -24,13 +24,13 @@ export interface DocumentEntry {
      * @type {string}
      * @memberof DocumentEntry
      */
-    filename: string;
+    id: string;
     /**
      * 
      * @type {string}
      * @memberof DocumentEntry
      */
-    filePath: string;
+    filename: string;
     /**
      * 
      * @type {string}
@@ -49,17 +49,38 @@ export interface DocumentEntry {
      * @memberof DocumentEntry
      */
     timestamp: string;
+    /**
+     * 
+     * @type {number}
+     * @memberof DocumentEntry
+     */
+    fileSize: number;
+    /**
+     * 
+     * @type {string}
+     * @memberof DocumentEntry
+     */
+    mimeType: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof DocumentEntry
+     */
+    status: string;
 }
 
 /**
  * Check if a given object implements the DocumentEntry interface.
  */
 export function instanceOfDocumentEntry(value: object): value is DocumentEntry {
+    if (!('id' in value) || value['id'] === undefined) return false;
     if (!('filename' in value) || value['filename'] === undefined) return false;
-    if (!('filePath' in value) || value['filePath'] === undefined) return false;
     if (!('category' in value) || value['category'] === undefined) return false;
     if (!('confidence' in value) || value['confidence'] === undefined) return false;
     if (!('timestamp' in value) || value['timestamp'] === undefined) return false;
+    if (!('fileSize' in value) || value['fileSize'] === undefined) return false;
+    if (!('mimeType' in value) || value['mimeType'] === undefined) return false;
+    if (!('status' in value) || value['status'] === undefined) return false;
     return true;
 }
 
@@ -73,11 +94,14 @@ export function DocumentEntryFromJSONTyped(json: any, ignoreDiscriminator: boole
     }
     return {
         
+        'id': json['id'],
         'filename': json['filename'],
-        'filePath': json['file_path'],
         'category': json['category'],
         'confidence': json['confidence'],
         'timestamp': json['timestamp'],
+        'fileSize': json['file_size'],
+        'mimeType': json['mime_type'],
+        'status': json['status'],
     };
 }
 
@@ -92,11 +116,14 @@ export function DocumentEntryToJSONTyped(value?: DocumentEntry | null, ignoreDis
 
     return {
         
+        'id': value['id'],
         'filename': value['filename'],
-        'file_path': value['filePath'],
         'category': value['category'],
         'confidence': value['confidence'],
         'timestamp': value['timestamp'],
+        'file_size': value['fileSize'],
+        'mime_type': value['mimeType'],
+        'status': value['status'],
     };
 }
 

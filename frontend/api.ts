@@ -3,51 +3,28 @@ import {
   QueryApi,
   CategoryApi,
   FeedbackApi,
+  AuthApi,
   Configuration,
 } from "@/generated";
 
-// API configuration utilities
-function getApiBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_API_URL || "";
-}
+// Use relative URLs to leverage Next.js proxy
+let apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
-function getApiUrl(): string {
-  const apiBaseUrl = getApiBaseUrl();
-  
-  if (apiBaseUrl) {
-    return apiBaseUrl;
-  } else {
-    // Fallback to current host with development port
-    const protocol = window.location.protocol;
-    const host = window.location.hostname;
-    const port = process.env.NODE_ENV === 'development' ? '5000' : window.location.port;
-    return `${protocol}//${host}:${port}`;
-  }
-}
+// Keep an in-memory token so we can immediately use fresh tokens after login
+let currentToken: string | null = null;
 
-function getWebSocketUrl(clientId: string): string {
-  const apiBaseUrl = getApiBaseUrl();
-  
-  if (apiBaseUrl) {
-    // If API base URL is configured, use it for WebSocket too
-    const url = new URL(apiBaseUrl);
-    const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${url.host}/ws/${clientId}`;
-  } else {
-    // Fallback to current host with development port
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname;
-    const port = process.env.NODE_ENV === 'development' ? '5000' : window.location.port;
-    return `${protocol}//${host}:${port}/ws/${clientId}`;
-  }
-}
+// Callback function to get the current token
+const getCurrentToken = async (): Promise<string> => {
+  const token = typeof window !== 'undefined'
+    ? (currentToken ?? localStorage.getItem('auth_token'))
+    : currentToken;
+  return token || '';
+};
 
-// Use the same base URL logic as WebSocket
-let apiBaseUrl = getApiUrl();
-
-// Create a central configuration
+// Create initial configuration
 let sharedConfig = new Configuration({
   basePath: apiBaseUrl,
+  accessToken: getCurrentToken,
 });
 
 // Declare API clients (initially with the default sharedConfig)
@@ -55,14 +32,32 @@ export let uploadApi = new UploadApi(sharedConfig);
 export let queryApi = new QueryApi(sharedConfig);
 export let categoryApi = new CategoryApi(sharedConfig);
 export let feedbackApi = new FeedbackApi(sharedConfig);
+export let authApi = new AuthApi(sharedConfig);
 
 // Function to update the API Base URL dynamically
 export const setCurrentClientConfig = (url: string) => {
   apiBaseUrl = url;
+  updateApiClients();
+};
 
-  // Update the shared configuration with the new base URL
+// Allow setting/clearing the auth token explicitly (e.g., after login/logout)
+export const setAuthToken = (token: string | null) => {
+  currentToken = token;
+  if (typeof window !== 'undefined') {
+    if (token) {
+      localStorage.setItem('auth_token', token);
+    } else {
+      localStorage.removeItem('auth_token');
+    }
+  }
+  updateApiClients();
+};
+
+// Function to update API clients with current authentication
+export const updateApiClients = () => {
   sharedConfig = new Configuration({
     basePath: apiBaseUrl,
+    accessToken: getCurrentToken,
   });
 
   // Reinitialize API clients with the updated sharedConfig
@@ -70,29 +65,13 @@ export const setCurrentClientConfig = (url: string) => {
   queryApi = new QueryApi(sharedConfig);
   categoryApi = new CategoryApi(sharedConfig);
   feedbackApi = new FeedbackApi(sharedConfig);
+  authApi = new AuthApi(sharedConfig);
 };
 
 // WebSocket utilities
-export const createWebSocketUrl = (clientId: string): string => {
-  return getWebSocketUrl(clientId);
+export const createWebSocketUrl = (): string => {
+  // WebSocket connects through custom Next.js server proxy
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}/ws`;
 };
 
-export const generateClientId = (): string => {
-  // Try to get existing client ID from localStorage
-  const existingClientId = localStorage.getItem('scanpro_client_id');
-  if (existingClientId) {
-    return existingClientId;
-  }
-  
-  // Generate new client ID and store it
-  const newClientId = Math.random().toString(36).substr(2, 9);
-  localStorage.setItem('scanpro_client_id', newClientId);
-  return newClientId;
-};
-
-export const clearClientId = (): void => {
-  localStorage.removeItem('scanpro_client_id');
-};
-
-// Export the utility functions for consistency
-export { getApiUrl, getWebSocketUrl };

@@ -1,11 +1,77 @@
 #!/bin/bash
 
 # ScanPro Entrypoint Script
-# Starts both FastAPI backend and Next.js frontend
+# Starts PostgreSQL database, FastAPI backend, and Next.js frontend
 
 set -e
 
 echo "🚀 Starting ScanPro Services..."
+
+# Fatal error function
+fatal() {
+    echo "❌ FATAL ERROR: $1"
+    echo "🛑 Container will now exit"
+    exit 1
+}
+
+# Function to initialize and start PostgreSQL database
+init_database() {
+    echo "🗄️ Starting PostgreSQL database..."
+
+    # Create directories
+    mkdir -p /app/APP_DATA/db/postgres_data
+    chown -R postgres:postgres /app/APP_DATA/db
+
+    # Initialize database if needed
+    if [ ! -f /app/APP_DATA/db/postgres_data/PG_VERSION ]; then
+        echo "📝 Initializing PostgreSQL database..."
+        su postgres -c "initdb --pgdata /app/APP_DATA/db/postgres_data --auth-local trust --auth-host md5 --encoding UTF8 --locale C --no-sync"
+        if [ $? -ne 0 ]; then
+            fatal "PostgreSQL database initialization failed"
+        fi
+    fi
+
+    # Start PostgreSQL server in background
+    echo "🚀 Starting PostgreSQL server on ${POSTGRES_HOST}:${POSTGRES_PORT}"
+    su postgres -c "postgres -D /app/APP_DATA/db/postgres_data -h 0.0.0.0 -p ${POSTGRES_PORT}" > /app/APP_DATA/db/postgres.log 2>&1 &
+    DB_PID=$!
+
+    # Wait for database to be ready
+    echo "⏳ Waiting for database to be ready..."
+    for i in {1..30}; do
+        # Check if PostgreSQL process is still running
+        if ! kill -0 $DB_PID 2>/dev/null; then
+            echo "❌ PostgreSQL process died unexpectedly"
+            echo "PostgreSQL logs:"
+            cat /app/APP_DATA/db/postgres.log 2>/dev/null || echo "No log file found"
+            fatal "PostgreSQL process died"
+        fi
+        
+        # Try to connect to database
+        if su postgres -c "psql -d postgres -c 'SELECT 1;'" >/dev/null 2>&1; then
+            echo "✅ Database is ready!"
+            break
+        fi
+        echo "⏳ Waiting for database... ($i/30)"
+        sleep 2
+    done
+
+    # Check if database is ready
+    if ! su postgres -c "psql -d postgres -c 'SELECT 1;'" >/dev/null 2>&1; then
+        kill $DB_PID 2>/dev/null
+        fatal "Database failed to start within 60 seconds"
+    fi
+
+    # Set postgres user password
+    echo "🔐 Setting postgres user password..."
+    su postgres -c "psql -c \"ALTER USER postgres PASSWORD '${POSTGRES_PASSWORD}';\""
+
+    # Create application database
+    echo "📝 Creating application database..."
+    su postgres -c "createdb ${POSTGRES_DB_NAME}" 2>/dev/null || echo "ℹ️ Database '${POSTGRES_DB_NAME}' already exists"
+
+    echo -e "\033[92m✅ PostgreSQL database started successfully\033[0m"
+}
 
 # Normalize NODE_ENV for Next.js compatibility
 if [ "$NODE_ENV" = "dev" ]; then
@@ -19,12 +85,15 @@ fi
 # Function to handle shutdown
 cleanup() {
     echo "🛑 Shutting down services..."
-    kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
+    kill $DB_PID $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
     exit 0
 }
 
 # Set up signal handlers
 trap cleanup SIGTERM SIGINT
+
+# Initialize and start PostgreSQL database
+init_database
 
 # Start backend
 echo "📡 Starting FastAPI backend on port 5000..."
@@ -46,13 +115,8 @@ BACKEND_PID=$!
 # Start frontend in background
 echo "🌐 Starting Next.js frontend on port 3000..."
 cd /app/frontend
-npm start &
+npm start > /app/APP_DATA/logs/frontend.log 2>&1 &
 FRONTEND_PID=$!
-
-echo "✅ Both services started!"
-echo "   Backend: http://localhost:5000"
-echo "   Frontend: http://localhost:3000"
-echo "   API Docs: http://localhost:5000/docs"
 
 # Wait for backend process - if it dies, container exits
 wait $BACKEND_PID

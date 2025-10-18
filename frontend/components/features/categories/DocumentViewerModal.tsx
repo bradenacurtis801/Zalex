@@ -5,6 +5,7 @@ import { CategoryDocument } from '@/hooks/useCategories'
 import { Button } from '@/components/ui'
 import { StatusMessage } from '@/components/ui'
 import { getCategoryColor } from '@/utils/categoryUtils'
+import { uploadApi } from '@/api'
 import ReclassificationModal from './ReclassificationModal'
 
 interface DocumentViewerModalProps {
@@ -52,13 +53,10 @@ export default function DocumentViewerModal({
         
         // Fetch PDF pages (converted to images) - backend handles caching transparently
         try {
-          const pagesResponse = await fetch(`/api/documents/${encodeURIComponent(document.filename)}/pages`)
-          if (pagesResponse.ok) {
-            const pagesData = await pagesResponse.json()
-            setPdfPages(pagesData.pages || [])
-          } else {
-            throw new Error('Failed to load PDF pages')
-          }
+          const pagesData = await uploadApi.getPdfPagesApiDocumentsDocumentIdPagesGet({
+            documentId: document.id
+          })
+          setPdfPages(pagesData.pages || [])
         } catch (err) {
           console.error('Error loading PDF pages:', err)
           setPdfLoadError(true)
@@ -69,13 +67,9 @@ export default function DocumentViewerModal({
       } else {
         setContentType('text')
         // For text files, try to fetch the content
-        const response = await fetch(`/api/documents/${encodeURIComponent(document.filename)}/content`)
-        
-        if (!response.ok) {
-          throw new Error(`Failed to load document content: ${response.status}`)
-        }
-        
-        const data = await response.json()
+        const data = await uploadApi.getDocumentContentApiDocumentsDocumentIdContentGet({
+          documentId: document.id
+        })
         setDocumentContent(data.content || '')
       }
     } catch (err) {
@@ -86,14 +80,30 @@ export default function DocumentViewerModal({
     }
   }
 
-  const handleDownload = () => {
-    // Create a download link for the document
-    const link = window.document.createElement('a')
-    link.href = `/api/documents/${encodeURIComponent(document.filename)}/download`
-    link.download = document.filename
-    window.document.body.appendChild(link)
-    link.click()
-    window.document.body.removeChild(link)
+  const handleDownload = async () => {
+    try {
+      // Use the API to get the download URL
+      const response = await uploadApi.downloadDocumentApiDocumentsDocumentIdDownloadGet({
+        documentId: document.id
+      })
+      
+      // Create a download link for the document
+      const link = window.document.createElement('a')
+      link.href = response.url || `/api/documents/${encodeURIComponent(document.id)}/download`
+      link.download = document.filename
+      window.document.body.appendChild(link)
+      link.click()
+      window.document.body.removeChild(link)
+    } catch (error) {
+      console.error('Error downloading document:', error)
+      // Fallback to direct URL
+      const link = window.document.createElement('a')
+      link.href = `/api/documents/${encodeURIComponent(document.id)}/download`
+      link.download = document.filename
+      window.document.body.appendChild(link)
+      link.click()
+      window.document.body.removeChild(link)
+    }
   }
 
   const handleClose = () => {
@@ -168,12 +178,6 @@ export default function DocumentViewerModal({
               </span>
             </div>
             <div>
-              <span className="font-medium text-gray-700">File Path:</span>
-              <span className="ml-2 text-gray-600 text-xs break-all">
-                {document.filePath}
-              </span>
-            </div>
-            <div>
               <span className="font-medium text-gray-700">Added:</span>
               <span className="ml-2 text-gray-600">
                 {formatDate(document.timestamp)}
@@ -224,7 +228,7 @@ export default function DocumentViewerModal({
           {!loading && !error && contentType === 'image' && (
             <div className="text-center">
               <img
-                src={`/api/documents/${encodeURIComponent(document.filename)}/content`}
+                src={`/api/documents/${encodeURIComponent(document.id)}/content`}
                 alt={document.filename}
                 className="max-w-full max-h-96 mx-auto rounded-lg shadow-lg"
                 onError={() => setError('Failed to load image')}

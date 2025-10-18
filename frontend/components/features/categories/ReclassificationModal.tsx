@@ -11,6 +11,7 @@ interface ReclassificationModalProps {
   onClose: () => void
   onSuccess: () => void
   document: {
+    id: string
     filename: string
     category: string
     confidence: number
@@ -48,6 +49,7 @@ export default function ReclassificationModal({
 
     try {
       const request: ReclassificationRequest = {
+        id: document.id,
         filename: document.filename,
         currentCategory: document.category,
         newCategory: selectedCategory,

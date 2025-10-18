@@ -3,12 +3,11 @@ import os
 import uuid
 
 import config
-from fastapi import APIRouter, Depends, File, HTTPException, Query
-from fastapi import Path as FastAPIPath
-from fastapi import UploadFile
-from fastapi.responses import FileResponse, JSONResponse
-from src.dependencies import get_pdf_service, get_upload_service
-from src.models.upload import UploadResponse
+from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi.responses import FileResponse, Response
+from src.dependencies import get_pdf_service, get_upload_service, get_current_user
+from src.models.database import User
+from src.models.schemas.upload import UploadResponse
 from src.services.pdf_service import PDFService
 from src.services.upload_service import UploadService
 
@@ -19,209 +18,131 @@ router = APIRouter()
 @router.post("/upload", response_model=UploadResponse)
 async def upload_files(
     files: list[UploadFile] = File(...),
-    client_id: str = Query(None, description="Client ID for WebSocket progress updates"),
     upload_service: UploadService = Depends(get_upload_service),
+    current_user: User = Depends(get_current_user),
 ) -> UploadResponse:
     """Handles the file upload and initiates the processing pipeline."""
-    logger.info(f"Received upload request with {len(files)} file(s)")
+    logger.info(f"Received upload request with {len(files)} file(s) from user {current_user.id}")
     
-    return await upload_service.process_upload(files, client_id)
+    return await upload_service.process_upload(files, current_user.id)
 
 
-@router.get("/documents/{filename}/content")
+@router.get("/documents/{document_id}/content")
 async def get_document_content(
-    filename: str = FastAPIPath(
-        ...,
-        regex=r"^[a-zA-Z0-9._-]+$",
-        min_length=1,
-        max_length=255,
-        description="Document filename (content-based hash format)",
-    )
+    document_id: str,
+    pdf_service: PDFService = Depends(get_pdf_service),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get the content of a document for viewing.
 
     Args:
-        filename: Name of the file to retrieve
+        document_id: Document ID (SHA256 hash)
+        pdf_service: PDF service instance
+        current_user: Authenticated user
 
     Returns:
         File content or text content
     """
-    logger.info(f"Received request for document content: {filename}")
-
-    # Security check - ensure filename doesn't contain path traversal
-    if ".." in filename or "/" in filename or "\\" in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename")
-
-    file_path = os.path.join(config.UPLOAD_DIR, filename)
-
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    # Determine file type
-    file_extension = filename.lower().split(".")[-1]
-
-    if file_extension in ["pdf"]:
-        # For PDFs, return with proper MIME type for browser display
-        return FileResponse(
-            path=file_path,
-            media_type="application/pdf",
-            filename=filename,
-            headers={"Content-Disposition": "inline"},
-        )
-    elif file_extension in ["jpg", "jpeg", "png", "gif", "bmp"]:
-        # For images, return with proper MIME type
-        media_type = (
-            f"image/{file_extension}" if file_extension != "jpg" else "image/jpeg"
-        )
-        return FileResponse(
-            path=file_path,
-            media_type=media_type,
-            filename=filename,
-            headers={"Content-Disposition": "inline"},
-        )
-    else:
-        # For text files, return the content
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            return {"content": content, "filename": filename}
-        except UnicodeDecodeError:
-            # If it's not a text file, return as binary
-            return FileResponse(
-                path=file_path, media_type="application/octet-stream", filename=filename
-            )
+    logger.info(f"Received request for document content: {document_id} from user {current_user.id}")
+    return pdf_service.get_document_content_response(document_id)
 
 
-@router.get("/documents/{filename}/download")
+@router.get("/documents/{document_id}/download")
 async def download_document(
-    filename: str = FastAPIPath(
-        ...,
-        regex=r"^[a-zA-Z0-9._-]+$",
-        min_length=1,
-        max_length=255,
-        description="Document filename (content-based hash format)",
-    )
+    document_id: str,
+    pdf_service: PDFService = Depends(get_pdf_service),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Download a document file.
 
     Args:
-        filename: Name of the file to download
+        document_id: Document ID (SHA256 hash)
+        pdf_service: PDF service instance
+        current_user: Authenticated user
 
     Returns:
         File download response
     """
-    logger.info(f"Received download request for: {filename}")
-
-    # Security check - ensure filename doesn't contain path traversal
-    if ".." in filename or "/" in filename or "\\" in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename")
-
-    file_path = os.path.join(config.UPLOAD_DIR, filename)
-
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    return FileResponse(
-        path=file_path,
-        filename=filename,
-        media_type="application/octet-stream",
-        headers={"Content-Disposition": "attachment"},
-    )
+    logger.info(f"Received download request for: {document_id} from user {current_user.id}")
+    return pdf_service.get_document_download_response(document_id)
 
 
-@router.get("/documents/{filename}/pages")
+@router.get("/documents/{document_id}/pages")
 async def get_pdf_pages(
-    filename: str = FastAPIPath(
-        ...,
-        regex=r"^[a-zA-Z0-9._-]+$",
-        min_length=1,
-        max_length=255,
-        description="PDF filename (content-based hash format)",
-    ),
+    document_id: str,
+    max_pages: int = Query(20, ge=1, le=100, description="Maximum number of pages to convert"),
     pdf_service: PDFService = Depends(get_pdf_service),
+    current_user: User = Depends(get_current_user),
 ):
     """
-    Convert PDF to images and return page information.
+    Get PDF pages with caching - first check cache, then convert if needed.
 
     Args:
-        filename: Name of the PDF file
+        document_id: Document ID (SHA256 hash)
+        max_pages: Maximum number of pages to convert
         pdf_service: PDF service instance
+        current_user: Authenticated user
 
     Returns:
-        JSON with page information and image URLs
+        JSON with page information and image data
     """
-    logger.info(f"Received request for PDF pages: {filename}")
-
-    try:
-        result = pdf_service.convert_pdf_to_pages(filename, max_pages=20)
-
-        # Return with caching headers for browser caching
-        response = JSONResponse(content=result)
-        response.headers["Cache-Control"] = "public, max-age=3600"  # Cache for 1 hour
-        response.headers["ETag"] = (
-            f'"{filename}"'  # Use filename as ETag for cache validation
-        )
-
-        return response
-
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error converting PDF to pages: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to convert PDF: {str(e)}")
+    logger.info(f"Received request for PDF pages: document_id={document_id}, max_pages={max_pages} from user {current_user.id}")
+    return pdf_service.get_pdf_pages(document_id, max_pages)
 
 
-@router.get("/pdf-cache/stats")
-async def get_pdf_cache_stats(pdf_service: PDFService = Depends(get_pdf_service)):
-    """
-    Get PDF cache statistics.
+# PROBABLY NOT NEEDED
 
-    Args:
-        pdf_service: PDF service instance
+# @router.get("/pdf-cache/stats")
+# async def get_pdf_cache_stats(pdf_service: PDFService = Depends(get_pdf_service)):
+#     """
+#     Get PDF cache statistics.
 
-    Returns:
-        Cache statistics
-    """
-    logger.info("Received request for PDF cache stats")
+#     Args:
+#         pdf_service: PDF service instance
 
-    try:
-        stats = pdf_service.get_cache_stats()
-        return stats
+#     Returns:
+#         Cache statistics
+#     """
+#     logger.info("Received request for PDF cache stats")
 
-    except Exception as e:
-        logger.error(f"Error getting cache stats: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to get cache stats: {str(e)}"
-        )
+#     try:
+#         stats = pdf_service.get_cache_stats()
+#         return stats
+
+#     except Exception as e:
+#         logger.error(f"Error getting cache stats: {e}")
+#         raise HTTPException(
+#             status_code=500, detail=f"Failed to get cache stats: {str(e)}"
+#         )
 
 
-@router.post("/pdf-cache/cleanup")
-async def cleanup_pdf_cache(pdf_service: PDFService = Depends(get_pdf_service)):
-    """
-    Clean up expired PDF cache files.
+# PROBABLY NOT NEEDED
 
-    Args:
-        pdf_service: PDF service instance
+# @router.post("/pdf-cache/cleanup")
+# async def cleanup_pdf_cache(pdf_service: PDFService = Depends(get_pdf_service)):
+#     """
+#     Clean up expired PDF cache files.
 
-    Returns:
-        Cleanup results
-    """
-    logger.info("Received request to cleanup PDF cache")
+#     Args:
+#         pdf_service: PDF service instance
 
-    try:
-        cleaned_count = pdf_service.cleanup_expired_cache()
-        return {
-            "success": True,
-            "cleaned_files": cleaned_count,
-            "message": f"Cleaned up {cleaned_count} expired cache files",
-        }
+#     Returns:
+#         Cleanup results
+#     """
+#     logger.info("Received request to cleanup PDF cache")
 
-    except Exception as e:
-        logger.error(f"Error cleaning up cache: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to cleanup cache: {str(e)}"
-        )
+#     try:
+#         cleaned_count = pdf_service.cleanup_expired_cache()
+#         return {
+#             "success": True,
+#             "cleaned_files": cleaned_count,
+#             "message": f"Cleaned up {cleaned_count} expired cache files",
+#         }
+
+#     except Exception as e:
+#         logger.error(f"Error cleaning up cache: {e}")
+#         raise HTTPException(
+#             status_code=500, detail=f"Failed to cleanup cache: {str(e)}"
+#         )

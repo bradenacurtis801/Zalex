@@ -5,133 +5,128 @@ from fastapi import HTTPException, status
 
 class ScanProException(Exception):
     """Base exception for ScanPro application."""
-
-    pass
+    def __init__(self, message: str = "An error occurred in the ScanPro application"):
+        super().__init__(message)
 
 
 class DocumentProcessingException(ScanProException):
     """Raised when document processing fails."""
-
-    pass
+    def __init__(self, message: str = "Document processing failed. Please try again."):
+        super().__init__(message)
 
 
 class OCRNotAvailableException(DocumentProcessingException):
     """Raised when OCR engine (Tesseract) is not available."""
-
-    pass
+    def __init__(self, message: str = "OCR service is not available. Please ensure Tesseract is installed."):
+        super().__init__(message)
 
 
 class ClassifierNotAvailableException(DocumentProcessingException):
     """Raised when document classifier is not available for processing."""
-
-    pass
+    def __init__(self, message: str = "Document classification service is not available. Please contact support."):
+        super().__init__(message)
 
 
 class FileProcessingException(ScanProException):
     """Raised when file processing fails."""
-
-    pass
+    def __init__(self, message: str = "File processing failed. Please try again."):
+        super().__init__(message)
 
 
 class FeedbackException(ScanProException):
     """Raised when feedback operations fail."""
-
-    pass
+    def __init__(self, message: str = "Feedback operation failed. Please try again."):
+        super().__init__(message)
 
 
 class DocumentNotFoundError(FeedbackException):
     """Raised when a document is not found for reclassification."""
-
-    pass
+    def __init__(self, message: str = "Document not found."):
+        super().__init__(message)
 
 
 class CategoryNotFoundError(FeedbackException):
     """Raised when a category is not found."""
-
-    pass
+    def __init__(self, message: str = "Category not found."):
+        super().__init__(message)
 
 
 class InvalidModelDirectoryError(ScanProException):
     """Raised when a model directory is invalid or missing required files."""
-
-    pass
+    def __init__(self, message: str = "Invalid model directory. Required files are missing."):
+        super().__init__(message)
 
 
 class InvalidModelMetadataError(ScanProException):
     """Raised when model metadata is invalid or missing required fields."""
+    def __init__(self, message: str = "Invalid model metadata. Required fields are missing."):
+        super().__init__(message)
 
-    pass
+# Authentication exceptions
+class AuthenticationException(Exception):
+    """Base class for authentication exceptions"""
+    def __init__(self, message: str = "Authentication error"):
+        super().__init__(message)
+
+class UserNotFoundException(AuthenticationException):
+    """Raised when user is not found"""
+    def __init__(self, message: str = "User not found"):
+        super().__init__(message)
+
+class InvalidCredentialsException(AuthenticationException):
+    """Raised when credentials are invalid"""
+    def __init__(self, message: str = "Invalid credentials"):
+        super().__init__(message)
+
+class PermissionDeniedException(AuthenticationException):
+    """Raised when user lacks required permissions"""
+    def __init__(self, message: str = "Permission denied"):
+        super().__init__(message)
+
+class SessionExpiredException(AuthenticationException):
+    """Raised when token has expired"""
+    def __init__(self, message: str = "Token has expired"):
+        super().__init__(message)
+
+class UserAlreadyExistsException(AuthenticationException):
+    """Raised when trying to create a user that already exists"""
+    def __init__(self, message: str = "User already exists"):
+        super().__init__(message)
 
 
 def map_to_http_exception(exc: Exception) -> HTTPException:
     """Map custom exceptions to HTTP exceptions."""
     mapping = {
         # ScanPro application exceptions
-        OCRNotAvailableException: (
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            lambda exc: "OCR service is not available. Please ensure Tesseract is installed.",
-        ),
-        ClassifierNotAvailableException: (
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            lambda exc: "Document classification service is not available. Please contact support.",
-        ),
-        DocumentProcessingException: (
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            lambda exc: "Document processing failed. Please try again.",  # Generic for security
-        ),
-        FileProcessingException: (
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            lambda exc: "File processing failed. Please try again.",  # Generic for security
-        ),
-        DocumentNotFoundError: (
-            status.HTTP_404_NOT_FOUND,
-            lambda exc: str(exc),  # Safe to expose - user-friendly message
-        ),
-        CategoryNotFoundError: (
-            status.HTTP_404_NOT_FOUND,
-            lambda exc: str(exc),  # Safe to expose - user-friendly message
-        ),
-        FeedbackException: (
-            status.HTTP_400_BAD_REQUEST,
-            lambda exc: "Feedback operation failed. Please try again.",  # Generic message for security
-        ),
-        ScanProException: (
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            lambda exc: "An unexpected error occurred. Please try again.",  # Generic for security
-        ),
+        OCRNotAvailableException: (status.HTTP_503_SERVICE_UNAVAILABLE, lambda exc: str(exc)),
+        ClassifierNotAvailableException: (status.HTTP_503_SERVICE_UNAVAILABLE, lambda exc: str(exc)),
+        DocumentProcessingException: (status.HTTP_500_INTERNAL_SERVER_ERROR, lambda exc: str(exc)),
+        FileProcessingException: (status.HTTP_500_INTERNAL_SERVER_ERROR, lambda exc: str(exc)),
+        DocumentNotFoundError: (status.HTTP_404_NOT_FOUND, lambda exc: str(exc)),
+        CategoryNotFoundError: (status.HTTP_404_NOT_FOUND, lambda exc: str(exc)),
+        FeedbackException: (status.HTTP_400_BAD_REQUEST, lambda exc: str(exc)),
+        ScanProException: (status.HTTP_500_INTERNAL_SERVER_ERROR, lambda exc: str(exc)),
+        
         # File validation exceptions
         ValueError: (status.HTTP_400_BAD_REQUEST, lambda exc: str(exc)),
-        FileNotFoundError: (
-            status.HTTP_404_NOT_FOUND,
-            lambda exc: "File not found.",  # Generic for security
-        ),
-        PermissionError: (
-            status.HTTP_403_FORBIDDEN,
-            lambda exc: "Permission denied.",  # Generic for security
-        ),
+        FileNotFoundError: (status.HTTP_404_NOT_FOUND, lambda exc: str(exc)),
+        PermissionError: (status.HTTP_403_FORBIDDEN, lambda exc: str(exc)),
         # Document processing exceptions
-        RuntimeError: (
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            lambda exc: "Processing error. Please try again.",  # Generic for security
-        ),
+        RuntimeError: (status.HTTP_500_INTERNAL_SERVER_ERROR, lambda exc: str(exc)),
         # Index/search exceptions
-        IndexError: (
-            status.HTTP_404_NOT_FOUND,
-            lambda exc: "Resource not found.",
-        ),  # Generic for security
-        KeyError: (
-            status.HTTP_404_NOT_FOUND,
-            lambda exc: "Resource not found.",
-        ),  # Generic for security
+        IndexError: (status.HTTP_404_NOT_FOUND, lambda exc: str(exc)),
+        KeyError: (status.HTTP_404_NOT_FOUND, lambda exc: str(exc)),
         # Memory/resource exceptions
-        MemoryError: (
-            status.HTTP_507_INSUFFICIENT_STORAGE,
-            lambda exc: "Insufficient resources. Please try again.",  # Generic for security
-        ),
-        OSError: (
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            lambda exc: "System error. Please try again.",  # Generic for security
-        ),
+        MemoryError: (status.HTTP_507_INSUFFICIENT_STORAGE, lambda exc: str(exc)),
+        OSError: (status.HTTP_500_INTERNAL_SERVER_ERROR, lambda exc: str(exc)),
+
+        # Authentication exceptions
+        UserNotFoundException: (status.HTTP_404_NOT_FOUND, lambda exc: str(exc)),
+        InvalidCredentialsException: (status.HTTP_401_UNAUTHORIZED, lambda exc: str(exc)),
+        PermissionDeniedException: (status.HTTP_403_FORBIDDEN, lambda exc: str(exc)),
+        SessionExpiredException: (status.HTTP_401_UNAUTHORIZED, lambda exc: str(exc)),
+        UserAlreadyExistsException: (status.HTTP_400_BAD_REQUEST, lambda exc: str(exc)),
+        AuthenticationException: (status.HTTP_401_UNAUTHORIZED, lambda exc: str(exc)),
     }
 
     if type(exc) in mapping:

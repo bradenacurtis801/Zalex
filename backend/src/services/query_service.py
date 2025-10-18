@@ -6,7 +6,7 @@ from typing import List, Optional
 import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
-from src.models.query import QueryResponse, SearchResult
+from src.models.schemas.query import QueryResponse, SearchResult
 
 logger = logging.getLogger(__name__)
 

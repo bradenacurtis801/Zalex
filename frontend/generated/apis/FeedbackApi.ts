@@ -43,7 +43,7 @@ export interface ReclassifyDocumentApiFeedbackReclassifyPostRequest {
  */
 export interface FeedbackApiInterface {
     /**
-     * Get a summary of feedback corrections and model updates.  Args:     feedback_service: Feedback service instance  Returns:     FeedbackSummary with correction statistics
+     * Get a summary of feedback corrections and model updates.  Args:     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     FeedbackSummary with correction statistics
      * @summary Get Feedback Summary
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -52,13 +52,13 @@ export interface FeedbackApiInterface {
     getFeedbackSummaryApiFeedbackSummaryGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<FeedbackSummary>>;
 
     /**
-     * Get a summary of feedback corrections and model updates.  Args:     feedback_service: Feedback service instance  Returns:     FeedbackSummary with correction statistics
+     * Get a summary of feedback corrections and model updates.  Args:     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     FeedbackSummary with correction statistics
      * Get Feedback Summary
      */
     getFeedbackSummaryApiFeedbackSummaryGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<FeedbackSummary>;
 
     /**
-     * Reclassify a document based on user feedback.  Args:     request: Reclassification request with document details     feedback_service: Feedback service instance  Returns:     ReclassificationResponse with processing results
+     * Reclassify a document based on user feedback.  Args:     request: Reclassification request with document details     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     ReclassificationResponse with processing results
      * @summary Reclassify Document
      * @param {ReclassificationRequest} reclassificationRequest 
      * @param {*} [options] Override http request option.
@@ -68,25 +68,10 @@ export interface FeedbackApiInterface {
     reclassifyDocumentApiFeedbackReclassifyPostRaw(requestParameters: ReclassifyDocumentApiFeedbackReclassifyPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ReclassificationResponse>>;
 
     /**
-     * Reclassify a document based on user feedback.  Args:     request: Reclassification request with document details     feedback_service: Feedback service instance  Returns:     ReclassificationResponse with processing results
+     * Reclassify a document based on user feedback.  Args:     request: Reclassification request with document details     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     ReclassificationResponse with processing results
      * Reclassify Document
      */
     reclassifyDocumentApiFeedbackReclassifyPost(requestParameters: ReclassifyDocumentApiFeedbackReclassifyPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ReclassificationResponse>;
-
-    /**
-     * Manually trigger a model update based on accumulated feedback.  Args:     feedback_service: Feedback service instance  Returns:     dict: Update status and results
-     * @summary Trigger Model Update
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof FeedbackApiInterface
-     */
-    triggerModelUpdateApiFeedbackUpdateModelPostRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<{ [key: string]: any; }>>;
-
-    /**
-     * Manually trigger a model update based on accumulated feedback.  Args:     feedback_service: Feedback service instance  Returns:     dict: Update status and results
-     * Trigger Model Update
-     */
-    triggerModelUpdateApiFeedbackUpdateModelPost(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: any; }>;
 
 }
 
@@ -96,7 +81,7 @@ export interface FeedbackApiInterface {
 export class FeedbackApi extends runtime.BaseAPI implements FeedbackApiInterface {
 
     /**
-     * Get a summary of feedback corrections and model updates.  Args:     feedback_service: Feedback service instance  Returns:     FeedbackSummary with correction statistics
+     * Get a summary of feedback corrections and model updates.  Args:     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     FeedbackSummary with correction statistics
      * Get Feedback Summary
      */
     async getFeedbackSummaryApiFeedbackSummaryGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<FeedbackSummary>> {
@@ -104,6 +89,14 @@ export class FeedbackApi extends runtime.BaseAPI implements FeedbackApiInterface
 
         const headerParameters: runtime.HTTPHeaders = {};
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("HTTPBearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
 
         let urlPath = `/api/feedback/summary`;
 
@@ -118,7 +111,7 @@ export class FeedbackApi extends runtime.BaseAPI implements FeedbackApiInterface
     }
 
     /**
-     * Get a summary of feedback corrections and model updates.  Args:     feedback_service: Feedback service instance  Returns:     FeedbackSummary with correction statistics
+     * Get a summary of feedback corrections and model updates.  Args:     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     FeedbackSummary with correction statistics
      * Get Feedback Summary
      */
     async getFeedbackSummaryApiFeedbackSummaryGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<FeedbackSummary> {
@@ -127,7 +120,7 @@ export class FeedbackApi extends runtime.BaseAPI implements FeedbackApiInterface
     }
 
     /**
-     * Reclassify a document based on user feedback.  Args:     request: Reclassification request with document details     feedback_service: Feedback service instance  Returns:     ReclassificationResponse with processing results
+     * Reclassify a document based on user feedback.  Args:     request: Reclassification request with document details     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     ReclassificationResponse with processing results
      * Reclassify Document
      */
     async reclassifyDocumentApiFeedbackReclassifyPostRaw(requestParameters: ReclassifyDocumentApiFeedbackReclassifyPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ReclassificationResponse>> {
@@ -144,6 +137,14 @@ export class FeedbackApi extends runtime.BaseAPI implements FeedbackApiInterface
 
         headerParameters['Content-Type'] = 'application/json';
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("HTTPBearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
 
         let urlPath = `/api/feedback/reclassify`;
 
@@ -159,42 +160,11 @@ export class FeedbackApi extends runtime.BaseAPI implements FeedbackApiInterface
     }
 
     /**
-     * Reclassify a document based on user feedback.  Args:     request: Reclassification request with document details     feedback_service: Feedback service instance  Returns:     ReclassificationResponse with processing results
+     * Reclassify a document based on user feedback.  Args:     request: Reclassification request with document details     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     ReclassificationResponse with processing results
      * Reclassify Document
      */
     async reclassifyDocumentApiFeedbackReclassifyPost(requestParameters: ReclassifyDocumentApiFeedbackReclassifyPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ReclassificationResponse> {
         const response = await this.reclassifyDocumentApiFeedbackReclassifyPostRaw(requestParameters, initOverrides);
-        return await response.value();
-    }
-
-    /**
-     * Manually trigger a model update based on accumulated feedback.  Args:     feedback_service: Feedback service instance  Returns:     dict: Update status and results
-     * Trigger Model Update
-     */
-    async triggerModelUpdateApiFeedbackUpdateModelPostRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<{ [key: string]: any; }>> {
-        const queryParameters: any = {};
-
-        const headerParameters: runtime.HTTPHeaders = {};
-
-
-        let urlPath = `/api/feedback/update-model`;
-
-        const response = await this.request({
-            path: urlPath,
-            method: 'POST',
-            headers: headerParameters,
-            query: queryParameters,
-        }, initOverrides);
-
-        return new runtime.JSONApiResponse<any>(response);
-    }
-
-    /**
-     * Manually trigger a model update based on accumulated feedback.  Args:     feedback_service: Feedback service instance  Returns:     dict: Update status and results
-     * Trigger Model Update
-     */
-    async triggerModelUpdateApiFeedbackUpdateModelPost(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: any; }> {
-        const response = await this.triggerModelUpdateApiFeedbackUpdateModelPostRaw(initOverrides);
         return await response.value();
     }
 

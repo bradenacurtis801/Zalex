@@ -24,6 +24,12 @@ export interface ReclassificationRequest {
      * @type {string}
      * @memberof ReclassificationRequest
      */
+    id: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ReclassificationRequest
+     */
     filename: string;
     /**
      * 
@@ -55,6 +61,7 @@ export interface ReclassificationRequest {
  * Check if a given object implements the ReclassificationRequest interface.
  */
 export function instanceOfReclassificationRequest(value: object): value is ReclassificationRequest {
+    if (!('id' in value) || value['id'] === undefined) return false;
     if (!('filename' in value) || value['filename'] === undefined) return false;
     if (!('currentCategory' in value) || value['currentCategory'] === undefined) return false;
     if (!('newCategory' in value) || value['newCategory'] === undefined) return false;
@@ -71,6 +78,7 @@ export function ReclassificationRequestFromJSONTyped(json: any, ignoreDiscrimina
     }
     return {
         
+        'id': json['id'],
         'filename': json['filename'],
         'currentCategory': json['current_category'],
         'newCategory': json['new_category'],
@@ -90,6 +98,7 @@ export function ReclassificationRequestToJSONTyped(value?: ReclassificationReque
 
     return {
         
+        'id': value['id'],
         'filename': value['filename'],
         'current_category': value['currentCategory'],
         'new_category': value['newCategory'],
