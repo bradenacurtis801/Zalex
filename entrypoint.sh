@@ -115,6 +115,10 @@ BACKEND_PID=$!
 # Start frontend in background
 echo "🌐 Starting Next.js frontend on port 3000..."
 cd /app/frontend
+
+# Create logs directory if it doesn't exist
+mkdir -p /app/APP_DATA/logs
+
 npm start > /app/APP_DATA/logs/frontend.log 2>&1 &
 FRONTEND_PID=$!
 
