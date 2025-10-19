@@ -3,9 +3,9 @@ import os
 import uuid
 
 import config
-from fastapi import APIRouter, Depends, File, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException
 from fastapi import Path as FastAPIPath
-from fastapi import UploadFile
+from fastapi import Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from src.dependencies import get_pdf_service, get_upload_service
 from src.models.upload import UploadResponse
@@ -19,12 +19,14 @@ router = APIRouter()
 @router.post("/upload", response_model=UploadResponse)
 async def upload_files(
     files: list[UploadFile] = File(...),
-    client_id: str = Query(None, description="Client ID for WebSocket progress updates"),
+    client_id: str = Query(
+        None, description="Client ID for WebSocket progress updates"
+    ),
     upload_service: UploadService = Depends(get_upload_service),
 ) -> UploadResponse:
     """Handles the file upload and initiates the processing pipeline."""
     logger.info(f"Received upload request with {len(files)} file(s)")
-    
+
     return await upload_service.process_upload(files, client_id)
 
 
@@ -32,7 +34,7 @@ async def upload_files(
 async def get_document_content(
     filename: str = FastAPIPath(
         ...,
-        regex=r"^[a-zA-Z0-9._-]+$",
+        regex=r"^[a-zA-Z0-9._\-\s()]+$",
         min_length=1,
         max_length=255,
         description="Document filename (content-based hash format)",
@@ -97,7 +99,7 @@ async def get_document_content(
 async def download_document(
     filename: str = FastAPIPath(
         ...,
-        regex=r"^[a-zA-Z0-9._-]+$",
+        regex=r"^[a-zA-Z0-9._\-\s()]+$",
         min_length=1,
         max_length=255,
         description="Document filename (content-based hash format)",
@@ -135,7 +137,7 @@ async def download_document(
 async def get_pdf_pages(
     filename: str = FastAPIPath(
         ...,
-        regex=r"^[a-zA-Z0-9._-]+$",
+        regex=r"^[a-zA-Z0-9._\-\s()]+$",
         min_length=1,
         max_length=255,
         description="PDF filename (content-based hash format)",
