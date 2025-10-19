@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 REM ScanPro Docker Hub Build and Push Script (Windows)
-REM Builds multi-architecture image and pushes to Docker Hub
+REM Builds image and pushes to Docker Hub
 
 REM ==========================================
 REM CONFIGURATION VARIABLES
@@ -16,8 +16,6 @@ for /f "tokens=*" %%i in ('git branch --show-current 2^>nul') do set "IMAGE_TAG=
 if "%IMAGE_TAG%"=="" set "IMAGE_TAG=latest"
 if "%IMAGE_TAG%"=="main" set "IMAGE_TAG=latest"
 if "%IMAGE_TAG%"=="master" set "IMAGE_TAG=latest"
-
-set "BUILDER_NAME=scanpro-hub-builder"
 
 REM ==========================================
 REM SCRIPT FUNCTIONS
@@ -58,14 +56,24 @@ goto :construct_image_urls_end
 :construct_image_urls_end
 
 :build_image
-echo 🏗️  Building image...
-echo    Repository: %DOCKER_USERNAME%/%REPOSITORY_NAME%
-echo    Tag: %IMAGE_TAG%
-echo    Branch: %IMAGE_TAG%
-echo.
+if "%1"=="--build-only" (
+    echo 🏗️  Building image for local architecture only...
+    echo    Platform: %PROCESSOR_ARCHITECTURE%
+    echo    Repository: %DOCKER_USERNAME%/%REPOSITORY_NAME%
+    echo    Tag: %IMAGE_TAG%
+    echo.
+    
+    docker build -t scanpro:latest .
+) else (
+    echo 🏗️  Building image...
+    echo    Repository: %DOCKER_USERNAME%/%REPOSITORY_NAME%
+    echo    Tag: %IMAGE_TAG%
+    echo    Branch: %IMAGE_TAG%
+    echo.
+    
+    docker build -t %FULL_IMAGE_NAME% .
+)
 
-echo 🔨 Building image...
-docker build -t %FULL_IMAGE_NAME% .
 if errorlevel 1 (
     echo ❌ Build failed!
     pause
@@ -111,21 +119,18 @@ REM ==========================================
 REM MAIN SCRIPT EXECUTION
 REM ==========================================
 
-REM Parse command line arguments
-set "LOCAL_ONLY="
-set "NO_PUSH="
+REM Check for build-only flag
+set "BUILD_ONLY=false"
+if "%1"=="--build-only" set "BUILD_ONLY=true"
 
-:parse_args
-if "%~1"=="" goto :main
-if "%~1"=="--local-only" set "LOCAL_ONLY=1" & shift & goto :parse_args
-if "%~1"=="--no-push" set "NO_PUSH=1" & shift & goto :parse_args
-shift
-goto :parse_args
-
-:main
-echo 🐳 ScanPro Docker Build Script
-echo ================================
+echo 🐳 ScanPro Docker Hub Build and Push Script
+echo ==============================================
 echo.
+
+if "%BUILD_ONLY%"=="true" (
+    echo 🔧 Build-only mode: Will not push to Docker Hub
+    echo.
+)
 
 REM Check prerequisites
 call :check_docker
@@ -145,56 +150,41 @@ echo.
 REM Construct and show image URLs
 call :construct_image_urls
 
-REM Handle local-only build
-if defined LOCAL_ONLY (
-    echo 🔨 Building local image only...
-    echo    Using base image: bradenacurtis801/scanpro-base:latest
-    echo    If base image doesn't exist, run: .\build-base.bat
+REM Build the image
+echo 🚀 Starting build process...
+call :build_image %1
+if errorlevel 1 exit /b 1
+
+if "%BUILD_ONLY%"=="true" (
+    echo ✅ Build completed successfully!
     echo.
-    docker build -t %FULL_IMAGE_NAME% .
+    echo 📖 You can now run the image locally with:
+    echo    docker run -p 3000:3000 -p 5000:5000 scanpro:latest
+) else (
+    echo ✅ Build completed successfully!
+    echo.
+    
+    REM Ask for confirmation before pushing
+    echo 🔨 Ready to push the image to Docker Hub.
+    call :ask_confirmation
+    if errorlevel 1 exit /b 1
+    
+    REM Push the image
+    echo 🚀 Pushing image to Docker Hub...
+    docker push %FULL_IMAGE_NAME%
     if errorlevel 1 (
-        echo ❌ Local build failed!
-        echo    Make sure base image exists: bradenacurtis801/scanpro-base:latest
-        echo    Run: .\build-base.bat
+        echo ❌ Push failed!
         pause
         exit /b 1
     )
-    echo ✅ Local image built successfully!
-    echo    Image: %FULL_IMAGE_NAME%
-    echo    You can now run: .\run.bat --no-pull
-    goto :end
+    
+    echo ✅ Push completed successfully!
+    echo.
+    
+    REM Show usage instructions
+    call :show_usage
+    
+    echo 🎉 Done! Your ScanPro image is now available on Docker Hub.
 )
-
-REM Build the image
-echo 🚀 Starting build process...
-call :build_image
-if errorlevel 1 exit /b 1
-
-echo ✅ Build completed successfully!
-echo.
-
-REM Ask for confirmation before pushing
-echo 🔨 Ready to push the image to Docker Hub.
-call :ask_confirmation
-if errorlevel 1 exit /b 1
-
-REM Push the image
-echo 🚀 Pushing image to Docker Hub...
-docker push %FULL_IMAGE_NAME%
-if errorlevel 1 (
-    echo ❌ Push failed!
-    pause
-    exit /b 1
-)
-
-echo ✅ Push completed successfully!
-echo.
-
-REM Show usage instructions
-call :show_usage
-
-echo 🎉 Done! Your ScanPro image is now available on Docker Hub.
 echo.
 pause
-
-:end
