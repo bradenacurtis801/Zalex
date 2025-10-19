@@ -1,0 +1,71 @@
+erDiagram
+    user {
+        int id PK
+        varchar username
+        varchar email
+        varchar full_name
+        varchar user_role
+        boolean is_active
+        varchar password_hash
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    session {
+        int id PK
+        int user_id FK
+        varchar session_token
+        boolean is_revoked
+        timestamp expires_at
+        timestamp created_at
+        timestamp last_activity
+    }
+    
+    document {
+        varchar id PK
+        int user_id FK
+        varchar filename
+        bytea file_content
+        int file_size
+        varchar mime_type
+        varchar status
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    documentclassification {
+        int id PK
+        varchar document_id FK
+        int user_id FK
+        varchar category
+        float confidence
+        varchar model_version
+        timestamp created_at
+    }
+    
+    documentfeedback {
+        int id PK
+        varchar document_id FK
+        int user_id FK
+        varchar feedback_type
+        varchar suggested_category
+        text comment
+        timestamp created_at
+    }
+    
+    pdfcache {
+        int id PK
+        varchar document_id FK
+        int max_pages
+        int total_pages
+        text pages_data
+        timestamp created_at
+        timestamp expires_at
+    }
+    
+    user ||--o{ session : "user_id"
+    user ||--o{ document : "user_id"
+    user ||--o{ documentfeedback : "user_id"
+    document ||--o{ documentclassification : "document_id"
+    document ||--|| documentfeedback : "document_id"
+    document ||--|| pdfcache : "document_id"
