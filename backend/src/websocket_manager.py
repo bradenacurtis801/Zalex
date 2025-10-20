@@ -40,8 +40,8 @@ class ConnectionManager:
         """Remove a WebSocket connection."""
         if user_id in self.active_connections:
             del self.active_connections[user_id]
-            logger.info(f"WebSocket disconnected for user: {user_id}")
-    
+            logger.debug(f"WebSocket disconnected for user: {user_id}")
+
     def get_active_connections(self) -> list[str]:
         """Get list of active user IDs."""
         return list(self.active_connections.keys())
@@ -60,7 +60,6 @@ class ConnectionManager:
                     data=progress_data
                 )
                 await self.active_connections[user_id].send_text(message.model_dump_json())
-                logger.debug(f"Progress sent to user {user_id}: {progress_data}")
             except Exception as e:
                 logger.error(f"Error sending progress to user {user_id}: {e}")
                 self.disconnect(user_id)
@@ -92,13 +91,10 @@ class ConnectionManager:
 
     async def _handle_handshake(self, websocket: WebSocket) -> int:
         """Handle the initial handshake message for authentication."""
-        logger.info("Waiting for handshake message...")
         data = await websocket.receive_text()
-        logger.info(f"Received handshake data: {data}")
-        
+
         message = await self._parse_message(websocket, data)
-        logger.info(f"Parsed handshake message: {message}")
-        
+
         if not message or message.get("type") != WebSocketMessageType.HANDSHAKE:
             logger.error(f"Invalid handshake message: {message}")
             await self._send_error(websocket, "Invalid handshake message. Expected: {'type': 'handshake', 'data': {'token': 'your_auth_token'}}")
@@ -109,8 +105,7 @@ class ConnectionManager:
             logger.error("Missing token in handshake data")
             await self._send_error(websocket, "Missing token in handshake data")
             return None
-        
-        logger.info(f"Authenticating user with token: {token[:20]}...")
+
         return await self._authenticate_user(websocket, token)
 
     async def _handle_message_loop(self, websocket: WebSocket, user_id: int):
@@ -125,8 +120,7 @@ class ConnectionManager:
     async def _process_message(self, websocket: WebSocket, message: dict, user_id: int):
         """Process incoming messages from authenticated user."""
         message_type = message.get("type")
-        logger.debug(f"Received message from user {user_id}: {message_type}")
-        
+
         # For now, we only handle handshake messages
         # Upload progress is handled via event bus, not direct messages
         if message_type not in [WebSocketMessageType.HANDSHAKE]:
@@ -142,38 +136,30 @@ class ConnectionManager:
 
     async def _authenticate_user(self, websocket: WebSocket, token: str) -> int:
         """Authenticate user and complete handshake."""
-        try:
-            logger.info("Starting user authentication...")
-            from src.services.auth_service import AuthService
-            from src.db.connection import get_session
-            from src.models.database import User
-            
-            # Get database session and auth service
-            with next(get_session()) as db:
-                auth_service = AuthService(db)
-                
-                # Verify session token
-                user = auth_service.verify_session_token(token)
-                if not user:
-                    logger.error("Invalid session token")
-                    await self._send_error(websocket, "Invalid session token")
-                    return None
-                    
-                user_id = user.id
-                logger.info(f"User authenticated successfully: {user_id}")
-                
-                await self.connect(websocket, str(user_id))
-                logger.info("WebSocket connected to user")
-                
-                await self._send_handshake_ack(websocket, user_id)
-                logger.info("Handshake ACK sent")
-                
-                logger.info(f"WebSocket handshake completed for user: {user_id}")
-                return user_id
-        except Exception as e:
-            logger.error(f"Authentication failed: {e}")
-            await self._send_error(websocket, f"Authentication failed: {str(e)}")
-            return None
+        from src.db.connection import get_session
+        from src.models.database import User
+        from src.services.auth_service import AuthService
+
+        # Get database session and auth service
+        with next(get_session()) as db:
+            auth_service = AuthService(db)
+
+            # Verify session token
+            user = auth_service.verify_session_token(token)
+            if not user:
+                logger.error("Invalid session token")
+                await self._send_error(websocket, "Invalid session token")
+                return None
+
+            user_id = user.id
+            logger.debug(f"User authenticated successfully: {user_id}")
+
+            await self.connect(websocket, str(user_id))
+
+            await self._send_handshake_ack(websocket, user_id)
+
+            logger.debug(f"WebSocket handshake completed for user: {user_id}")
+            return user_id
 
     async def _send_handshake_ack(self, websocket: WebSocket, user_id: int):
         """Send handshake acknowledgment to client."""
@@ -197,22 +183,18 @@ class ConnectionManager:
 
     async def _handle_upload_progress(self, event):
         """Handle upload progress events from the event bus."""
-        try:
-            data = event.data
-            user_id = data.get("user_id")
-            
-            if not user_id:
-                logger.warning("Upload progress event missing user_id")
-                return
-            
-            # Remove user_id from data before sending to client
-            progress_data = {k: v for k, v in data.items() if k != "user_id"}
-            
-            await self.send_progress(str(user_id), progress_data)
-            logger.debug(f"Handled upload progress event for user {user_id}")
-            
-        except Exception as e:
-            logger.error(f"Error handling upload progress event: {e}")
+        data = event.data
+        user_id = data.get("user_id")
+
+        if not user_id:
+            logger.warning("Upload progress event missing user_id")
+            return
+
+        # Remove user_id from data before sending to client
+        progress_data = {k: v for k, v in data.items() if k != "user_id"}
+
+        await self.send_progress(str(user_id), progress_data)
+        logger.debug(f"Handled upload progress event for user {user_id}")
 
 
 # Singleton instance
