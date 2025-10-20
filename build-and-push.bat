@@ -119,17 +119,33 @@ REM ==========================================
 REM MAIN SCRIPT EXECUTION
 REM ==========================================
 
-REM Check for build-only flag
+REM Parse command line arguments
+set "AUTO_PUSH="
 set "BUILD_ONLY=false"
-if "%1"=="--build-only" set "BUILD_ONLY=true"
 
 echo 🐳 ScanPro Docker Hub Build and Push Script
 echo ==============================================
 echo.
 
-if "%BUILD_ONLY%"=="true" (
+if "%1"=="-y" (
+    set "AUTO_PUSH=yes"
+    echo 🔧 Auto-push mode: Will push to Docker Hub automatically
+    echo.
+) else if "%1"=="-n" (
+    set "BUILD_ONLY=true"
     echo 🔧 Build-only mode: Will not push to Docker Hub
     echo.
+) else if "%1"=="" (
+    echo 🔧 Interactive mode: Will ask before pushing
+    echo.
+) else (
+    echo ❌ Unknown option: %1
+    echo 📖 Usage:
+    echo    %~nx0        # Build and ask to push
+    echo    %~nx0 -y     # Build and push automatically
+    echo    %~nx0 -n     # Build only, don't push
+    pause
+    exit /b 1
 )
 
 REM Check prerequisites
@@ -164,13 +180,17 @@ if "%BUILD_ONLY%"=="true" (
     echo ✅ Build completed successfully!
     echo.
     
-    REM Ask for confirmation before pushing
-    echo 🔨 Ready to push the image to Docker Hub.
-    call :ask_confirmation
-    if errorlevel 1 exit /b 1
+    REM Determine push behavior
+    if "%AUTO_PUSH%"=="yes" (
+        echo 🚀 Pushing image to Docker Hub automatically...
+    ) else (
+        echo 🔨 Ready to push the image to Docker Hub.
+        call :ask_confirmation
+        if errorlevel 1 exit /b 1
+        echo 🚀 Pushing image to Docker Hub...
+    )
     
     REM Push the image
-    echo 🚀 Pushing image to Docker Hub...
     docker push %FULL_IMAGE_NAME%
     if errorlevel 1 (
         echo ❌ Push failed!

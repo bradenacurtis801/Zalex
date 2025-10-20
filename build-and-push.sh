@@ -100,7 +100,7 @@ ask_confirmation() {
 }
 
 # Function to show usage instructions
-show_usage() {
+show_usage_instructions() {
     echo "📖 After pushing, you can pull and run the image with:"
     echo ""
     echo "   # Pull and run the image"
@@ -119,13 +119,34 @@ echo "🐳 ScanPro Docker Hub Build and Push Script"
 echo "=============================================="
 echo ""
 
-# Check for build-only flag
+# Parse command line arguments
+AUTO_PUSH=""
 BUILD_ONLY=false
-if [ "$1" = "--build-only" ]; then
-    BUILD_ONLY=true
-    echo "🔧 Build-only mode: Will not push to Docker Hub"
-    echo ""
-fi
+
+case "$1" in
+    -y)
+        AUTO_PUSH="yes"
+        echo "🔧 Auto-push mode: Will push to Docker Hub automatically"
+        echo ""
+        ;;
+    -n)
+        BUILD_ONLY=true
+        echo "🔧 Build-only mode: Will not push to Docker Hub"
+        echo ""
+        ;;
+    "")
+        echo "🔧 Interactive mode: Will ask before pushing"
+        echo ""
+        ;;
+    *)
+        echo "❌ Unknown option: $1"
+        echo "📖 Usage:"
+        echo "   $0        # Build and ask to push"
+        echo "   $0 -y     # Build and push automatically"
+        echo "   $0 -n     # Build only, don't push"
+        exit 1
+        ;;
+esac
 
 # Check prerequisites
 check_docker
@@ -155,19 +176,22 @@ else
     echo "✅ Build completed successfully!"
     echo ""
     
-    # Ask if user wants to push
-    echo "🔨 Ready to push the image to Docker Hub."
-    ask_confirmation
+    # Determine push behavior
+    if [ "$AUTO_PUSH" = "yes" ]; then
+        echo "🚀 Pushing image to Docker Hub automatically..."
+    else
+        echo "🔨 Ready to push the image to Docker Hub."
+        ask_confirmation
+        echo "🚀 Pushing image to Docker Hub..."
+    fi
     
-    # Push the image
-    echo "🚀 Pushing image to Docker Hub..."
     docker push $FULL_IMAGE_NAME
     
     if [ $? -eq 0 ]; then
         echo "✅ Push completed successfully!"
         echo ""
         # Show usage instructions
-        show_usage
+        show_usage_instructions
         echo "🎉 Done! Your ScanPro image is now available on Docker Hub."
     else
         echo "❌ Push failed!"
