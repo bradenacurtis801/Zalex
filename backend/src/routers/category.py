@@ -22,6 +22,16 @@ async def get_all_categories(
     return category_service.get_all_categories()
 
 
+@router.get("/categories/summary")
+async def get_categories_summary(
+    category_service: CategoryService = Depends(get_category_service),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Get a summary of document counts per category."""
+    logger.info("Received request for categories summary")
+    return category_service.get_categories_summary()
+
+
 @router.get("/categories/{category}", response_model=CategoryResponse)
 async def get_documents_by_category(
     category: str, 
@@ -40,13 +50,3 @@ async def get_documents_by_category(
         )
 
     return category_service.get_documents_by_category(category)
-
-
-@router.get("/categories/summary")
-async def get_categories_summary(
-    category_service: CategoryService = Depends(get_category_service),
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Get a summary of document counts per category."""
-    logger.info("Received request for categories summary")
-    return category_service.get_categories_summary()

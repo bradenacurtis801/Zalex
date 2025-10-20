@@ -32,26 +32,17 @@ export default function Dashboard() {
     try {
       setLoading(true)
       
-      // Get categories to count them
-      const categoriesResponse = await categoryApi.getAllCategoriesApiCategoriesGet()
-      const categories = Array.isArray(categoriesResponse.categories) ? categoriesResponse.categories : []
+      // Use the summary endpoint for better performance
+      const summaryResponse = await categoryApi.getCategoriesSummaryApiCategoriesSummaryGet()
       
-      // Count documents in each category
-      const categoryCounts: Record<string, number> = {}
-      let totalDocuments = 0
-      
-      for (const category of categories) {
-        const documentsResponse = await categoryApi.getDocumentsByCategoryApiCategoriesCategoryGet({
-          category: category.name
-        })
-        const documentCount = documentsResponse.documents ? Object.keys(documentsResponse.documents).length : 0
-        categoryCounts[category.name] = documentCount
-        totalDocuments += documentCount
-      }
+      // summaryResponse is a Dict[str, int] - category name to count
+      const categoryCounts = summaryResponse || {}
+      const totalDocuments = Object.values(categoryCounts).reduce((sum, count) => sum + count, 0)
+      const totalCategories = Object.keys(categoryCounts).length
 
       setStats({
         totalDocuments,
-        totalCategories: categories.length,
+        totalCategories,
         recentUploads: [], // TODO: Implement recent uploads tracking
         categoryCounts
       })
