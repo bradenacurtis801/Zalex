@@ -43,10 +43,10 @@ export default function UserManagement({ onClose }: UserManagementProps) {
     }
   }, [user])
 
-  const loadUsers = async () => {
+  const loadUsers = async (skip: number = 0, limit: number = 100) => {
     try {
       setLoading(true)
-      const response = await authApi.getAllUsersApiAuthUsersGet()
+      const response = await authApi.getAllUsersApiAuthUsersGet({ skip, limit })
       setUsers(response || [])
     } catch (error) {
       console.error('Error loading users:', error)

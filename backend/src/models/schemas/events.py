@@ -32,6 +32,10 @@ class FileCompleteEvent(UploadProgressEvent):
         default=None, 
         description="Classification result with category and confidence"
     )
+    was_cached: bool = Field(
+        default=False,
+        description="Whether this file was already classified (cached result)"
+    )
 
 
 class UploadSessionEvent(BaseModel):

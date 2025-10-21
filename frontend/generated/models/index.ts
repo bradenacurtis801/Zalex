@@ -18,6 +18,7 @@ export * from './TokenResponse';
 export * from './UploadResponse';
 export * from './UserChangePassword';
 export * from './UserCreate';
+export * from './UserInfo';
 export * from './UserLogin';
 export * from './UserResponse';
 export * from './UserRole';

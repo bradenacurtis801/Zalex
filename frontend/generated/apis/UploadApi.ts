@@ -25,6 +25,10 @@ import {
     UploadResponseToJSON,
 } from '../models/index';
 
+export interface DeleteDocumentApiDocumentsDocumentIdDeleteRequest {
+    documentId: string;
+}
+
 export interface DownloadDocumentApiDocumentsDocumentIdDownloadGetRequest {
     documentId: string;
 }
@@ -49,6 +53,22 @@ export interface UploadFilesApiUploadPostRequest {
  * @interface UploadApiInterface
  */
 export interface UploadApiInterface {
+    /**
+     * Delete a document and all its associated data (admin only).  Args:     document_id: Document ID (SHA256 hash)     upload_service: Upload service instance     current_user: Authenticated admin user  Returns:     Success message with deletion details
+     * @summary Delete Document
+     * @param {string} documentId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof UploadApiInterface
+     */
+    deleteDocumentApiDocumentsDocumentIdDeleteRaw(requestParameters: DeleteDocumentApiDocumentsDocumentIdDeleteRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>>;
+
+    /**
+     * Delete a document and all its associated data (admin only).  Args:     document_id: Document ID (SHA256 hash)     upload_service: Upload service instance     current_user: Authenticated admin user  Returns:     Success message with deletion details
+     * Delete Document
+     */
+    deleteDocumentApiDocumentsDocumentIdDelete(requestParameters: DeleteDocumentApiDocumentsDocumentIdDeleteRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any>;
+
     /**
      * Download a document file.  Args:     document_id: Document ID (SHA256 hash)     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     File download response
      * @summary Download Document
@@ -120,6 +140,57 @@ export interface UploadApiInterface {
  * 
  */
 export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
+
+    /**
+     * Delete a document and all its associated data (admin only).  Args:     document_id: Document ID (SHA256 hash)     upload_service: Upload service instance     current_user: Authenticated admin user  Returns:     Success message with deletion details
+     * Delete Document
+     */
+    async deleteDocumentApiDocumentsDocumentIdDeleteRaw(requestParameters: DeleteDocumentApiDocumentsDocumentIdDeleteRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>> {
+        if (requestParameters['documentId'] == null) {
+            throw new runtime.RequiredError(
+                'documentId',
+                'Required parameter "documentId" was null or undefined when calling deleteDocumentApiDocumentsDocumentIdDelete().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("HTTPBearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/documents/{document_id}`;
+        urlPath = urlPath.replace(`{${"document_id"}}`, encodeURIComponent(String(requestParameters['documentId'])));
+
+        const response = await this.request({
+            path: urlPath,
+            method: 'DELETE',
+            headers: headerParameters,
+            query: queryParameters,
+        }, initOverrides);
+
+        if (this.isJsonMime(response.headers.get('content-type'))) {
+            return new runtime.JSONApiResponse<any>(response);
+        } else {
+            return new runtime.TextApiResponse(response) as any;
+        }
+    }
+
+    /**
+     * Delete a document and all its associated data (admin only).  Args:     document_id: Document ID (SHA256 hash)     upload_service: Upload service instance     current_user: Authenticated admin user  Returns:     Success message with deletion details
+     * Delete Document
+     */
+    async deleteDocumentApiDocumentsDocumentIdDelete(requestParameters: DeleteDocumentApiDocumentsDocumentIdDeleteRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any> {
+        const response = await this.deleteDocumentApiDocumentsDocumentIdDeleteRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
 
     /**
      * Download a document file.  Args:     document_id: Document ID (SHA256 hash)     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     File download response

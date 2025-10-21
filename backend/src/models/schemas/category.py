@@ -4,6 +4,12 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 
+class UserInfo(BaseModel):
+    """User information for document ownership"""
+    username: str
+    full_name: str
+
+
 class DocumentEntry(BaseModel):
     id: str  # Document ID (file hash)
     filename: str
@@ -31,6 +37,7 @@ class CategoryDocument(BaseModel):
     file_size: int
     mime_type: str
     status: str
+    user: Optional[UserInfo] = None
 
 class CategoriesResponse(BaseModel):
     categories: Dict[str, Dict[str, CategoryDocument]]  # category_name -> {filename -> CategoryDocument}

@@ -3,9 +3,9 @@ import os
 import uuid
 
 import config
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException, status
 from fastapi.responses import FileResponse, Response
-from src.dependencies import get_pdf_service, get_upload_service, get_current_user
+from src.dependencies import get_pdf_service, get_upload_service, get_current_user, require_admin
 from src.models.database import User
 from src.models.schemas.upload import UploadResponse
 from src.services.pdf_service import PDFService
@@ -90,6 +90,42 @@ async def get_pdf_pages(
     """
     logger.info(f"Received request for PDF pages: document_id={document_id}, max_pages={max_pages} from user {current_user.id}")
     return pdf_service.get_pdf_pages(document_id, max_pages)
+
+
+@router.delete("/documents/{document_id}")
+async def delete_document(
+    document_id: str,
+    upload_service: UploadService = Depends(get_upload_service),
+    current_user: User = Depends(require_admin()),
+):
+    """
+    Delete a document and all its associated data (admin only).
+
+    Args:
+        document_id: Document ID (SHA256 hash)
+        upload_service: Upload service instance
+        current_user: Authenticated admin user
+
+    Returns:
+        Success message with deletion details
+    """
+    logger.info(f"Received delete request for document: {document_id} from user {current_user.id}")
+    
+    try:
+        result = await upload_service.delete_document(document_id)
+        return result
+    except ValueError as e:
+        logger.warning(f"Validation error deleting document {document_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error deleting document {document_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete document: {str(e)}"
+        )
 
 
 # PROBABLY NOT NEEDED

@@ -21,11 +21,11 @@ export function useCategories() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (skip: number = 0, limit: number = 100) => {
     setLoading(true)
     setError(null)
     try {
-      const response = await categoryApi.getAllCategoriesApiCategoriesGet()
+      const response = await categoryApi.getAllCategoriesApiCategoriesGet({ skip, limit })
       
       // Ensure response.categories exists and is an object
       if (!response || typeof response.categories !== 'object') {
@@ -74,9 +74,13 @@ export function useCategories() {
     }
   }
 
-  const fetchDocumentsByCategory = async (category: string) => {
+  const fetchDocumentsByCategory = async (category: string, skip: number = 0, limit: number = 100) => {
     try {
-      const response = await categoryApi.getDocumentsByCategoryApiCategoriesCategoryGet({ category })
+      const response = await categoryApi.getDocumentsByCategoryApiCategoriesCategoryGet({ 
+        category, 
+        skip, 
+        limit 
+      })
       // Convert the response to match our CategoryDocument interface
       const documents: CategoryDocument[] = (response.documents || []).map((doc: DocumentEntry) => ({
         id: doc.id,

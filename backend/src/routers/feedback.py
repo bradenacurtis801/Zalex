@@ -39,6 +39,8 @@ async def reclassify_document(
 
 @router.get("/feedback/summary", response_model=FeedbackSummary)
 async def get_feedback_summary(
+    skip: int = 0,
+    limit: int = 100,
     feedback_service: FeedbackService = Depends(get_feedback_service),
     current_user: User = Depends(get_current_user),
 ) -> FeedbackSummary:
@@ -46,11 +48,13 @@ async def get_feedback_summary(
     Get a summary of feedback corrections and model updates.
 
     Args:
+        skip: Number of feedback records to skip (for pagination)
+        limit: Maximum number of feedback records to return (for pagination)
         feedback_service: Feedback service instance
         current_user: Authenticated user
 
     Returns:
         FeedbackSummary with correction statistics
     """
-    logger.info(f"Received request for feedback summary from user {current_user.id}")
-    return feedback_service.get_feedback_summary()
+    logger.info(f"Received request for feedback summary from user {current_user.id} (skip={skip}, limit={limit})")
+    return feedback_service.get_feedback_summary(skip=skip, limit=limit)

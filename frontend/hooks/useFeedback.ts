@@ -28,12 +28,12 @@ export function useFeedback() {
     }
   }
 
-  const getFeedbackSummary = async (): Promise<FeedbackSummary> => {
+  const getFeedbackSummary = async (skip: number = 0, limit: number = 100): Promise<FeedbackSummary> => {
     setLoading(true)
     setError(null)
     
     try {
-      const result = await feedbackApi.getFeedbackSummaryApiFeedbackSummaryGet()
+      const result = await feedbackApi.getFeedbackSummaryApiFeedbackSummaryGet({ skip, limit })
       return result
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to get feedback summary'

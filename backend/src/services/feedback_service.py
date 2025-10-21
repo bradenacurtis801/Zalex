@@ -158,13 +158,17 @@ class FeedbackService:
         logger.info(f"Feedback logged for document ID '{request.id}' by user {user_id}")
 
 
-    def get_feedback_summary(self) -> FeedbackSummary:
+    def get_feedback_summary(self, skip: int = 0, limit: int = 100) -> FeedbackSummary:
         """Get a summary of feedback corrections from database."""
         from src.models.database import DocumentFeedback
         
-        # Get all feedback records
-        stmt = select(DocumentFeedback)
+        # Get feedback records with pagination
+        stmt = select(DocumentFeedback).offset(skip).limit(limit).order_by(DocumentFeedback.created_at.desc())
         feedback_records = self.db.exec(stmt).all()
+        
+        # Get total count for pagination info
+        total_count_stmt = select(DocumentFeedback.id)
+        total_corrections = len(self.db.exec(total_count_stmt).all())
         
         # Count corrections by category
         corrections_by_category = {}
@@ -177,7 +181,7 @@ class FeedbackService:
         last_updated = latest_feedback.created_at if latest_feedback else datetime.now()
         
         return FeedbackSummary(
-            total_corrections=len(feedback_records),
+            total_corrections=total_corrections,
             corrections_by_category=corrections_by_category,
             last_updated=last_updated,
             model_version="1.0.0",  # Could be stored in database or config

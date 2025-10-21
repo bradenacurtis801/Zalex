@@ -31,6 +31,11 @@ import {
     ReclassificationResponseToJSON,
 } from '../models/index';
 
+export interface GetFeedbackSummaryApiFeedbackSummaryGetRequest {
+    skip?: number;
+    limit?: number;
+}
+
 export interface ReclassifyDocumentApiFeedbackReclassifyPostRequest {
     reclassificationRequest: ReclassificationRequest;
 }
@@ -43,19 +48,21 @@ export interface ReclassifyDocumentApiFeedbackReclassifyPostRequest {
  */
 export interface FeedbackApiInterface {
     /**
-     * Get a summary of feedback corrections and model updates.  Args:     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     FeedbackSummary with correction statistics
+     * Get a summary of feedback corrections and model updates.  Args:     skip: Number of feedback records to skip (for pagination)     limit: Maximum number of feedback records to return (for pagination)     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     FeedbackSummary with correction statistics
      * @summary Get Feedback Summary
+     * @param {number} [skip] 
+     * @param {number} [limit] 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof FeedbackApiInterface
      */
-    getFeedbackSummaryApiFeedbackSummaryGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<FeedbackSummary>>;
+    getFeedbackSummaryApiFeedbackSummaryGetRaw(requestParameters: GetFeedbackSummaryApiFeedbackSummaryGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<FeedbackSummary>>;
 
     /**
-     * Get a summary of feedback corrections and model updates.  Args:     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     FeedbackSummary with correction statistics
+     * Get a summary of feedback corrections and model updates.  Args:     skip: Number of feedback records to skip (for pagination)     limit: Maximum number of feedback records to return (for pagination)     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     FeedbackSummary with correction statistics
      * Get Feedback Summary
      */
-    getFeedbackSummaryApiFeedbackSummaryGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<FeedbackSummary>;
+    getFeedbackSummaryApiFeedbackSummaryGet(requestParameters: GetFeedbackSummaryApiFeedbackSummaryGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<FeedbackSummary>;
 
     /**
      * Reclassify a document based on user feedback.  Args:     request: Reclassification request with document details     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     ReclassificationResponse with processing results
@@ -81,11 +88,19 @@ export interface FeedbackApiInterface {
 export class FeedbackApi extends runtime.BaseAPI implements FeedbackApiInterface {
 
     /**
-     * Get a summary of feedback corrections and model updates.  Args:     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     FeedbackSummary with correction statistics
+     * Get a summary of feedback corrections and model updates.  Args:     skip: Number of feedback records to skip (for pagination)     limit: Maximum number of feedback records to return (for pagination)     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     FeedbackSummary with correction statistics
      * Get Feedback Summary
      */
-    async getFeedbackSummaryApiFeedbackSummaryGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<FeedbackSummary>> {
+    async getFeedbackSummaryApiFeedbackSummaryGetRaw(requestParameters: GetFeedbackSummaryApiFeedbackSummaryGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<FeedbackSummary>> {
         const queryParameters: any = {};
+
+        if (requestParameters['skip'] != null) {
+            queryParameters['skip'] = requestParameters['skip'];
+        }
+
+        if (requestParameters['limit'] != null) {
+            queryParameters['limit'] = requestParameters['limit'];
+        }
 
         const headerParameters: runtime.HTTPHeaders = {};
 
@@ -111,11 +126,11 @@ export class FeedbackApi extends runtime.BaseAPI implements FeedbackApiInterface
     }
 
     /**
-     * Get a summary of feedback corrections and model updates.  Args:     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     FeedbackSummary with correction statistics
+     * Get a summary of feedback corrections and model updates.  Args:     skip: Number of feedback records to skip (for pagination)     limit: Maximum number of feedback records to return (for pagination)     feedback_service: Feedback service instance     current_user: Authenticated user  Returns:     FeedbackSummary with correction statistics
      * Get Feedback Summary
      */
-    async getFeedbackSummaryApiFeedbackSummaryGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<FeedbackSummary> {
-        const response = await this.getFeedbackSummaryApiFeedbackSummaryGetRaw(initOverrides);
+    async getFeedbackSummaryApiFeedbackSummaryGet(requestParameters: GetFeedbackSummaryApiFeedbackSummaryGetRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<FeedbackSummary> {
+        const response = await this.getFeedbackSummaryApiFeedbackSummaryGetRaw(requestParameters, initOverrides);
         return await response.value();
     }
 

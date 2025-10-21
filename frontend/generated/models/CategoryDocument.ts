@@ -13,6 +13,14 @@
  */
 
 import { mapValues } from '../runtime';
+import type { UserInfo } from './UserInfo';
+import {
+    UserInfoFromJSON,
+    UserInfoFromJSONTyped,
+    UserInfoToJSON,
+    UserInfoToJSONTyped,
+} from './UserInfo';
+
 /**
  * Document data within a category
  * @export
@@ -67,6 +75,12 @@ export interface CategoryDocument {
      * @memberof CategoryDocument
      */
     status: string;
+    /**
+     * 
+     * @type {UserInfo}
+     * @memberof CategoryDocument
+     */
+    user?: UserInfo | null;
 }
 
 /**
@@ -102,6 +116,7 @@ export function CategoryDocumentFromJSONTyped(json: any, ignoreDiscriminator: bo
         'fileSize': json['file_size'],
         'mimeType': json['mime_type'],
         'status': json['status'],
+        'user': json['user'] == null ? undefined : UserInfoFromJSON(json['user']),
     };
 }
 
@@ -124,6 +139,7 @@ export function CategoryDocumentToJSONTyped(value?: CategoryDocument | null, ign
         'file_size': value['fileSize'],
         'mime_type': value['mimeType'],
         'status': value['status'],
+        'user': UserInfoToJSON(value['user']),
     };
 }
 

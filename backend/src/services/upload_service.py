@@ -89,7 +89,8 @@ class UploadService:
                     classification={
                         "category": classification.category if classification else "unknown",
                         "confidence": classification.confidence if classification else 0.0
-                    } if classification else None
+                    } if classification else None,
+                    was_cached=was_already_classified
                 )
                 await self.event_bus.publish_async(EventType.UPLOAD_PROGRESS, event.dict(), source="UploadService")
             
@@ -372,4 +373,93 @@ class UploadService:
         except Exception as e:
             logger.error(f"Classification failed: {e}")
             return "other", 0.0
+
+    async def delete_document(self, document_id: str) -> Dict[str, Any]:
+        """
+        Delete a document and all its associated data.
+
+        Args:
+            document_id: Document ID (SHA256 hash)
+
+        Returns:
+            Dict with success message and deletion details
+
+        Raises:
+            ValueError: If document not found
+            Exception: If deletion fails
+        """
+        logger.info(f"Starting deletion of document {document_id}")
+
+        # First, check if document exists
+        document = self.db.exec(
+            select(Document).where(Document.id == document_id)
+        ).first()
+
+        if not document:
+            logger.warning(f"Document {document_id} not found")
+            raise ValueError(f"Document {document_id} not found")
+
+        deletion_counts = {
+            "document": 0,
+            "classifications": 0,
+            "feedback": 0,
+            "pdf_cache": 0,
+            "upload_session_files": 0
+        }
+
+        try:
+            # Delete related records first (foreign key constraints)
+            
+            # 1. Delete DocumentClassifications
+            classifications = self.db.exec(
+                select(DBDocumentClassification).where(DBDocumentClassification.document_id == document_id)
+            ).all()
+            for classification in classifications:
+                self.db.delete(classification)
+                deletion_counts["classifications"] += 1
+
+            # 2. Delete DocumentFeedback
+            feedback_records = self.db.exec(
+                select(DocumentFeedback).where(DocumentFeedback.document_id == document_id)
+            ).all()
+            for feedback in feedback_records:
+                self.db.delete(feedback)
+                deletion_counts["feedback"] += 1
+
+            # 3. Delete PDFCache
+            pdf_cache = self.db.exec(
+                select(PDFCache).where(PDFCache.document_id == document_id)
+            ).first()
+            if pdf_cache:
+                self.db.delete(pdf_cache)
+                deletion_counts["pdf_cache"] += 1
+
+            # 4. Delete UploadSessionFiles that reference this document
+            upload_session_files = self.db.exec(
+                select(UploadSessionFile).where(UploadSessionFile.document_id == document_id)
+            ).all()
+            for session_file in upload_session_files:
+                self.db.delete(session_file)
+                deletion_counts["upload_session_files"] += 1
+
+            # 5. Finally, delete the Document itself
+            self.db.delete(document)
+            deletion_counts["document"] += 1
+
+            # Commit all deletions
+            self.db.commit()
+
+            logger.info(f"Successfully deleted document {document_id} and {sum(deletion_counts.values())} related records")
+
+            return {
+                "success": True,
+                "message": f"Document '{document.filename}' and all associated data deleted successfully",
+                "deletion_counts": deletion_counts,
+                "document_id": document_id
+            }
+
+        except Exception as e:
+            logger.error(f"Error deleting document {document_id}: {e}")
+            self.db.rollback()
+            raise Exception(f"Failed to delete document: {str(e)}")
 

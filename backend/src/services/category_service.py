@@ -5,8 +5,8 @@ from typing import Any, Dict, List, Optional
 from sqlmodel import Session, select
 
 from src.ml.classification.base_classifier import BaseDocumentClassifier
-from src.models.schemas.category import CategoriesResponse, CategoryResponse, DocumentEntry, CategoryDocument
-from src.models.database import Document, DocumentClassification
+from src.models.schemas.category import CategoriesResponse, CategoryResponse, DocumentEntry, CategoryDocument, UserInfo
+from src.models.database import Document, DocumentClassification, User
 
 logger = logging.getLogger(__name__)
 
@@ -49,17 +49,19 @@ class CategoryService:
         logger.error("Cannot get categories without a trained model")
         return []
 
-    def get_documents_by_category(self, category: str) -> CategoryResponse:
+    def get_documents_by_category(self, category: str, skip: int = 0, limit: int = 100) -> CategoryResponse:
         """
         Get all documents in a specific category.
 
         Args:
             category: The category name to filter by
+            skip: Number of documents to skip (for pagination)
+            limit: Maximum number of documents to return (for pagination)
 
         Returns:
             CategoryResponse with documents in the category
         """
-        logger.info(f"Retrieving documents for category: {category}")
+        logger.info(f"Retrieving documents for category: {category} (skip={skip}, limit={limit})")
 
         # First check if category exists in the model
         available_categories = self._get_model_categories()
@@ -71,16 +73,22 @@ class CategoryService:
                 total_count=0,
             )
 
-        # Query database for documents in this category
-        stmt = select(Document, DocumentClassification).join(
+        # Query database for documents in this category with users (with pagination)
+        stmt = select(Document, DocumentClassification, User).join(
             DocumentClassification, Document.id == DocumentClassification.document_id
-        ).where(DocumentClassification.category == category)
+        ).outerjoin(User, DocumentClassification.user_id == User.id).where(DocumentClassification.category == category).offset(skip).limit(limit)
         
         results = self.db.exec(stmt).all()
         
+        # Get total count for this category
+        total_count_stmt = select(Document.id).join(
+            DocumentClassification, Document.id == DocumentClassification.document_id
+        ).where(DocumentClassification.category == category)
+        total_count = len(self.db.exec(total_count_stmt).all())
+        
         # Convert to DocumentEntry objects
         document_entries = []
-        for document, classification in results:
+        for document, classification, user in results:
             document_entries.append(
                 DocumentEntry(
                     id=document.id,  # Document ID (file hash)
@@ -94,39 +102,51 @@ class CategoryService:
                 )
             )
 
-        logger.info(f"Found {len(document_entries)} documents in category '{category}'")
+        logger.info(f"Found {len(document_entries)} documents in category '{category}' (total: {total_count})")
 
         return CategoryResponse(
             category=category,
             documents=document_entries,
-            total_count=len(document_entries),
+            total_count=total_count,
         )
 
-    def get_all_categories(self) -> CategoriesResponse:
+    def get_all_categories(self, skip: int = 0, limit: int = 100) -> CategoriesResponse:
         """
         Get all available categories and their document counts.
+
+        Args:
+            skip: Number of documents to skip (for pagination)
+            limit: Maximum number of documents to return (for pagination)
 
         Returns:
             CategoriesResponse with all categories and their documents
         """
-        logger.info("Retrieving all categories")
+        logger.info(f"Retrieving all categories (skip={skip}, limit={limit})")
 
         # Get categories from model
         available_categories = self._get_model_categories()
 
-        # Query database for all documents with their classifications
-        stmt = select(Document, DocumentClassification).join(
+        # Query database for documents with their classifications and users (with pagination)
+        stmt = select(Document, DocumentClassification, User).join(
             DocumentClassification, Document.id == DocumentClassification.document_id
-        )
+        ).outerjoin(User, DocumentClassification.user_id == User.id).offset(skip).limit(limit)
         
         results = self.db.exec(stmt).all()
         
         # Group documents by category
         categories_data = {}
-        for document, classification in results:
+        for document, classification, user in results:
             category = classification.category
             if category not in categories_data:
                 categories_data[category] = {}
+            
+            # Prepare user data
+            user_data = None
+            if user:
+                user_data = UserInfo(
+                    username=user.username,
+                    full_name=user.full_name
+                )
             
             # Convert to CategoryDocument model
             categories_data[category][document.filename] = CategoryDocument(
@@ -138,14 +158,17 @@ class CategoryService:
                 file_size=document.file_size or 0,
                 mime_type=document.mime_type or "application/octet-stream",
                 status=document.status.value if document.status else "unknown",
+                user=user_data
             )
 
-        total_documents = sum(
-            len(docs) for docs in categories_data.values() if isinstance(docs, dict)
+        # Get total count for pagination info
+        total_count_stmt = select(Document.id).join(
+            DocumentClassification, Document.id == DocumentClassification.document_id
         )
+        total_documents = len(self.db.exec(total_count_stmt).all())
 
         logger.info(
-            f"Found {len(categories_data)} categories with {total_documents} total documents"
+            f"Found {len(categories_data)} categories with {len(results)} documents (total: {total_documents})"
         )
 
         return CategoriesResponse(

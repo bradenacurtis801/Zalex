@@ -14,12 +14,14 @@ router = APIRouter()
 
 @router.get("/categories", response_model=CategoriesResponse)
 async def get_all_categories(
+    skip: int = 0,
+    limit: int = 100,
     category_service: CategoryService = Depends(get_category_service),
     current_user: User = Depends(get_current_user),
 ) -> CategoriesResponse:
     """Get all available categories and their documents."""
-    logger.info("Received request for all categories")
-    return category_service.get_all_categories()
+    logger.info(f"Received request for all categories (skip={skip}, limit={limit})")
+    return category_service.get_all_categories(skip=skip, limit=limit)
 
 
 @router.get("/categories/summary")
@@ -34,12 +36,14 @@ async def get_categories_summary(
 
 @router.get("/categories/{category}", response_model=CategoryResponse)
 async def get_documents_by_category(
-    category: str, 
+    category: str,
+    skip: int = 0,
+    limit: int = 100,
     category_service: CategoryService = Depends(get_category_service),
     current_user: User = Depends(get_current_user),
 ) -> CategoryResponse:
     """Get all documents in a specific category."""
-    logger.info(f"Received request for category: {category}")
+    logger.info(f"Received request for category: {category} (skip={skip}, limit={limit})")
 
     # Validate category exists by getting available categories
     available_categories = category_service._get_model_categories()
@@ -49,4 +53,5 @@ async def get_documents_by_category(
             detail=f"Category '{category}' not found. Available categories: {available_categories}",
         )
 
-    return category_service.get_documents_by_category(category)
+    return category_service.get_documents_by_category(category, skip=skip, limit=limit)
+

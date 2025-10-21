@@ -28,8 +28,15 @@ import {
     HTTPValidationErrorToJSON,
 } from '../models/index';
 
+export interface GetAllCategoriesApiCategoriesGetRequest {
+    skip?: number;
+    limit?: number;
+}
+
 export interface GetDocumentsByCategoryApiCategoriesCategoryGetRequest {
     category: string;
+    skip?: number;
+    limit?: number;
 }
 
 /**
@@ -42,17 +49,19 @@ export interface CategoryApiInterface {
     /**
      * Get all available categories and their documents.
      * @summary Get All Categories
+     * @param {number} [skip] 
+     * @param {number} [limit] 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof CategoryApiInterface
      */
-    getAllCategoriesApiCategoriesGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<CategoriesResponse>>;
+    getAllCategoriesApiCategoriesGetRaw(requestParameters: GetAllCategoriesApiCategoriesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<CategoriesResponse>>;
 
     /**
      * Get all available categories and their documents.
      * Get All Categories
      */
-    getAllCategoriesApiCategoriesGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<CategoriesResponse>;
+    getAllCategoriesApiCategoriesGet(requestParameters: GetAllCategoriesApiCategoriesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<CategoriesResponse>;
 
     /**
      * Get a summary of document counts per category.
@@ -73,6 +82,8 @@ export interface CategoryApiInterface {
      * Get all documents in a specific category.
      * @summary Get Documents By Category
      * @param {string} category 
+     * @param {number} [skip] 
+     * @param {number} [limit] 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof CategoryApiInterface
@@ -96,8 +107,16 @@ export class CategoryApi extends runtime.BaseAPI implements CategoryApiInterface
      * Get all available categories and their documents.
      * Get All Categories
      */
-    async getAllCategoriesApiCategoriesGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<CategoriesResponse>> {
+    async getAllCategoriesApiCategoriesGetRaw(requestParameters: GetAllCategoriesApiCategoriesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<CategoriesResponse>> {
         const queryParameters: any = {};
+
+        if (requestParameters['skip'] != null) {
+            queryParameters['skip'] = requestParameters['skip'];
+        }
+
+        if (requestParameters['limit'] != null) {
+            queryParameters['limit'] = requestParameters['limit'];
+        }
 
         const headerParameters: runtime.HTTPHeaders = {};
 
@@ -126,8 +145,8 @@ export class CategoryApi extends runtime.BaseAPI implements CategoryApiInterface
      * Get all available categories and their documents.
      * Get All Categories
      */
-    async getAllCategoriesApiCategoriesGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<CategoriesResponse> {
-        const response = await this.getAllCategoriesApiCategoriesGetRaw(initOverrides);
+    async getAllCategoriesApiCategoriesGet(requestParameters: GetAllCategoriesApiCategoriesGetRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<CategoriesResponse> {
+        const response = await this.getAllCategoriesApiCategoriesGetRaw(requestParameters, initOverrides);
         return await response.value();
     }
 
@@ -183,6 +202,14 @@ export class CategoryApi extends runtime.BaseAPI implements CategoryApiInterface
         }
 
         const queryParameters: any = {};
+
+        if (requestParameters['skip'] != null) {
+            queryParameters['skip'] = requestParameters['skip'];
+        }
+
+        if (requestParameters['limit'] != null) {
+            queryParameters['limit'] = requestParameters['limit'];
+        }
 
         const headerParameters: runtime.HTTPHeaders = {};
 
