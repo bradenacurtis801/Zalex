@@ -4,6 +4,7 @@ import {
   CategoryApi,
   FeedbackApi,
   AuthApi,
+  OcrApi,
   Configuration,
 } from "@/generated";
 
@@ -33,6 +34,7 @@ export let queryApi = new QueryApi(sharedConfig);
 export let categoryApi = new CategoryApi(sharedConfig);
 export let feedbackApi = new FeedbackApi(sharedConfig);
 export let authApi = new AuthApi(sharedConfig);
+export let ocrApi = new OcrApi(sharedConfig);
 
 // Function to update the API Base URL dynamically
 export const setCurrentClientConfig = (url: string) => {
@@ -66,6 +68,7 @@ export const updateApiClients = () => {
   categoryApi = new CategoryApi(sharedConfig);
   feedbackApi = new FeedbackApi(sharedConfig);
   authApi = new AuthApi(sharedConfig);
+  ocrApi = new OcrApi(sharedConfig);
 };
 
 // WebSocket utilities

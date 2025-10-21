@@ -1,6 +1,7 @@
 """Upload service for handling file uploads and processing."""
 
 import asyncio
+import json
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -12,7 +13,15 @@ from fastapi import UploadFile
 from sqlmodel import Session, select, and_
 from src.models.schemas.upload import DocumentClassification, UploadResponse
 from src.models.schemas.events import FileStartEvent, FileCompleteEvent
-from src.models.database import Document, DocumentClassification as DBDocumentClassification, DocumentStatus
+from src.models.database import (
+    Document, 
+    DocumentClassification as DBDocumentClassification, 
+    DocumentFeedback, 
+    PDFCache, 
+    UploadSessionFile, 
+    DocumentStatus,
+    OCRData
+)
 from src.utils.document_processor import DocumentProcessor
 from src.utils.file_hasher import calculate_file_hash, get_content_based_filename
 import hashlib
@@ -204,7 +213,7 @@ class UploadService:
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor() as executor:
             category, confidence = await loop.run_in_executor(
-                executor, self._process_document_content, file_content, original_filename
+                executor, self._process_document_content, file_content, original_filename, file_hash
             )
         
         logger.debug(
@@ -289,13 +298,14 @@ class UploadService:
             buffer.write(content)
         logger.debug(f"File saved successfully. Size: {len(content)} bytes")
 
-    def _extract_text_from_content(self, file_content: bytes, filename: str) -> list:
+    def _extract_text_from_content(self, file_content: bytes, filename: str, document_id: str = None) -> list:
         """
         Extract text from file content for classification.
         
         Args:
             file_content: The file content as bytes
             filename: The filename for format detection
+            document_id: Document ID for storing OCR data (optional)
             
         Returns:
             List of extracted text chunks
@@ -314,12 +324,33 @@ class UploadService:
                     pix = page.get_pixmap()
                     img_data = pix.tobytes("png")
                     
-                    # Extract text using OCR
+                    # Extract text using OCR with detailed data
                     try:
-                        text = self.document_processor.ocr_engine.extract_text_from_bytes(img_data, "png")
-                        if text and text.strip():
-                            extracted_texts.append(text.strip())
-                            logger.debug(f"Extracted text from page {page_num + 1}: {len(text)} characters")
+                        ocr_result = self.document_processor.ocr_engine.extract_text_with_data_from_bytes(img_data, "png")
+                        if ocr_result and ocr_result.get('text', '').strip():
+                            # Get image dimensions from the pixmap
+                            img_width = pix.width
+                            img_height = pix.height
+                            
+                            # Store detailed OCR data in database if document_id is provided
+                            if document_id:
+                                ocr_data = OCRData(
+                                    document_id=document_id,
+                                    page_number=page_num,
+                                    full_text=ocr_result.get('text', ''),
+                                    words_data=json.dumps(ocr_result.get('words', [])),
+                                    lines_data=json.dumps(ocr_result.get('lines', [])),
+                                    confidence_score=self._calculate_average_confidence(ocr_result.get('words', [])),
+                                    total_words=ocr_result.get('total_words', 0),
+                                    total_lines=ocr_result.get('total_lines', 0),
+                                    original_image_width=img_width,
+                                    original_image_height=img_height
+                                )
+                                self.db.add(ocr_data)
+                            
+                            # Also add to extracted_texts for backward compatibility
+                            extracted_texts.append(ocr_result.get('text', '').strip())
+                            logger.debug(f"Extracted text from page {page_num + 1}: {len(ocr_result.get('text', ''))} characters")
                     except Exception as e:
                         logger.warning(f"OCR failed for page {page_num + 1}: {e}")
                         continue
@@ -343,19 +374,20 @@ class UploadService:
         
         return extracted_texts
 
-    def _process_document_content(self, file_content: bytes, filename: str) -> tuple:
+    def _process_document_content(self, file_content: bytes, filename: str, file_hash: str) -> tuple:
         """
         Process document content (extract text and classify) in a thread pool.
         
         Args:
             file_content: The file content as bytes
             filename: The filename for format detection
+            file_hash: The file hash for OCR data storage
             
         Returns:
             Tuple of (category, confidence)
         """
         # Extract text from file content
-        extracted_texts = self._extract_text_from_content(file_content, filename)
+        extracted_texts = self._extract_text_from_content(file_content, filename, file_hash)
         
         if not extracted_texts:
             logger.warning(f"No text extracted from {filename}")
@@ -404,7 +436,8 @@ class UploadService:
             "classifications": 0,
             "feedback": 0,
             "pdf_cache": 0,
-            "upload_session_files": 0
+            "upload_session_files": 0,
+            "ocr_data": 0
         }
 
         try:
@@ -442,7 +475,15 @@ class UploadService:
                 self.db.delete(session_file)
                 deletion_counts["upload_session_files"] += 1
 
-            # 5. Finally, delete the Document itself
+            # 5. Delete OCRData
+            ocr_data_records = self.db.exec(
+                select(OCRData).where(OCRData.document_id == document_id)
+            ).all()
+            for ocr_data in ocr_data_records:
+                self.db.delete(ocr_data)
+                deletion_counts["ocr_data"] += 1
+
+            # 6. Finally, delete the Document itself
             self.db.delete(document)
             deletion_counts["document"] += 1
 
@@ -462,4 +503,12 @@ class UploadService:
             logger.error(f"Error deleting document {document_id}: {e}")
             self.db.rollback()
             raise Exception(f"Failed to delete document: {str(e)}")
+
+    def _calculate_average_confidence(self, words: List[Dict[str, Any]]) -> float:
+        """Calculate average confidence score from words data."""
+        if not words:
+            return 0.0
+        
+        total_confidence = sum(word.get('confidence', 0) for word in words)
+        return total_confidence / len(words) / 100.0  # Convert to 0-1 range
 

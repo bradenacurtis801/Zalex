@@ -2,6 +2,7 @@ apis/AuthApi.ts
 apis/CategoryApi.ts
 apis/DefaultApi.ts
 apis/FeedbackApi.ts
+apis/OcrApi.ts
 apis/QueryApi.ts
 apis/UploadApi.ts
 apis/index.ts
@@ -13,8 +14,17 @@ models/CategoryResponse.ts
 models/DocumentClassification.ts
 models/DocumentEntry.ts
 models/DocumentInfo.ts
+models/DocumentOCRDataResponse.ts
+models/DocumentTextSummary.ts
 models/FeedbackSummary.ts
 models/HTTPValidationError.ts
+models/OCRDataResponse.ts
+models/OCRLineData.ts
+models/OCRSearchMatch.ts
+models/OCRSearchResponse.ts
+models/OCRSummaryResponse.ts
+models/OCRWordData.ts
+models/PageOCRDataResponse.ts
 models/QueryRequest.ts
 models/QueryResponse.ts
 models/ReclassificationRequest.ts
@@ -24,6 +34,7 @@ models/TokenResponse.ts
 models/UploadResponse.ts
 models/UserChangePassword.ts
 models/UserCreate.ts
+models/UserInfo.ts
 models/UserLogin.ts
 models/UserResponse.ts
 models/UserRole.ts

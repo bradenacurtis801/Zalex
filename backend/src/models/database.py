@@ -74,6 +74,7 @@ class Document(DocumentBase, table=True):
     classifications: List["DocumentClassification"] = Relationship(back_populates="document")
     feedback: List["DocumentFeedback"] = Relationship(back_populates="document")
     pdf_cache: Optional["PDFCache"] = Relationship(back_populates="document")
+    ocr_data: List["OCRData"] = Relationship(back_populates="document")
 
 class DocumentClassificationBase(SQLModel):
     """Base classification model"""
@@ -167,5 +168,25 @@ class PDFCache(PDFCacheBase, table=True):
     # Relationships
     document: Document = Relationship(back_populates="pdf_cache")
 
+class OCRDataBase(SQLModel):
+    """Base OCR data model"""
+    page_number: int = Field(ge=0)  # Page number (0-indexed)
+    full_text: str = Field()  # Complete extracted text for the page
+    words_data: str = Field()  # JSON string containing word-level data with bounding boxes
+    lines_data: str = Field()  # JSON string containing line-level data with bounding boxes
+    confidence_score: float = Field(ge=0.0, le=1.0)  # Average confidence for the page
+    total_words: int = Field(ge=0)
+    total_lines: int = Field(ge=0)
+    original_image_width: Optional[int] = Field(default=None)  # Original image width in pixels
+    original_image_height: Optional[int] = Field(default=None)  # Original image height in pixels
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class OCRData(OCRDataBase, table=True):
+    """OCR data table - stores extracted text and metadata from documents"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    document_id: str = Field(foreign_key="document.id", index=True)
+    
+    # Relationships
+    document: Document = Relationship(back_populates="ocr_data")
 
 # Relationships are now defined directly in the User class

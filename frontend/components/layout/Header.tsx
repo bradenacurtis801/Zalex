@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import UserProfile from '@/components/features/user/UserProfile'
 import UserManagement from '@/components/features/user/UserManagement'
+import DocumentManagement from '@/components/features/document/DocumentManagement'
 
 interface HeaderProps {
   title: string
@@ -16,6 +17,7 @@ export default function Header({ title, showBackButton = false, onBackClick }: H
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showUserProfile, setShowUserProfile] = useState(false)
   const [showUserManagement, setShowUserManagement] = useState(false)
+  const [showDocumentManagement, setShowDocumentManagement] = useState(false)
 
   return (
     <>
@@ -83,15 +85,26 @@ export default function Header({ title, showBackButton = false, onBackClick }: H
                   View Profile
                 </button>
                 {user?.user_role === 'admin' && (
-                  <button
-                    onClick={() => {
-                      setShowUserManagement(true)
-                      setShowUserMenu(false)
-                    }}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Manage Users
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowUserManagement(true)
+                        setShowUserMenu(false)
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Manage Users
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowDocumentManagement(true)
+                        setShowUserMenu(false)
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Manage Documents
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => {
@@ -124,6 +137,9 @@ export default function Header({ title, showBackButton = false, onBackClick }: H
       )}
       {showUserManagement && (
         <UserManagement onClose={() => setShowUserManagement(false)} />
+      )}
+      {showDocumentManagement && (
+        <DocumentManagement onClose={() => setShowDocumentManagement(false)} />
       )}
     </>
   )

@@ -8,6 +8,7 @@ from src.services.feedback_service import FeedbackService
 from src.services.pdf_service import PDFService
 from src.services.query_service import QueryService
 from src.services.upload_service import UploadService
+from src.services.ocr_service import OCRService
 from src.utils.document_processor import DocumentProcessor
 from src.websocket_manager import get_connection_manager
 from src.db.connection import get_session
@@ -135,6 +136,11 @@ async def get_current_user(
         )
     
     return user
+
+def get_ocr_service(db: Session = Depends(get_session)) -> OCRService:
+    """Get OCR service instance"""
+    app_state = get_app_state()
+    return OCRService(db, app_state.document_processor.ocr_engine)
 
 def require_admin():
     """Require admin role"""

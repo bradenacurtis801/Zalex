@@ -7,6 +7,8 @@ import { StatusMessage } from '@/components/ui'
 import { getCategoryColor } from '@/utils/categoryUtils'
 import { uploadApi } from '@/api'
 import ReclassificationModal from './ReclassificationModal'
+import OCRTextViewer from './OCRTextViewer'
+import PDFViewer from './PDFViewer'
 
 interface DocumentViewerModalProps {
   isOpen: boolean
@@ -27,15 +29,13 @@ export default function DocumentViewerModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [contentType, setContentType] = useState<'text' | 'image' | 'pdf'>('text')
-  const [pdfLoadError, setPdfLoadError] = useState(false)
-  const [pdfPages, setPdfPages] = useState<Array<{page_number: number, image_data: string, width: number, height: number}>>([])
   const [showReclassifyModal, setShowReclassifyModal] = useState(false)
+  const [showOCRViewer, setShowOCRViewer] = useState(false)
 
 
   useEffect(() => {
     if (isOpen && document) {
       loadDocumentContent()
-      setPdfLoadError(false) // Reset PDF error state when opening new document
     }
   }, [isOpen, document])
 
@@ -50,17 +50,6 @@ export default function DocumentViewerModal({
       if (['pdf'].includes(fileExtension || '')) {
         setContentType('pdf')
         setDocumentContent('') // No need to fetch content for PDFs
-        
-        // Fetch PDF pages (converted to images) - backend handles caching transparently
-        try {
-          const pagesData = await uploadApi.getPdfPagesApiDocumentsDocumentIdPagesGet({
-            documentId: document.id
-          })
-          setPdfPages(pagesData.pages || [])
-        } catch (err) {
-          console.error('Error loading PDF pages:', err)
-          setPdfLoadError(true)
-        }
       } else if (['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(fileExtension || '')) {
         setContentType('image')
         setDocumentContent('') // No need to fetch content for images
@@ -122,6 +111,10 @@ export default function DocumentViewerModal({
     if (onReclassify) {
       onReclassify(document)
     }
+  }
+
+  const handleViewOCR = () => {
+    setShowOCRViewer(true)
   }
 
   const formatConfidence = (confidence: number) => {
@@ -236,60 +229,21 @@ export default function DocumentViewerModal({
             </div>
           )}
 
-          {!loading && !error && contentType === 'pdf' && !pdfLoadError && pdfPages.length > 0 && (
+          {!loading && !error && contentType === 'pdf' && (
             <div className="space-y-4">
-              {pdfPages.map((page) => (
-                <div key={page.page_number} className="bg-white rounded-lg shadow-sm border">
-                  <div className="p-3 border-b bg-gray-50">
-                    <h4 className="font-medium text-gray-700">Page {page.page_number}</h4>
-                  </div>
-                  <div className="p-4">
-                    <img
-                      src={page.image_data}
-                      alt={`Page ${page.page_number}`}
-                      className="max-w-full h-auto mx-auto"
-                      style={{ maxHeight: '80vh' }}
-                      onError={() => {
-                        console.error(`Failed to load page ${page.page_number} image`)
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {!loading && !error && contentType === 'pdf' && pdfPages.length === 0 && !pdfLoadError && (
-            <div className="text-center p-8">
-              <div className="text-6xl mb-4">📄</div>
-              <h4 className="text-lg font-medium text-gray-900 mb-2">Loading PDF...</h4>
-              <p className="text-gray-600 mb-4">
-                Converting PDF pages to images...
-              </p>
-            </div>
-          )}
-
-          {!loading && !error && contentType === 'pdf' && pdfLoadError && (
-            <div className="text-center p-8">
-              <div className="text-6xl mb-4">📄</div>
-              <h4 className="text-lg font-medium text-gray-900 mb-2">PDF Load Error</h4>
-              <p className="text-gray-600 mb-4">
-                Unable to convert PDF to images. You can download it to view.
-              </p>
-              <div className="space-x-3">
-                <Button onClick={handleDownload}>
-                  Download PDF
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  onClick={() => {
-                    setPdfLoadError(false)
-                    loadDocumentContent()
-                  }}
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-lg font-medium text-gray-900">PDF Document</h4>
+                <Button
+                  onClick={handleViewOCR}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  Try Again
+                  View OCR Text
                 </Button>
               </div>
+              <PDFViewer
+                document={document}
+                className="max-h-96"
+              />
             </div>
           )}
         </div>
@@ -318,6 +272,13 @@ export default function DocumentViewerModal({
         document={document}
         onSuccess={handleReclassifySuccess}
         availableCategories={availableCategories}
+      />
+
+      {/* OCR Text Viewer */}
+      <OCRTextViewer
+        isOpen={showOCRViewer}
+        onClose={() => setShowOCRViewer(false)}
+        document={document}
       />
     </div>
   )
