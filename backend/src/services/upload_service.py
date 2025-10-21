@@ -326,7 +326,7 @@ class UploadService:
                     
                     # Extract text using OCR with detailed data
                     try:
-                        ocr_result = self.document_processor.ocr_engine.extract_text_with_data_from_bytes(img_data, "png")
+                        ocr_result = self.document_processor.ocr_engine.extract_text_from_bytes(img_data, "png")
                         if ocr_result and ocr_result.get('text', '').strip():
                             # Get image dimensions from the pixmap
                             img_width = pix.width

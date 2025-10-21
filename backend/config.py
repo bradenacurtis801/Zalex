@@ -125,7 +125,7 @@ APP_DIR = Path(__file__).resolve().parent.parent / "APP_DATA"
 
 # Core application paths
 LOGS_DIR = APP_DIR / "logs"
-DB_DIR = APP_DIR / "db"
+DB_DIR = APP_DIR / "db" / "postgres_data"
 
 # ML model paths (for inference only)
 ML_MODELS_DIR = APP_DIR / "ml_models"
@@ -218,6 +218,11 @@ LOGGING_CONFIG = {
         },
         "websockets": {
             "level": logging.WARNING,  # WebSocket connection issues
+            "handlers": ["console"] + (["file"] if ENABLE_FILE_LOGGING else []),
+            "propagate": False
+        },
+        "watchfiles": {
+            "level": logging.ERROR,  # Suppress verbose file watching output
             "handlers": ["console"] + (["file"] if ENABLE_FILE_LOGGING else []),
             "propagate": False
         }

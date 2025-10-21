@@ -19,7 +19,7 @@ from src.services.auth_service import AuthService
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from src.routers import auth, category, feedback, query, upload
+from src.routers import auth, category, feedback, query, upload, ocr
 from src.websocket_manager import get_connection_manager
 import json
 import asyncio
@@ -104,7 +104,7 @@ async def lifespan(app: FastAPI):
     # Create default admin user if no users exist (at the very end)
     create_default_admin_user()
     
-    logger.info("\033[92m🎉 Application startup complete!\033[0m")
+    logger.info("\033[92mApplication startup complete!\033[0m")
 
     yield
 
@@ -158,6 +158,7 @@ app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(query.router, prefix="/api", tags=["query"])
 app.include_router(category.router, prefix="/api", tags=["category"])
 app.include_router(feedback.router, prefix="/api", tags=["feedback"])
+app.include_router(ocr.router, prefix="/api", tags=["ocr"])
 
 
 # WebSocket endpoint for progress updates
@@ -189,10 +190,12 @@ if __name__ == "__main__":
 
     host = config.settings.backend_host if config.is_production else "0.0.0.0"
 
+    RELOAD_EXCLUDES = ["venv", ".git", "__pycache__", "frontend", "*.log"]
 
     uvicorn.run(
         "main:app",
         host=host,
         port=config.BACKEND_PORT,
         reload=bool(config.is_development),
+        reload_excludes=RELOAD_EXCLUDES,
     )
