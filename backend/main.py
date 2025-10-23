@@ -155,7 +155,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(upload.router, prefix="/api", tags=["upload"])
-app.include_router(query.router, prefix="/api", tags=["query"])
+# app.include_router(query.router, prefix="/api", tags=["query"]) # Commented out until query endpoint is implemented
 app.include_router(category.router, prefix="/api", tags=["category"])
 app.include_router(feedback.router, prefix="/api", tags=["feedback"])
 app.include_router(ocr.router, prefix="/api", tags=["ocr"])
