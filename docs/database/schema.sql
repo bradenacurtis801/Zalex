@@ -1,5 +1,5 @@
 -- ScanPro Database Schema
--- Generated on: 2025-10-19 08:53:00
+-- Generated on: 2025-10-23 12:32:43
 -- Database: scanpro_db
 -- Host: localhost:5432
 -- User: postgres
@@ -52,6 +52,26 @@ CREATE TABLE documentfeedback (
 -- Foreign Keys for documentfeedback
 ALTER TABLE documentfeedback ADD CONSTRAINT documentfeedback_document_id_fkey FOREIGN KEY (document_id) REFERENCES document(id);
 ALTER TABLE documentfeedback ADD CONSTRAINT documentfeedback_user_id_fkey FOREIGN KEY (user_id) REFERENCES user(id);
+
+-- Table: ocrdata
+-- ==================================================
+CREATE TABLE ocrdata (
+    page_number integer NOT NULL,
+    full_text character varying NOT NULL,
+    words_data character varying NOT NULL,
+    lines_data character varying NOT NULL,
+    confidence_score double precision NOT NULL,
+    total_words integer NOT NULL,
+    total_lines integer NOT NULL,
+    created_at timestamp without time zone NOT NULL,
+    id integer NOT NULL DEFAULT nextval('ocrdata_id_seq'::regclass),
+    document_id character varying NOT NULL,
+    original_image_width integer,
+    original_image_height integer
+);
+
+-- Foreign Keys for ocrdata
+ALTER TABLE ocrdata ADD CONSTRAINT ocrdata_document_id_fkey FOREIGN KEY (document_id) REFERENCES document(id);
 
 -- Table: pdfcache
 -- ==================================================

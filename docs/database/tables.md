@@ -1,6 +1,6 @@
 # ScanPro Database Tables
 
-Generated on: 2025-10-19 08:53:00
+Generated on: 2025-10-23 12:32:43
 Database: scanpro_db
 Host: localhost:5432
 
@@ -41,6 +41,23 @@ Host: localhost:5432
 | id | integer | No | nextval('documentfeedback_id_seq'::regclass) | |
 | document_id | character varying | No | - | |
 | user_id | integer | Yes | - | |
+
+## ocrdata
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| page_number | integer | No | - | |
+| full_text | character varying | No | - | |
+| words_data | character varying | No | - | |
+| lines_data | character varying | No | - | |
+| confidence_score | double precision | No | - | |
+| total_words | integer | No | - | |
+| total_lines | integer | No | - | |
+| created_at | timestamp without time zone | No | - | |
+| id | integer | No | nextval('ocrdata_id_seq'::regclass) | |
+| document_id | character varying | No | - | |
+| original_image_width | integer | Yes | - | |
+| original_image_height | integer | Yes | - | |
 
 ## pdfcache
 

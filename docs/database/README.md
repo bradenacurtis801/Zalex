@@ -62,22 +62,69 @@ erDiagram
         timestamp created_at
     }
     
+    ocrdata {
+        int id PK
+        varchar document_id FK
+        int page_number
+        varchar full_text
+        varchar words_data
+        varchar lines_data
+        float confidence_score
+        int total_words
+        int total_lines
+        int original_image_width
+        int original_image_height
+        timestamp created_at
+    }
+    
     pdfcache {
         int id PK
         varchar document_id FK
         int max_pages
         int total_pages
-        text pages_data
+        varchar pages_data
         timestamp created_at
         timestamp expires_at
+    }
+    
+    uploadsession {
+        int id PK
+        int user_id FK
+        varchar client_id
+        varchar status
+        int total_files
+        int processed_files
+        varchar current_file
+        float progress_percent
+        varchar error_message
+        timestamp created_at
+        timestamp updated_at
+        timestamp expires_at
+    }
+    
+    uploadsessionfile {
+        int id PK
+        int session_id FK
+        varchar document_id FK
+        varchar filename
+        int file_size
+        varchar mime_type
+        varchar status
+        varchar error_message
+        varchar file_hash
+        timestamp created_at
     }
     
     user ||--o{ session : "user_id"
     user ||--o{ document : "user_id"
     user ||--o{ documentfeedback : "user_id"
+    user ||--o{ uploadsession : "user_id"
     document ||--o{ documentclassification : "document_id"
-    document ||--|| documentfeedback : "document_id"
-    document ||--|| pdfcache : "document_id"
+    document ||--o{ documentfeedback : "document_id"
+    document ||--o{ ocrdata : "document_id"
+    document ||--o{ pdfcache : "document_id"
+    document ||--o{ uploadsessionfile : "document_id"
+    uploadsession ||--o{ uploadsessionfile : "session_id"
 ```
 
 
@@ -102,16 +149,25 @@ erDiagram
 - **`documentfeedback`** - User corrections and feedback
 
 #### **Document Processing**
+- **`ocrdata`** - OCR extraction results with detailed text data
 - **`pdfcache`** - PDF processing cache
+
+#### **Upload Management**
+- **`uploadsession`** - Multi-file upload session tracking
+- **`uploadsessionfile`** - Individual file tracking within upload sessions
 
 ## 🔗 Relationships
 
 - **User** → **Session** (1:many)
 - **User** → **Document** (1:many)
 - **User** → **DocumentFeedback** (1:many)
+- **User** → **UploadSession** (1:many)
 - **Document** → **DocumentClassification** (1:many)
-- **Document** → **DocumentFeedback** (1:1)
+- **Document** → **DocumentFeedback** (1:many)
+- **Document** → **OcrData** (1:many)
 - **Document** → **PdfCache** (1:1)
+- **Document** → **UploadSessionFile** (1:1)
+- **UploadSession** → **UploadSessionFile** (1:many)
 
 ## 🛠️ Generating Diagrams
 
