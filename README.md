@@ -47,27 +47,25 @@ ScanPro is a full-stack document management application with user authentication
 
 ## 🔄 System Pipeline
 
-### 1. Training Phase
-**Location**: `train/` directory
+### 1. Model Loading
+**Location**: `backend/` directory
 
-1. **Data Preparation**: Collect and organize labeled document images in `document_raw/` directory
-2. **OCR Processing**: Extract text from document images using Tesseract and save to `document_dataset/`
-3. **Model Training**: Train similarity-based classifier using SentenceTransformer embeddings
-4. **Model Evaluation**: Test model performance and confidence scores
-5. **Model Export**: Save trained models to `APP_DATA/ml_models/classifier_model/` for backend inference
+1. **Hugging Face Integration**: Automatically downloads fine-tuned BERT model from Hugging Face Hub
+2. **Model Caching**: Caches model files locally in `APP_DATA/ml_models/` for faster subsequent loads
+3. **Model Validation**: Validates model files and configuration on startup
+4. **Critical Dependency**: Backend will crash if the fine-tuned model cannot be downloaded
 
 ### 2. Backend Processing
 **Location**: `backend/` directory
 
 1. **Document Upload**: Receive documents via FastAPI endpoints
 2. **OCR Extraction**: Extract text using Tesseract with image preprocessing
-3. **Document Classification**: Use pre-trained similarity classifier to classify document types
+3. **Document Classification**: Use fine-tuned BERT model to classify document types
 4. **Embedding Generation**: Create vector embeddings for semantic search
 5. **Index Storage**: Store documents in FAISS search index
 6. **Search API**: Provide semantic search capabilities
 7. **Feedback API**: Handle document reclassification and user corrections
-8. **Incremental Model Updates**: Automatically update model embeddings based on user feedback
-9. **PDF Processing**: Convert PDF pages to images for display and OCR
+8. **PDF Processing**: Convert PDF pages to images for display and OCR
 
 ### 3. Frontend Interface
 **Location**: `frontend/` directory
@@ -82,31 +80,26 @@ ScanPro is a full-stack document management application with user authentication
 8. **Document Management**: View and manage uploaded documents by category
 9. **User Management**: Admin interface for managing users and roles
 10. **User Profile**: Users can view and edit their profile information
-11. **Feedback System**: Correct misclassifications and improve model accuracy through incremental updates
+11. **Feedback System**: Correct misclassifications and track model performance
 12. **PDF Viewer**: View PDF documents with page-by-page image conversion
 13. **Reclassification**: Easy document reclassification with "Did we get this wrong?" interface
 
 ## 🛠️ Getting Started
 
-1. **Train Models**: Use the training pipeline to create document classification models
-2. **Start Backend**: Launch the FastAPI server to process documents and provide search
-3. **Start Frontend**: Launch the web interface to upload documents and search
+1. **Start Backend**: Launch the FastAPI server to process documents and provide search
+2. **Start Frontend**: Launch the web interface to upload documents and search
+
+The system automatically downloads the pre-trained model from Hugging Face Hub on first startup.
 
 See individual component READMEs for detailed setup instructions.
 
 ## 🔄 System Flow
 
-### Training Phase
-1. **Collect Document Images**: Gather labeled Spanish legal documents in `document_raw/` directory structure
-2. **Extract Text**: Use Tesseract OCR to convert document images to text and save to `document_dataset/`
-3. **Train Models**: Train similarity-based classifier using SentenceTransformer embeddings
-4. **Deploy Models**: Save trained models to `APP_DATA/ml_models/classifier_model/` for backend use
-
 ### Backend Processing
-1. **Load Models**: Load pre-trained similarity classifier from `APP_DATA/ml_models/classifier_model/`
+1. **Load Models**: Download and load fine-tuned BERT model from Hugging Face Hub
 2. **Receive Documents**: Accept PDF and image uploads via API
 3. **Extract Text**: Use Tesseract OCR to extract text from uploaded documents
-4. **Classify Documents**: Use pre-trained similarity classifier to determine document type
+4. **Classify Documents**: Use fine-tuned BERT model to determine document type
 5. **Create Embeddings**: Generate vector embeddings for semantic search
 6. **Store in Index**: Save documents and embeddings in searchable index
 7. **Provide Search**: Return relevant documents based on user queries
@@ -120,20 +113,20 @@ See individual component READMEs for detailed setup instructions.
 ## 🚀 Model Deployment Strategy
 
 ### Development/Testing
-- **Local Models**: Models saved to `APP_DATA/ml_models/classifier_model/` for testing
-- **Shared Directory**: Both training and backend use the same `APP_DATA` directory
-- **Quick Iteration**: Fast model testing without deployment overhead
+- **Hugging Face Hub**: Models automatically downloaded from `bradenacurtis/scanpro-classifier-v1-finetune`
+- **Local Caching**: Models cached in `APP_DATA/ml_models/` for faster subsequent loads
+- **Fallback Support**: Similarity-based classifier available as fallback
 
 ### Production Deployment
-- **Model URL**: Backend can download models from URLs using `SCANPRO_MODEL_URL`
-- **Local Path**: Backend can use local model paths with `SCANPRO_MODEL_PATH`
-- **Automatic Discovery**: Backend automatically finds models in `APP_DATA/ml_models/classifier_model/`
+- **Automatic Download**: Backend automatically downloads model on first startup
+- **Caching**: Model files cached locally for performance
+- **Token Support**: Optional Hugging Face token for private models via `SCANPRO_HF_TOKEN`
 
 ### Model Lifecycle
-1. **Train**: Create models in training pipeline (`train/train_similarity_classifier.py`)
-2. **Save**: Models automatically saved to `APP_DATA/ml_models/classifier_model/`
-3. **Load**: Backend automatically loads models from the same directory
-4. **Update**: Retrain and save new models to the same location
+1. **Download**: Backend automatically downloads model from Hugging Face Hub
+2. **Cache**: Model files cached locally in `APP_DATA/ml_models/`
+3. **Load**: Model loaded into memory for inference
+4. **Update**: New model versions automatically downloaded on restart
 
 ## 📚 Component Documentation
 
@@ -145,9 +138,9 @@ Each component has its own detailed documentation with setup instructions and co
 
 ## 🎯 Key Technologies
 
-- **Document Classification**: Similarity-based classifier with SentenceTransformer embeddings
+- **Document Classification**: Fine-tuned BERT model from Hugging Face Hub
 - **OCR Processing**: Tesseract for text extraction
 - **Search Engine**: FAISS vector search with SentenceTransformer embeddings
 - **Backend**: FastAPI for API services
 - **Frontend**: Next.js for web interface
-- **Training**: Similarity-based classification and SentenceTransformers for model development
+- **Model Management**: Hugging Face Hub integration for model distribution

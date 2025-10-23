@@ -2,22 +2,22 @@
 
 ## Overview
 
-The ScanPro document classifier is a similarity-based classification system that automatically categorizes Spanish legal documents using SentenceTransformer embeddings and cosine similarity. It's designed to handle various types of legal documents commonly found in Spanish-speaking countries.
+The ScanPro document classifier uses a fine-tuned BERT model from Hugging Face Hub to automatically categorize Spanish legal documents. The system loads a pre-trained model (`bradenacurtis/scanpro-classifier-v1-finetune`) that has been specifically fine-tuned for Spanish legal document classification. It's designed to handle various types of legal documents commonly found in Spanish-speaking countries.
 
 ## Architecture
 
 ### Classification Method
-- **Type**: Similarity-based classification using cosine similarity
-- **Model**: SentenceTransformer embeddings (768-dimensional vectors)
-- **Algorithm**: Cosine similarity between document and category embeddings
-- **Training**: Unsupervised learning on document text content
+- **Type**: Fine-tuned BERT classification using Hugging Face Transformers
+- **Model**: Pre-trained BERT model fine-tuned for Spanish legal documents
+- **Algorithm**: Neural network classification with softmax output
+- **Training**: Supervised learning on labeled Spanish legal document dataset
 
 ### Model Components
 
-1. **SentenceTransformer Model**: Converts text into 768-dimensional vectors
-2. **Category Embeddings**: Pre-computed average embeddings for each document category
-3. **Similarity Calculator**: Computes cosine similarity between document and category vectors
-4. **Classification Logic**: Assigns document to category with highest similarity score
+1. **BERT Tokenizer**: Converts text into token IDs for the neural network
+2. **Fine-tuned BERT Model**: Pre-trained BERT model fine-tuned for classification
+3. **Classification Head**: Neural network layer that outputs category probabilities
+4. **Softmax Activation**: Converts logits to probability distribution over categories
 
 ## Training Data
 
@@ -50,31 +50,37 @@ The classifier is trained on the following Spanish legal document categories:
 
 ### Required Files
 
+The model is automatically downloaded from Hugging Face Hub to:
 ```
-APP_DATA/ml_models/classifier_model/
-├── model_metadata.json          # Model configuration and metadata
-└── category_embeddings.json     # 768-dimensional embeddings for each category
+APP_DATA/ml_models/
+└── bradenacurtis--scanpro-classifier-v1-finetune/
+    ├── config.json              # Model configuration
+    ├── model.safetensors        # Model weights
+    ├── tokenizer.json           # Tokenizer configuration
+    ├── vocab.txt                # Vocabulary file
+    ├── tokenizer_config.json    # Tokenizer settings
+    └── special_tokens_map.json  # Special tokens mapping
 ```
 
 ### File Formats
 
-#### `model_metadata.json`
+#### `config.json`
 ```json
 {
-  "model_name": "all-MiniLM-L6-v2",
-  "categories": ["personas", "mercantil", "inmuebles"],
-  "embedding_dimension": 768,
-  "training_date": "2024-01-15T10:30:00Z",
-  "version": "1.0.0"
-}
-```
-
-#### `category_embeddings.json`
-```json
-{
-  "personas": [0.1, -0.3, 0.7, ...],     // 768 numbers
-  "mercantil": [0.2, -0.1, 0.8, ...],    // 768 numbers
-  "inmuebles": [0.3, -0.2, 0.6, ...]     // 768 numbers
+  "model_type": "bert",
+  "num_labels": 3,
+  "label2id": {
+    "personas": 0,
+    "mercantil": 1,
+    "inmuebles": 2
+  },
+  "id2label": {
+    "0": "personas",
+    "1": "mercantil", 
+    "2": "inmuebles"
+  },
+  "hidden_size": 768,
+  "num_attention_heads": 12
 }
 ```
 
@@ -88,18 +94,21 @@ APP_DATA/ml_models/classifier_model/
 - Clean and normalize extracted text
 - Truncate if necessary (max ~2000 characters)
 
-### 3. Embedding Generation
-- Convert text to 768-dimensional vector using SentenceTransformer
-- Use same model as training: `all-MiniLM-L6-v2`
+### 3. Tokenization
+- Convert text to token IDs using BERT tokenizer
+- Truncate to maximum sequence length (512 tokens)
+- Add special tokens ([CLS], [SEP])
 
-### 4. Similarity Calculation
+### 4. Neural Network Inference
 ```python
-# For each category
-similarity = cosine_similarity(document_vector, category_embedding)
+# Forward pass through BERT model
+outputs = model(input_ids, attention_mask)
+logits = outputs.logits
+probabilities = softmax(logits)
 ```
 
 ### 5. Classification Decision
-- Select category with highest similarity score
+- Select category with highest probability
 - Return confidence score (0.0 to 1.0)
 
 ## Performance Characteristics
@@ -127,10 +136,13 @@ similarity = cosine_similarity(document_vector, category_embedding)
 
 ### Python API
 ```python
-from src.ml.classification.model_loader import load_pretrained_classifier
+from src.ml.classification.finetune_classifier import PreTrainedFinetuneClassifier
 
-# Load classifier
-classifier = load_pretrained_classifier("/path/to/model")
+# Load classifier from Hugging Face
+classifier = PreTrainedFinetuneClassifier(
+    model_name_or_path="bradenacurtis/scanpro-classifier-v1-finetune",
+    cache_folder="/path/to/cache"
+)
 
 # Classify document
 result = classifier.classify("Certificado de nacimiento de Juan Pérez")
@@ -217,107 +229,14 @@ print(f"Categories: {model_info['categories']}")
 print(f"Available: {model_info['is_available']}")
 ```
 
-## User Feedback and Model Retraining
+## User Feedback System
 
-The ScanPro classifier includes a sophisticated feedback system that allows users to correct misclassifications and automatically retrain the model based on accumulated feedback.
-
-### Feedback System Overview
-
-The feedback system enables continuous model improvement through user corrections:
+The ScanPro classifier includes a feedback system that allows users to correct misclassifications. While the fine-tuned BERT model provides high accuracy, user feedback is still valuable for:
 
 1. **Document Reclassification**: Users can correct misclassified documents
-2. **Feedback Logging**: All corrections are logged with metadata
-3. **Automatic Retraining**: Model updates based on accumulated feedback
-4. **Manual Triggers**: Administrators can force model updates
-
-### How It Works
-
-#### 1. User Correction Process
-
-When a user identifies a misclassified document:
-
-```python
-# User corrects a document classification
-reclassification_request = {
-    "filename": "documento.pdf",
-    "current_category": "other",
-    "new_category": "mercantil", 
-    "confidence": 0.95,
-    "user_comment": "This is clearly a commercial document"
-}
-```
-
-The system:
-- Updates the document's category in metadata
-- Logs the correction with timestamp and user details
-- Tracks correction statistics by category
-- Determines if model retraining is needed
-
-#### 2. Automatic Model Retraining
-
-The system automatically retrains the model when:
-
-- **Correction Threshold**: Every 10 user corrections
-- **Batch Processing**: Processes all corrections since last update
-- **Embedding Updates**: Recalculates category embeddings with new data
-- **Smart Cleanup**: After retraining, removes only the corrections that were processed, keeping unprocessed ones
-
-```python
-def _should_update_model(self) -> bool:
-    correction_count = len(self.feedback_data["corrections"])
-    
-    # Retrain every 10 corrections
-    if correction_count % 10 == 0 and correction_count > 0:
-        return self._update_model_embeddings()
-    
-    return False
-
-# After retraining, remove only the processed corrections
-corrections_to_remove = len(recent_corrections)
-self.feedback_data["corrections"] = self.feedback_data["corrections"][corrections_to_remove:]
-```
-
-#### 3. Manual Model Updates
-
-Administrators can trigger immediate model updates:
-
-```bash
-# Manual model update via API
-curl -X POST http://localhost:8000/api/feedback/update-model
-```
-
-### Feedback Data Structure
-
-The system maintains detailed feedback logs:
-
-```json
-{
-  "corrections": [
-    {
-      "filename": "documento.pdf",
-      "from_category": "other",
-      "to_category": "mercantil",
-      "confidence": 0.95,
-      "user_comment": "Commercial document",
-      "timestamp": "2025-01-14T10:30:00Z"
-    }
-  ],
-  "corrections_by_category": {
-    "mercantil": 5,
-    "inmuebles": 3,
-    "other": 2
-  },
-  "model_updates": [
-    {
-      "timestamp": "2025-01-14T10:35:00Z",
-      "corrections_processed": 10,
-      "total_corrections": 10
-    }
-  ],
-  "last_updated": "2025-01-14T10:35:00Z",
-  "version": "1.0.0"
-}
-```
+2. **Feedback Logging**: All corrections are logged with metadata for analysis
+3. **Model Evaluation**: Track classification accuracy and user satisfaction
+4. **Future Improvements**: Feedback data can inform future model training
 
 ### API Endpoints
 
@@ -347,76 +266,16 @@ Response:
     "inmuebles": 8,
     "other": 7
   },
-  "last_updated": "2025-01-14T10:35:00Z",
-  "model_version": "1.0.0"
+  "last_updated": "2025-01-14T10:35:00Z"
 }
 ```
-
-#### Trigger Model Update
-```http
-POST /api/feedback/update-model
-
-Response:
-{
-  "success": true,
-  "message": "Model updated successfully",
-  "corrections_processed": 10
-}
-```
-
-### Model Update Process
-
-When model updating is triggered:
-
-1. **Data Collection**: Gathers all corrections since last update
-2. **Text Extraction**: Re-extracts text from corrected documents using existing OCR pipeline
-3. **Embedding Generation**: Creates new embeddings for corrected documents using SentenceTransformer
-4. **Incremental Update**: Updates category embeddings using weighted averages (70% existing, 30% new)
-5. **Model Persistence**: Saves updated embeddings to disk with backup creation
-6. **Cleanup**: Removes processed corrections to prevent reprocessing
-7. **Logging**: Records update statistics and performance metrics
 
 ### Benefits
 
-- **Incremental Learning**: Fast updates without full retraining from scratch
-- **Continuous Improvement**: Model accuracy improves over time
-- **User-Driven**: Corrections based on real user needs
-- **Automated**: No manual intervention required
-- **Efficient**: Only processes corrected documents, not entire training dataset
-- **Safe**: Creates backups and uses weighted averages to preserve existing knowledge
-- **Trackable**: Full audit trail of all changes
-- **Scalable**: Handles large volumes of corrections
-
-### Technical Implementation
-
-The incremental model update system uses helper functions in `backend/src/utils/model_updater.py`:
-
-- **`load_existing_embeddings()`**: Loads current category embeddings from disk
-- **`extract_corrected_documents()`**: Extracts text from corrected documents using category metadata
-- **`generate_embeddings_for_documents()`**: Creates new embeddings using SentenceTransformer
-- **`recalculate_category_embeddings()`**: Updates embeddings using weighted averages
-- **`save_updated_embeddings()`**: Saves updates with backup creation
-
-### Configuration
-
-The model update system can be configured:
-
-```python
-# Update thresholds
-CORRECTION_THRESHOLD = 10  # Update every N corrections
-WEIGHT_EXISTING = 0.7      # Weight for existing embeddings
-WEIGHT_NEW = 0.3           # Weight for new corrections
-MAX_BATCH_SIZE = 100       # Maximum corrections per batch
-```
-
-### Monitoring
-
-Track model performance and feedback:
-
-- **Correction Rate**: Frequency of user corrections
-- **Category Accuracy**: Per-category correction patterns
-- **Model Updates**: Retraining frequency and success
-- **User Satisfaction**: Feedback quality and consistency
+- **Quality Assurance**: Track and monitor classification accuracy
+- **User Satisfaction**: Allow users to correct misclassifications
+- **Data Collection**: Gather feedback for future model improvements
+- **Audit Trail**: Maintain records of all corrections
 
 ## Future Improvements
 

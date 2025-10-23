@@ -39,9 +39,8 @@ The backend follows a clean layered architecture pattern:
 - Global exception handler for consistent error responses
 
 ### **Utils Layer** (`utils/`)
-- Document processing pipeline
 - Utility functions and helpers
-- Moved from services for better separation of concerns
+- Path utilities and visualization tools
 
 ### **Dependency Injection** (`dependencies.py`)
 - Centralized service instantiation
@@ -82,7 +81,8 @@ backend/
     ├── ml/                          # Machine learning modules (inference only)
     │   ├── classification/          # Document classification
     │   │   ├── base_classifier.py   # Base classifier classes
-    │   │   └── model_loader.py      # Model loading functions
+    │   │   ├── finetune_classifier.py # Hugging Face fine-tuned classifier
+    │   │   └── similarity_classifier.py # Similarity-based classifier
     │   └── preprocessing/           # Image preprocessing
     │       └── adaptive_pre_processing.py
     └── utils/                       # Utility functions
@@ -410,10 +410,10 @@ Data is stored in platform-specific application data directories:
 - **Image Preprocessing**: Adaptive preprocessing for better OCR accuracy
 
 ### Document Classification
-- **Model**: Similarity-based classifier with SentenceTransformer embeddings
+- **Model**: Hugging Face fine-tuned BERT classifier (`bradenacurtis/scanpro-classifier-v1-finetune`)
 - **Types**: Personas, mercantil, inmuebles (Spanish legal documents)
 - **Confidence Scoring**: Provides confidence levels for predictions
-- **Training**: Separate training pipeline in `/train` folder
+- **Fallback**: Similarity-based classifier with SentenceTransformer embeddings
 
 ### Embedding Model
 - **SentenceTransformer**: `all-MiniLM-L6-v2`
