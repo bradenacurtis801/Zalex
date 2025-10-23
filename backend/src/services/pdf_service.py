@@ -189,7 +189,7 @@ class PDFService:
         """
         try:
             # Open the PDF from memory
-            pdf_document = fitz.open(stream=pdf_content, filetype="pdf")
+            pdf_document: fitz.Document = fitz.open(stream=pdf_content, filetype="pdf")
             total_pages = pdf_document.page_count
             pages_to_convert = min(total_pages, max_pages)
 
