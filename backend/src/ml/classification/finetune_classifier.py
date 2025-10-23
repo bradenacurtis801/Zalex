@@ -7,23 +7,21 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-import config
-import numpy as np
 import torch
 from huggingface_hub import snapshot_download
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 if TYPE_CHECKING:
-    from ...models.feedback import CorrectionData
+    from src.models.schemas.feedback import CorrectionData
 
-from .base_classifier import BaseDocumentClassifier, DocumentClassificationResult
+from .base_classifier import DocumentClassifier, DocumentClassificationResult
 
 logger = logging.getLogger(__name__)
 
 
-class PreTrainedFinetuneClassifier(BaseDocumentClassifier):
+class PreTrainedFinetuneClassifier(DocumentClassifier):
     """
     Pre-trained fine-tuned classifier for inference only.
     Loads a fine-tuned BERT model and provides classification functionality.
@@ -31,27 +29,48 @@ class PreTrainedFinetuneClassifier(BaseDocumentClassifier):
 
     def __init__(
         self,
-        model_path_or_id: str,
-        name: str = "Pre-trained Fine-tuned Classifier",
-        token: Optional[str] = None,
+        model_name_or_path: str,
+        cache_folder: Optional[str] = None,
+        token: Union[bool, str, None] = None,
     ):
-        super().__init__(name)
-        self.model_path: str = ""
+        super().__init__(model_name_or_path, cache_folder, token)
         self.model: Optional[AutoModelForSequenceClassification] = None
         self.tokenizer: Optional[AutoTokenizer] = None
         self.label2id: Dict[str, int] = {}
         self.id2label: Dict[int, str] = {}
         self.model_name: str = ""
-        self.is_initialized = False
+
+        if cache_folder is None:
+            cache_folder = os.getenv('SENTENCE_TRANSFORMERS_HOME')
+            if cache_folder is None:
+                try:
+                    from torch.hub import _get_torch_home
+
+                    torch_cache_home = _get_torch_home()
+                except ImportError:
+                    torch_cache_home = os.path.expanduser(os.getenv('TORCH_HOME', os.path.join(os.getenv('XDG_CACHE_HOME', '~/.cache'), 'torch')))
+
+                cache_folder = os.path.join(torch_cache_home, 'sentence_transformers')
+
+        self.cache_folder = cache_folder
 
         # Handle Hugging Face model ID or local path and load the model
-        if "/" in model_path_or_id and not os.path.exists(model_path_or_id):
-            # This looks like a Hugging Face model ID
-            logger.info(f"Loading model from Hugging Face: {model_path_or_id}")
-            self.model_path = self._download_from_huggingface(model_path_or_id, token)
+        if "/" in model_name_or_path and not os.path.exists(model_name_or_path):
+
+            model_path = str(self.cache_folder / model_name_or_path.replace("/", "-"))
+            
+            # Check cache for model
+            if os.path.exists(model_path) and self.validate_model_directory(model_path):
+                self.model_path = model_path
+
+            else:
+                # Download model from Hugging Face
+                logger.info(f"Loading model from Hugging Face: {model_name_or_path}")
+                self.model_path = self._download_from_huggingface(model_name_or_path, token)
+
         else:
             # This is a local path
-            self.model_path = model_path_or_id
+            self.model_path = model_name_or_path
 
         # Load the model during construction
         logger.info("Loading fine-tuned classifier model...")
@@ -168,19 +187,12 @@ class PreTrainedFinetuneClassifier(BaseDocumentClassifier):
             Local path to downloaded model
         """
         try:
-            # Use ML_MODELS_DIR for consistency with project structure
-            local_dir = str(config.ML_MODELS_DIR / model_id.replace("/", "-"))
-
-            # Check if model already exists in cache
-            if os.path.exists(local_dir) and self.validate_model_directory(local_dir):
-                logger.info(f"Using cached model from: {local_dir}")
-                return local_dir
 
             # Download the model
-            logger.info(f"Downloading model to: {local_dir}")
+            logger.info(f"Downloading model to: {self.cache_folder}")
             model_path = snapshot_download(
                 repo_id=model_id,
-                local_dir=local_dir,
+                local_dir=self.cache_folder,
                 token=token,
                 local_dir_use_symlinks=False,  # Avoid symlinks for better compatibility
             )
@@ -347,13 +359,12 @@ class PreTrainedFinetuneClassifier(BaseDocumentClassifier):
             logger.error(f"Error in fine-tuned classifier retraining: {e}")
             return False
 
-    def get_model_info(self) -> dict:
+    def get_classifier_info(self) -> dict:
         """Get information about the loaded model."""
-        return {
+        base_info = super().get_classifier_info()
+        base_info.update({
             "model_name": self.model_name,
-            "categories": self.get_supported_categories(),
-            "is_initialized": self.is_initialized,
-            "type": "PreTrainedFinetuneClassifier",
             "label2id": self.label2id,
             "id2label": self.id2label,
-        }
+        })
+        return base_info

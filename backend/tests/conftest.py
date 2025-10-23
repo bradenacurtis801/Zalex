@@ -163,15 +163,6 @@ def mock_sentence_transformer():
     return mock
 
 
-@pytest.fixture
-def mock_document_processor():
-    """Mock document processor for testing."""
-    mock = Mock()
-    mock.process_document.return_value = Mock()
-    mock.extract_text.return_value = "Sample extracted text"
-    mock.generate_embeddings.return_value = [0.1, 0.2, 0.3]
-    mock.ocr_engine = Mock()
-    return mock
 
 
 # Removed AppState mock - not needed for service-level testing

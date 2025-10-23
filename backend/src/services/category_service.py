@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, List, Optional
 from sqlmodel import Session, select
 
-from src.ml.classification.base_classifier import BaseDocumentClassifier
+from src.ml.classification.base_classifier import DocumentClassifier
 from src.models.schemas.category import CategoriesResponse, CategoryResponse, DocumentEntry, CategoryDocument, UserInfo
 from src.models.database import Document, DocumentClassification, User
 
@@ -15,10 +15,9 @@ class CategoryService:
     """Service for handling document category operations."""
 
     def __init__(
-        self, document_classifier: BaseDocumentClassifier, category_metadata: dict, db: Session
+        self, document_classifier: DocumentClassifier, db: Session
     ):
         self.document_classifier = document_classifier
-        self.category_metadata = category_metadata
         self.db = db
         self._model_categories = None
 

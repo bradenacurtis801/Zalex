@@ -8,7 +8,6 @@ Test Structure:
 - test_auth_service.py: Authentication service tests
 - test_upload_service.py: Upload service tests
 - test_query_service.py: Query service tests
-- test_document_processor.py: Document processing tests
 - test_models.py: Database model tests
 - test_utils.py: Utility function tests
 """

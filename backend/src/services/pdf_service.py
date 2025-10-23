@@ -11,7 +11,6 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import config
 import fitz  # PyMuPDF
 from PIL import Image
 from sqlmodel import Session, select
@@ -189,7 +188,7 @@ class PDFService:
         """
         try:
             # Open the PDF from memory
-            pdf_document: fitz.Document = fitz.open(stream=pdf_content, filetype="pdf")
+            pdf_document = fitz.open(stream=pdf_content, filetype="pdf")
             total_pages = pdf_document.page_count
             pages_to_convert = min(total_pages, max_pages)
 

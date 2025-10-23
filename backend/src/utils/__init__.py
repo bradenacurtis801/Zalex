@@ -1,6 +1,6 @@
 import platform
 
-__all__ = ["_platform", "document_processor"]
+__all__ = ["_platform"]
 
 class _platform:
     WINDOWS = platform.system() == "Windows"

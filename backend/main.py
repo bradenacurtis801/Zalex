@@ -95,7 +95,7 @@ async def lifespan(app: FastAPI):
     # Model loading - will check ML_MODELS_DIR for existing model
     logger.info("Checking ML_MODELS_DIR for existing model")
     logger.info(
-        "If no model is found, please train one using: python train/train_similarity_classifier.py"
+        "If no model is found, the system will use the default Hugging Face model"
     )
 
     app_state.initialize()

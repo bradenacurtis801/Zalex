@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from sqlmodel import Session, select
 
-import config
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from src.core.exceptions import (
@@ -16,7 +15,7 @@ from src.core.exceptions import (
     DocumentNotFoundError,
     FeedbackException,
 )
-from src.ml.classification.base_classifier import BaseDocumentClassifier
+from src.ml.classification.base_classifier import DocumentClassifier
 from src.models.schemas.feedback import (
     FeedbackSummary,
     ReclassificationRequest,
@@ -32,12 +31,10 @@ class FeedbackService:
 
     def __init__(
         self,
-        document_classifier: BaseDocumentClassifier,
-        category_metadata: dict,
+        document_classifier: DocumentClassifier,
         db: Session,
     ):
         self.document_classifier = document_classifier
-        self.category_metadata = category_metadata
         self.db = db
 
 
@@ -83,18 +80,6 @@ class FeedbackService:
             updated_categories=updated_categories,
         )
 
-    def _get_available_categories(self) -> List[str]:
-        """Get list of available categories from the model."""
-        try:
-            if self.document_classifier and self.document_classifier.is_initialized:
-                return self.document_classifier.get_supported_categories()
-            else:
-                # Fallback to category metadata
-                return list(self.category_metadata.keys())
-        except Exception as e:
-            logger.error(f"Error getting available categories: {e}")
-            return ["other"]
-
     def _update_document_category(self, request: ReclassificationRequest):
         """Update the document's category in the database."""
         # Find the document by ID
@@ -138,6 +123,12 @@ class FeedbackService:
         logger.info(
             f"Document ID '{request.id}' reclassified from {request.current_category} to {request.new_category}"
         )
+
+    def _get_available_categories(self) -> List[str]:
+        """Queries DB for available categories."""
+        stmt = select(DocumentClassification.category).distinct()
+        categories = self.db.exec(stmt).all()
+        return [category[0] for category in categories]
 
     def _log_correction(self, request: ReclassificationRequest, user_id: Optional[int] = None):
         """Log the correction in the database for tracking and model updates."""

@@ -82,13 +82,10 @@ backend/
     ├── ml/                          # Machine learning modules (inference only)
     │   ├── classification/          # Document classification
     │   │   ├── base_classifier.py   # Base classifier classes
-    │   │   ├── pretrained_classifier.py # PreTrainedSimilarityClassifier
     │   │   └── model_loader.py      # Model loading functions
     │   └── preprocessing/           # Image preprocessing
     │       └── adaptive_pre_processing.py
     └── utils/                       # Utility functions
-        ├── document_processor.py    # Document processing pipeline
-        ├── model_updater.py         # Incremental model update helpers
         ├── path_utils.py
         └── viz_tools.py
 ```

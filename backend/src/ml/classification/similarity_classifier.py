@@ -6,33 +6,36 @@ Uses SentenceTransformer embeddings with cosine similarity for classification.
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-import config
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
 if TYPE_CHECKING:
-    from ...models.feedback import CorrectionData
+    from src.models.schemas.feedback import CorrectionData
 
-from .base_classifier import BaseDocumentClassifier, DocumentClassificationResult
+from .base_classifier import DocumentClassifier, DocumentClassificationResult
 
 logger = logging.getLogger(__name__)
 
 
-class PreTrainedSimilarityClassifier(BaseDocumentClassifier):
+class PreTrainedSimilarityClassifier(DocumentClassifier):
     """
     Pre-trained similarity-based classifier for inference only.
     Loads a trained model and provides classification functionality.
     Uses SentenceTransformer embeddings with cosine similarity.
     """
 
-    def __init__(self, name: str = "Pre-trained Similarity Classifier"):
-        super().__init__(name)
+    def __init__(
+        self,
+        model_name_or_path: str,
+        cache_folder: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ):
+        super().__init__(model_name_or_path, cache_folder, token)
         self.model: Optional[SentenceTransformer] = None
         self.category_embeddings: Dict[str, np.ndarray] = {}
         self.model_name: str = ""
-        self.is_initialized = False
 
     @staticmethod
     def validate_model_directory(model_path: str) -> bool:
@@ -60,116 +63,79 @@ class PreTrainedSimilarityClassifier(BaseDocumentClassifier):
 
     def load_model(self, model_dir: Optional[str] = None) -> bool:
         """
-        Load a pre-trained model from disk.
+        Load a pre-trained similarity classifier model.
 
         Args:
-            model_dir: Directory containing the trained model files (optional, uses config if not provided)
+            model_dir: Path to the model directory. If None, uses self.model_name_or_path.
 
         Returns:
             bool: True if successful, False otherwise
-
-        Raises:
-            InvalidModelDirectoryError: If the model directory is invalid or missing required files
         """
         try:
-            # Use provided path or get from config
             if model_dir is None:
-                model_dir = str(config.CLASSIFIER_MODEL_PATH)
+                model_dir = self.model_name_or_path
 
             model_path = Path(model_dir)
+            if not model_path.exists():
+                logger.error(f"Model directory not found: {model_path}")
+                return False
 
             # Validate model directory
-            if not self.validate_model_directory(model_dir):
-                from ...core.exceptions import InvalidModelDirectoryError
+            if not self.validate_model_directory(str(model_path)):
+                logger.error(f"Invalid model directory: {model_path}")
+                return False
 
-                raise InvalidModelDirectoryError(
-                    f"Invalid similarity classifier model directory: {model_dir}. "
-                    f"Required files: model_metadata.json, category_embeddings.json"
-                )
-
-            # Load metadata
+            # Load model metadata
             metadata_file = model_path / "model_metadata.json"
             with open(metadata_file, "r", encoding="utf-8") as f:
                 metadata = json.load(f)
 
-            # Validate required metadata fields
-            required_fields = ["model_name", "categories"]
-            missing_fields = [
-                field for field in required_fields if field not in metadata
-            ]
-            if missing_fields:
-                from ...core.exceptions import InvalidModelMetadataError
+            self.model_name = metadata.get("model_name", "unknown")
+            logger.info(f"Loading similarity classifier: {self.model_name}")
 
-                raise InvalidModelMetadataError(
-                    f"Missing required fields in model_metadata.json: {missing_fields}. "
-                    f"Required fields: {required_fields}"
-                )
-
-            # Validate categories is not empty
-            categories = metadata.get("categories", [])
-            if not categories or not isinstance(categories, list):
-                from ...core.exceptions import InvalidModelMetadataError
-
-                raise InvalidModelMetadataError(
-                    f"Invalid or empty 'categories' field in model_metadata.json. "
-                    f"Expected non-empty list, got: {categories}"
-                )
-
-            self.model_name = metadata["model_name"]
+            # Load SentenceTransformer model
+            sentence_transformer_path = model_path / "sentence_transformer"
+            if sentence_transformer_path.exists():
+                # Load from local directory
+                self.model = SentenceTransformer(str(sentence_transformer_path))
+                logger.info("Loaded SentenceTransformer from local directory")
+            else:
+                # Fallback to default model
+                self.model = SentenceTransformer("all-MiniLM-L6-v2")
+                logger.info("Using default SentenceTransformer model")
 
             # Load category embeddings
             embeddings_file = model_path / "category_embeddings.json"
             with open(embeddings_file, "r", encoding="utf-8") as f:
                 embeddings_data = json.load(f)
 
-            # Validate embeddings data
-            if not isinstance(embeddings_data, dict):
-                from ...core.exceptions import InvalidModelMetadataError
-
-                raise InvalidModelMetadataError(
-                    f"Invalid category_embeddings.json format. Expected dictionary, got: {type(embeddings_data)}"
-                )
-
-            # Validate that all categories have embeddings
-            missing_embeddings = [
-                cat for cat in categories if cat not in embeddings_data
-            ]
-            if missing_embeddings:
-                from ...core.exceptions import InvalidModelMetadataError
-
-                raise InvalidModelMetadataError(
-                    f"Missing embeddings for categories: {missing_embeddings}. "
-                    f"All categories must have corresponding embeddings."
-                )
-
-            # Convert lists back to numpy arrays
-            self.category_embeddings = {}
+            # Convert embeddings to numpy arrays
             for category, embedding_list in embeddings_data.items():
-                if category in categories:
-                    if not isinstance(embedding_list, list) or len(embedding_list) == 0:
-                        from ...core.exceptions import InvalidModelMetadataError
+                self.category_embeddings[category] = np.array(embedding_list)
 
-                        raise InvalidModelMetadataError(
-                            f"Invalid embedding for category '{category}'. "
-                            f"Expected non-empty list, got: {type(embedding_list)}"
-                        )
-                    self.category_embeddings[category] = np.array(embedding_list)
-
-            # Load the sentence transformer model
-            self.model = SentenceTransformer(self.model_name)
+            logger.info(f"Loaded embeddings for {len(self.category_embeddings)} categories")
+            logger.info(f"Categories: {list(self.category_embeddings.keys())}")
 
             self.is_initialized = True
-            logger.info(f"Successfully loaded pre-trained model: {self.model_name}")
-            logger.info(f"Categories: {list(self.category_embeddings.keys())}")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to load pre-trained model: {e}")
+            logger.error(f"Failed to load similarity classifier: {e}")
+            self.is_initialized = False
             return False
 
-    def initialize(self) -> bool:
-        """Initialize the classifier by loading the model."""
-        return self.load_model()
+    def get_classifier_info(self) -> Dict[str, Any]:
+        """Get information about the loaded classifier."""
+        if not self.is_initialized:
+            return {"error": "Classifier not initialized"}
+
+        return {
+            "type": "similarity",
+            "model_name": self.model_name,
+            "categories": list(self.category_embeddings.keys()),
+            "num_categories": len(self.category_embeddings),
+            "model_path": self.model_name_or_path,
+        }
 
     def get_supported_categories(self) -> List[str]:
         """Get list of supported categories."""
@@ -235,20 +201,15 @@ class PreTrainedSimilarityClassifier(BaseDocumentClassifier):
                 details={"error": str(e)},
             )
 
-    def get_available_categories(self) -> list:
-        """Get list of available categories (alias for get_supported_categories)."""
-        return self.get_supported_categories()
-
-    def retrain_with_corrections(
-        self, corrections: List["CorrectionData"], model_path: str
+    def retrain_with_feedback(
+        self, corrections: List["CorrectionData"], model_path: Optional[str] = None
     ) -> bool:
         """
-        Retrain the similarity classifier with user corrections.
-        Uses incremental model update approach.
+        Retrain the similarity classifier with user feedback.
 
         Args:
-            corrections: List of CorrectionData objects with document details
-            model_path: Path to save the updated model
+            corrections: List of correction data from user feedback
+            model_path: Optional path to save the updated model
 
         Returns:
             bool: True if retraining successful, False otherwise
@@ -266,20 +227,13 @@ class PreTrainedSimilarityClassifier(BaseDocumentClassifier):
             if success:
                 logger.info("Similarity classifier retraining completed successfully")
                 # Reload the updated model
-                return self.load_model(model_path)
+                if model_path:
+                    return self.load_model(model_path)
+                return True
             else:
                 logger.error("Similarity classifier retraining failed")
                 return False
 
         except Exception as e:
-            logger.error(f"Error retraining similarity classifier: {e}")
+            logger.error(f"Error during similarity classifier retraining: {e}")
             return False
-
-    def get_model_info(self) -> dict:
-        """Get information about the loaded model."""
-        return {
-            "model_name": self.model_name,
-            "categories": self.get_supported_categories(),
-            "is_initialized": self.is_initialized,
-            "type": "PreTrainedSimilarityClassifier",
-        }

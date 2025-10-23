@@ -5,10 +5,10 @@ Provides a generic interface for different classification strategies.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 if TYPE_CHECKING:
-    from ...models.feedback import CorrectionData
+    from src.models.schemas.feedback import CorrectionData
 
 logger = logging.getLogger(__name__)
 
@@ -32,25 +32,19 @@ class DocumentClassificationResult:
         return f"DocumentClassificationResult(category='{self.category}', confidence={self.confidence:.3f}, method='{self.method}')"
 
 
-class BaseDocumentClassifier(ABC):
+class DocumentClassifier(ABC):
     """
     Abstract base class for document classifiers.
     Provides a common interface for different classification strategies.
     """
 
-    def __init__(self, name: str):
-        self.name = name
+    def __init__(self, model_name_or_path: str, 
+                cache_folder: Optional[str] = None,
+                token: Union[bool, str, None] = None
+                ):
+        self.model_name_or_path = model_name_or_path
+        self.cache_folder = cache_folder
         self.is_initialized = False
-
-    @abstractmethod
-    def initialize(self) -> bool:
-        """
-        Initialize the classifier.
-
-        Returns:
-            bool: True if initialization successful, False otherwise
-        """
-        pass
 
     @abstractmethod
     def classify(self, text: str, filename: str = None) -> DocumentClassificationResult:
@@ -118,7 +112,7 @@ class BaseDocumentClassifier(ABC):
             Dict[str, Any]: Classifier information
         """
         return {
-            "name": self.name,
+            "name": self.model_name_or_path,
             "is_initialized": self.is_initialized,
             "supported_categories": self.get_supported_categories(),
             "type": self.__class__.__name__,

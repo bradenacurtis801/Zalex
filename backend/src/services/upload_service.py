@@ -5,10 +5,9 @@ import json
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from datetime import datetime, timezone
 
-import config as config
 from fastapi import UploadFile
 from sqlmodel import Session, select, and_
 from src.models.schemas.upload import DocumentClassification, UploadResponse
@@ -22,10 +21,11 @@ from src.models.database import (
     DocumentStatus,
     OCRData
 )
-from src.utils.document_processor import DocumentProcessor
+from src.ocr import OCREngine
 from src.utils.file_hasher import calculate_file_hash, get_content_based_filename
 import hashlib
 from src.event_bus import EventBus, EventType
+from src.ml.classification.base_classifier import DocumentClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +38,11 @@ def calculate_file_hash_from_content(content: bytes) -> str:
 class UploadService:
     """Service for handling file uploads and document processing."""
 
-    def __init__(self, document_processor: DocumentProcessor, db: Session, event_bus: EventBus):
-        self.document_processor = document_processor
+    def __init__(self, db: Session, event_bus: EventBus, ocr_engine: OCREngine, document_classifier: DocumentClassifier):
         self.db = db
         self.event_bus = event_bus
-
+        self.ocr_engine = ocr_engine
+        self.document_classifier = document_classifier
 
     async def process_upload(self, files: List[UploadFile], user_id: Optional[int] = None) -> UploadResponse:
         """
@@ -246,58 +246,6 @@ class UploadService:
             False,
         )
 
-    def _get_existing_classification(
-        self, filename: str, original_filename: str
-    ) -> Optional[DocumentClassification]:
-        """
-        Check if a file with the given filename has already been classified.
-
-        Args:
-            filename: The content-based filename to look for
-
-        Returns:
-            DocumentClassification if found, None otherwise
-        """
-        try:
-            # Search through all categories in the category metadata
-            for (
-                category,
-                documents,
-            ) in self.document_processor.category_metadata.items():
-                if filename in documents:
-                    doc_entry = documents[filename]
-                    logger.debug(
-                        f"Found existing classification for {filename} in category {category}"
-                    )
-                    return DocumentClassification(
-                        filename=original_filename,
-                        category=doc_entry.get("category", category),
-                        confidence=doc_entry.get("confidence", 0.0),
-                    )
-
-            logger.debug(f"No existing classification found for {filename}")
-            return None
-
-        except Exception as e:
-            logger.warning(
-                f"Error checking for existing classification of {filename}: {e}"
-            )
-            return None
-
-    async def _save_file(self, file: UploadFile, file_path: str) -> None:
-        """
-        Save uploaded file to disk.
-
-        Args:
-            file: The uploaded file
-            file_path: Path where to save the file
-        """
-        logger.debug(f"Reading file content for {file.filename}...")
-        with open(file_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
-        logger.debug(f"File saved successfully. Size: {len(content)} bytes")
-
     def _extract_text_from_content(self, file_content: bytes, filename: str, document_id: str = None) -> list:
         """
         Extract text from file content for classification.
@@ -326,7 +274,7 @@ class UploadService:
                     
                     # Extract text using OCR with detailed data
                     try:
-                        ocr_result = self.document_processor.ocr_engine.extract_text_from_bytes(img_data, "png")
+                        ocr_result = self.ocr_engine.extract_text_from_bytes(img_data, "png")
                         if ocr_result and ocr_result.get('text', '').strip():
                             # Get image dimensions from the pixmap
                             img_width = pix.width
@@ -365,7 +313,7 @@ class UploadService:
                 if image_format not in ['png', 'jpg', 'jpeg', 'tiff', 'bmp']:
                     image_format = 'png'
                 
-                text = self.document_processor.ocr_engine.extract_text_from_bytes(file_content, image_format)
+                text = self.ocr_engine.extract_text_from_bytes(file_content, image_format)
                 if text and text.strip():
                     extracted_texts.append(text.strip())
                     logger.debug(f"Extracted text from image: {len(text)} characters")
@@ -397,7 +345,7 @@ class UploadService:
         try:
             combined_text = " ".join(extracted_texts)
             logger.debug(f"Classifying text with {len(combined_text)} characters...")
-            classification_result = self.document_processor.document_classifier.classify(combined_text, filename)
+            classification_result = self.document_classifier.classify(combined_text, filename)
             category = classification_result.category
             confidence = classification_result.confidence
             logger.debug(f"Classification result: {category} ({confidence:.3f})")

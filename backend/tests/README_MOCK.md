@@ -222,8 +222,10 @@ mock_db_session.exec.return_value.first.return_value = mock_user
 ### **2. Mocking External Services**
 ```python
 # Mock OCR engine
-with patch('src.utils.document_processor.ocr_engine') as mock_ocr:
+with patch('src.ocr.factory.get_default_ocr_engine') as mock_ocr_factory:
+    mock_ocr = Mock()
     mock_ocr.extract_text.return_value = "extracted text"
+    mock_ocr_factory.return_value = mock_ocr
     result = process_document(file_content)
 ```
 
