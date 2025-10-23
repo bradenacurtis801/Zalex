@@ -1,0 +1,40 @@
+# Test dependencies for ScanPro backend
+# Install with: pip install -r tests/requirements-test.txt
+
+# Core testing framework
+pytest
+pytest-asyncio
+pytest-cov
+pytest-mock
+pytest-xdist
+
+# HTTP testing
+httpx
+requests-mock
+
+# Database testing (using SQLite in-memory for fast tests)
+# Note: PostgreSQL dependencies removed for simplified mock-based testing
+
+# Mocking and fixtures
+factory-boy
+faker
+freezegun
+
+# Performance testing
+pytest-benchmark
+memory-profiler
+
+# Code quality
+pytest-flake8
+pytest-mypy
+pytest-black
+
+# Test reporting
+pytest-html
+pytest-json-report
+
+# WebSocket testing
+websockets
+
+# Additional utilities
+responses
