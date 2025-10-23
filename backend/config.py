@@ -13,6 +13,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+ROOT_DIR = Path(__file__).resolve().parent.parent
+ENV_FILE = ROOT_DIR / '.env'
+
+if not ENV_FILE.exists():
+    # In production builds, the .env file wont be present, 
+    # instead we will set the environment variables in the docker run command
+    logger.warning(f"Environment file not found at {ENV_FILE}")
+else:
+    load_dotenv(ENV_FILE)
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
