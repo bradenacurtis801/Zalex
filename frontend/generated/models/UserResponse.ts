@@ -132,8 +132,8 @@ export function UserResponseToJSONTyped(value?: UserResponse | null, ignoreDiscr
         'full_name': value['fullName'],
         'user_role': UserRoleToJSON(value['userRole']),
         'is_active': value['isActive'],
-        'created_at': ((value['createdAt']).toISOString()),
-        'updated_at': ((value['updatedAt']).toISOString()),
+        'created_at': value['createdAt'].toISOString(),
+        'updated_at': value['updatedAt'].toISOString(),
     };
 }
 

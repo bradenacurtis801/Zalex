@@ -163,7 +163,7 @@ export function OCRDataResponseToJSONTyped(value?: OCRDataResponse | null, ignor
         'lines_data': ((value['linesData'] as Array<any>).map(OCRLineDataToJSON)),
         'original_image_width': value['originalImageWidth'],
         'original_image_height': value['originalImageHeight'],
-        'created_at': ((value['createdAt']).toISOString()),
+        'created_at': value['createdAt'].toISOString(),
     };
 }
 
