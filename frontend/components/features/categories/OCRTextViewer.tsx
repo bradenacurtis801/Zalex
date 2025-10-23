@@ -27,10 +27,6 @@ export default function OCRTextViewer({
   const [showWords, setShowWords] = useState(true)
   const [showLines, setShowLines] = useState(false)
   const [confidenceFilter, setConfidenceFilter] = useState(0)
-  const [isManualNavigation, setIsManualNavigation] = useState(false)
-  const navigationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const scrollAnimationRef = useRef<number | null>(null)
-  const scrollTargetRef = useRef<number | null>(null)
   
   const pdfContainerRef = useRef<HTMLDivElement>(null)
 
@@ -40,19 +36,6 @@ export default function OCRTextViewer({
     }
   }, [isOpen, document])
 
-  // Cleanup timeout and animation on unmount
-  useEffect(() => {
-    return () => {
-      if (navigationTimeoutRef.current) {
-        clearTimeout(navigationTimeoutRef.current)
-        navigationTimeoutRef.current = null
-      }
-      if (scrollAnimationRef.current) {
-        cancelAnimationFrame(scrollAnimationRef.current)
-        scrollAnimationRef.current = null
-      }
-    }
-  }, [])
 
 
   const loadOCRData = async () => {
@@ -89,59 +72,13 @@ export default function OCRTextViewer({
 
 
   const handlePageChange = (pageIndex: number) => {
-    // Only auto-switch if not in manual navigation mode
-    if (!isManualNavigation) {
-      console.log(`Auto-switching OCR to page ${pageIndex + 1}`)
-      setCurrentPage(pageIndex)
-    } else {
-      console.log(`Auto-switch blocked - manual navigation in progress`)
-    }
+    console.log(`Auto-switching OCR to page ${pageIndex + 1}`)
+    setCurrentPage(pageIndex)
   }
 
-  const smoothScrollToTarget = (targetElement: HTMLElement, container: HTMLElement) => {
+  const jumpToTarget = (targetElement: HTMLElement, container: HTMLElement) => {
     const targetScrollTop = targetElement.offsetTop - container.offsetTop
-    scrollTargetRef.current = targetScrollTop
-    
-    // If animation is already running, just update the target and let it continue
-    if (scrollAnimationRef.current) {
-      console.log(`Updating scroll target to ${targetScrollTop}`)
-      return
-    }
-    
-    // Start new animation
-    const animateScroll = (currentTime: number) => {
-      // Get current target (may have been updated by rapid clicks)
-      const currentTarget = scrollTargetRef.current
-      if (currentTarget === null) {
-        scrollAnimationRef.current = null
-        return
-      }
-      
-      const currentScrollTop = container.scrollTop
-      const distance = currentTarget - currentScrollTop
-      
-      // Use a small step size for smooth continuous movement
-      const stepSize = 0.15 // Adjust this for faster/slower movement
-      const step = distance * stepSize
-      
-      // Only move if there's a meaningful distance to travel
-      if (Math.abs(distance) > 1) {
-        container.scrollTop = currentScrollTop + step
-        scrollAnimationRef.current = requestAnimationFrame(animateScroll)
-      } else {
-        // We've reached the target
-        scrollAnimationRef.current = null
-        scrollTargetRef.current = null
-        // Re-enable auto-detection after animation completes
-        navigationTimeoutRef.current = setTimeout(() => {
-          console.log(`Re-enabling auto-detection after manual navigation`)
-          setIsManualNavigation(false)
-          navigationTimeoutRef.current = null
-        }, 100)
-      }
-    }
-    
-    scrollAnimationRef.current = requestAnimationFrame(animateScroll)
+    container.scrollTop = targetScrollTop
   }
 
   const handlePageNavigation = (targetPage: number) => {
@@ -149,36 +86,15 @@ export default function OCRTextViewer({
     
     console.log(`Manual navigation to page ${targetPage + 1}`)
     
-    // Clear any existing timeout to prevent conflicts
-    if (navigationTimeoutRef.current) {
-      clearTimeout(navigationTimeoutRef.current)
-      navigationTimeoutRef.current = null
-    }
-    
-    // Disable auto-detection during manual navigation
-    setIsManualNavigation(true)
-    
     // Set the OCR page immediately
     setCurrentPage(targetPage)
     
-    // Smooth scroll to the target page in PDF viewer
+    // Jump instantly to the target page in PDF viewer
     if (pdfContainerRef.current) {
       const targetElement = pdfContainerRef.current.querySelector(`[data-page="${targetPage + 1}"]`) as HTMLElement
       if (targetElement) {
-        smoothScrollToTarget(targetElement, pdfContainerRef.current)
-      } else {
-        // If no target element found, re-enable immediately
-        navigationTimeoutRef.current = setTimeout(() => {
-          setIsManualNavigation(false)
-          navigationTimeoutRef.current = null
-        }, 100)
+        jumpToTarget(targetElement, pdfContainerRef.current)
       }
-    } else {
-      // If no container ref, re-enable immediately
-      navigationTimeoutRef.current = setTimeout(() => {
-        setIsManualNavigation(false)
-        navigationTimeoutRef.current = null
-      }, 100)
     }
   }
 
@@ -280,7 +196,6 @@ export default function OCRTextViewer({
                     containerRef={pdfContainerRef}
                     currentPage={currentPage}
                     onPageChange={handlePageChange}
-                    isManualNavigation={isManualNavigation}
                   />
                 )}
 

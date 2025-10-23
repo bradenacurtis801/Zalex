@@ -12,7 +12,6 @@ interface PDFViewerProps {
   containerRef?: React.RefObject<HTMLDivElement>
   currentPage?: number
   onPageChange?: (pageIndex: number) => void
-  isManualNavigation?: boolean
 }
 
 export default function PDFViewer({
@@ -21,8 +20,7 @@ export default function PDFViewer({
   onScroll,
   containerRef,
   currentPage = 0,
-  onPageChange,
-  isManualNavigation = false
+  onPageChange
 }: PDFViewerProps) {
   const [pdfPages, setPdfPages] = useState<Array<{page_number: number, image_data: string, width: number, height: number}>>([])
   const [loading, setLoading] = useState(false)
@@ -87,15 +85,12 @@ export default function PDFViewer({
     })
     
     // If the most visible page is more than 50% visible, switch to it
-    // But only if not in manual navigation mode
-    if (maxVisibility > 0.5 && mostVisiblePage !== currentPage && !isManualNavigation) {
+    if (maxVisibility > 0.5 && mostVisiblePage !== currentPage) {
       console.log(`Auto-switching to page ${mostVisiblePage + 1} (${(maxVisibility * 100).toFixed(1)}% visible)`)
       // This will be handled by the parent component
       if (onPageChange) {
         onPageChange(mostVisiblePage)
       }
-    } else if (isManualNavigation) {
-      console.log(`Auto-switch blocked - manual navigation in progress`)
     }
   }
 
