@@ -1,0 +1,45 @@
+name: Docker Multi-Arch Build
+
+on:
+  push:
+    branches: 
+      - 'v*.*.*'  # Only build on version branches (v1.0.0, v2.1.2, etc.)
+      - 'main'
+      - 'master'
+      - 'develop'
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+env:
+  DOCKER_USERNAME: bradenacurtis801
+  REPOSITORY_NAME: scanpro
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    - name: Make script executable
+      run: chmod +x scripts/docker/build-multiarch.sh
+      
+    - name: Run your build script
+      run: ./scripts/docker/build-multiarch.sh
+      env:
+        DOCKER_USERNAME: ${{ env.DOCKER_USERNAME }}
+        REPOSITORY_NAME: ${{ env.REPOSITORY_NAME }}
+        # Override git branch detection for better CI tagging
+        GITHUB_REF_NAME: ${{ github.ref_name }}
+        GITHUB_HEAD_REF: ${{ github.head_ref }}
