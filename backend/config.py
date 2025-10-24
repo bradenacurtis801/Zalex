@@ -179,12 +179,23 @@ LOGGING_CONFIG = {
         },
         "detailed": {
             "format": "%(asctime)s - %(levelname)s - %(pathname)s:%(lineno)d - %(threadName)s - %(message)s"
+        },
+        "colored": {
+            "()": "colorlog.ColoredFormatter",
+            "format": "%(asctime)s - %(log_color)s[%(levelname)s]%(reset)s - %(pathname)s:%(lineno)d - %(threadName)s - %(message)s",
+            "log_colors": {
+                'DEBUG': 'cyan',
+                'INFO': 'green',
+                'WARNING': 'yellow',
+                'ERROR': 'red',
+                'CRITICAL': 'red,bg_white',
+            }
         }
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "standard",
+            "formatter": "colored",
             "stream": "ext://sys.stdout"
         },
         "file": {

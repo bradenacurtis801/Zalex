@@ -13,7 +13,7 @@ db_config = get_database_config()
 
 engine = create_engine(
     config.settings.database_url,
-    echo=config.LOG_LEVEL == "DEBUG",
+    echo=config.is_development,
     **get_database_config()
 )
 
