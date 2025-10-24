@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # ScanPro Entrypoint Script
 # Starts PostgreSQL database, FastAPI backend, and Next.js frontend
