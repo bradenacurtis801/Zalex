@@ -3,8 +3,6 @@
 # ScanPro Local Docker Build Script
 # Builds image for local development and testing
 
-set -e
-
 # Load utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/utils/utils.sh"

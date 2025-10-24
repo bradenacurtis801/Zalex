@@ -3,8 +3,6 @@
 # ScanPro Debug Container Runner
 # This script runs the ScanPro container in debug mode
 
-set -e
-
 echo "🐛 Starting ScanPro in DEBUG mode..."
 
 # Build the image if it doesn't exist

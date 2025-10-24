@@ -3,8 +3,6 @@
 # ScanPro Run Script (Linux/Mac)
 # Runs the ScanPro containers
 
-set -e
-
 # Load utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/utils/utils.sh"
