@@ -76,15 +76,12 @@ echo    Backend port: %BACKEND_PORT%
 echo    Image: %IMAGE_NAME%
 echo.
 
-docker run -d ^
+docker run -it --rm ^
     --name %CONTAINER_NAME% ^
     -p %FRONTEND_PORT%:3000 ^
     -p %BACKEND_PORT%:5000 ^
-    -v scanpro_data:/app/backend/APP_DATA ^
-    -e NODE_ENV=production ^
+    -v scanpro_data:/app/APP_DATA ^
     -e DEBUG=0 ^
-    -e NEXT_PUBLIC_API_URL=http://localhost:%BACKEND_PORT% ^
-    --rm ^
     %IMAGE_NAME%
 
 echo.
@@ -126,40 +123,9 @@ echo.
 goto :show_status_end
 :show_status_end
 
-:show_help
-echo 📖 Usage: run.bat [options]
-echo.
-echo Options:
-echo    --help, -h     Show this help message
-echo    --no-pull      Skip pulling image (use local only)
-echo    --stop         Stop and remove existing container
-echo.
-goto :show_help_end
-:show_help_end
-
 REM ==========================================
 REM MAIN SCRIPT EXECUTION
 REM ==========================================
-
-REM Parse command line arguments
-set "NO_PULL="
-set "STOP_ONLY="
-
-:parse_args
-if "%~1"=="" goto :main
-if "%~1"=="--help" goto :help
-if "%~1"=="-h" goto :help
-if "%~1"=="--no-pull" set "NO_PULL=1" & shift & goto :parse_args
-if "%~1"=="--stop" set "STOP_ONLY=1" & shift & goto :parse_args
-shift
-goto :parse_args
-
-:help
-call :show_help
-pause
-exit /b 0
-
-:main
 REM Check prerequisites
 call :check_docker
 if errorlevel 1 exit /b 1
@@ -167,18 +133,9 @@ if errorlevel 1 exit /b 1
 REM Stop existing container
 call :stop_existing
 
-REM Handle stop-only option
-if defined STOP_ONLY (
-    echo ✅ Container stopped and removed.
-    pause
-    exit /b 0
-)
-
-REM Pull image (unless NO_PULL is specified)
-if not defined NO_PULL (
-    call :pull_image
-    if errorlevel 1 exit /b 1
-)
+REM Pull image
+call :pull_image
+if errorlevel 1 exit /b 1
 
 REM Run container
 call :run_container

@@ -20,9 +20,8 @@ docker run -it \
   -p 3000:3000 \
   -p 5000:5000 \
   -p 5678:5678 \
-  -e NODE_ENV=prod \
+  -e NODE_ENV=development \
   -e DEBUG=1 \
-  -e DEBUG=false \
   bradenacurtis801/scanpro:latest
 
 echo "✅ Container started in debug mode!"

@@ -48,12 +48,11 @@ pull_image() {
 
 run_container() {
     echo "🐳 Starting ScanPro container..."
-    docker run -d \
+    docker run -it --rm \
         --name $CONTAINER_NAME \
         -p $FRONTEND_PORT:3000 \
         -p $BACKEND_PORT:5000 \
-        -v scanpro_data:/app/backend/APP_DATA \
-        --restart unless-stopped \
+        -v scanpro_data:/app/APP_DATA \
         $IMAGE_NAME
 
     if [ $? -ne 0 ]; then
@@ -84,45 +83,9 @@ show_status() {
     echo ""
 }
 
-show_help() {
-    echo "📖 Usage: ./run.sh [options]"
-    echo ""
-    echo "Options:"
-    echo "   --help, -h     Show this help message"
-    echo "   --no-pull      Skip pulling image (use local only)"
-    echo "   --stop         Stop and remove existing container"
-    echo ""
-}
-
 # ==========================================
 # MAIN SCRIPT EXECUTION
 # ==========================================
-
-# Parse command line arguments
-NO_PULL=""
-STOP_ONLY=""
-
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --help|-h)
-            show_help
-            exit 0
-            ;;
-        --no-pull)
-            NO_PULL="1"
-            shift
-            ;;
-        --stop)
-            STOP_ONLY="1"
-            shift
-            ;;
-        *)
-            echo "Unknown option: $1"
-            show_help
-            exit 1
-            ;;
-    esac
-done
 
 echo "🚀 ScanPro Run Script"
 echo "===================="
@@ -134,16 +97,8 @@ check_docker
 # Stop existing container
 stop_existing
 
-# Handle stop-only option
-if [ -n "$STOP_ONLY" ]; then
-    echo "✅ Container stopped and removed."
-    exit 0
-fi
-
-# Pull image (unless NO_PULL is specified)
-if [ -z "$NO_PULL" ]; then
-    pull_image
-fi
+# Pull image
+pull_image
 
 # Run container
 run_container
