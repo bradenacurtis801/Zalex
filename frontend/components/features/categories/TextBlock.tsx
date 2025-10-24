@@ -21,6 +21,19 @@ interface TextBlockProps {
   className?: string
 }
 
+// Function to calculate optimal font size that fits within the bounding box
+const calculateOptimalFontSize = (text: string, width: number, height: number): number => {
+  // Calculate font size based on both width and height constraints
+  const widthBasedSize = (width * 0.8) / text.length // Account for text length
+  const heightBasedSize = height * 0.7 // Leave some padding
+  
+  // Use the smaller of the two to ensure text fits
+  const optimalSize = Math.min(widthBasedSize, heightBasedSize)
+  
+  // Return the calculated size (no min/max constraints since we have zoom)
+  return Math.max(1, optimalSize) // Only prevent negative or zero sizes
+}
+
 export default function TextBlock({
   text,
   confidence,
@@ -93,16 +106,15 @@ export default function TextBlock({
     <div
       className={`
         absolute cursor-pointer transition-all duration-300 ease-in-out
-        ${isCurrentlyHovered ? getHoverBgColor() : 'bg-transparent'}
         ${isCurrentlyHovered ? getHoverBorderColor() : 'border-transparent'}
-        hover:scale-105 hover:shadow-lg
+        hover:shadow-lg
         ${className}
       `}
       style={{
         left: `${bbox.left}px`,
         top: `${bbox.top}px`,
         width: `${bbox.width}px`,
-        height: `${bbox.height}px`,
+        height: `${bbox.height}px`
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -115,17 +127,28 @@ export default function TextBlock({
         transition-all duration-300 ease-in-out
         ${getConfidenceColor(confidence)}
         ${isCurrentlyHovered ? 'font-bold text-white' : ''}
-        ${type === 'word' ? 'border border-blue-300/50' : 'border border-green-300/50'}
-        ${isCurrentlyHovered ? 'border-opacity-100 border-2' : 'border-opacity-30 border'}
+        ${type === 'word' ? 'border-blue-300/50' : 'border-green-300/50'}
+        ${isCurrentlyHovered ? 'border-opacity-100' : 'border-opacity-30'}
+        ${isCurrentlyHovered ? getHoverBgColor() : 'bg-transparent'}
         rounded-sm
-        ${isCurrentlyHovered ? 'shadow-md' : ''}
+        ${isCurrentlyHovered ? 'shadow-md' : ''} 
       `}
       style={{
-        fontSize: `${Math.max(8, Math.min(bbox.height * 0.8, 24))}px`, // Responsive font size based on bounding box height
+        fontSize: `${calculateOptimalFontSize(text, bbox.width, bbox.height)}px`,
         lineHeight: '1',
-        textAlign: 'center'
+        textAlign: 'center',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: `${Math.max(0.5, Math.min(bbox.width, bbox.height) * 0.01)}px`
       }}>
-        <span className="truncate px-1" style={{ maxWidth: '100%', maxHeight: '100%' }}>
+        <span style={{ 
+          maxWidth: '100%', 
+          maxHeight: '100%',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        }}>
           {text}
         </span>
       </div>

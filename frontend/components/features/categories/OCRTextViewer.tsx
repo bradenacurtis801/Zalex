@@ -24,9 +24,6 @@ export default function OCRTextViewer({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(0)
-  const [showWords, setShowWords] = useState(true)
-  const [showLines, setShowLines] = useState(false)
-  const [confidenceFilter, setConfidenceFilter] = useState(0)
   
   const pdfContainerRef = useRef<HTMLDivElement>(null)
 
@@ -102,9 +99,6 @@ export default function OCRTextViewer({
     return (
       <OCRPage
         pageData={pageData}
-        showWords={showWords}
-        showLines={showLines}
-        confidenceFilter={confidenceFilter}
       />
     )
   }
@@ -225,7 +219,7 @@ export default function OCRTextViewer({
                 <h4 className="font-medium">OCR Text Display</h4>
               </div>
               
-              <div className="flex-1 overflow-auto">
+              <div className="flex-1">
                 {!loading && !error && ocrData.length > 0 && (
                   renderOCRPage(ocrData[currentPage])
                 )}
