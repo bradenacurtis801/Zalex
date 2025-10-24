@@ -5,6 +5,10 @@
 
 set -e
 
+# Load utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/utils/utils.sh"
+
 # ===========================================
 # CONFIGURATION VARIABLES
 # ===========================================
@@ -13,13 +17,27 @@ set -e
 DOCKER_USERNAME="bradenacurtis801"
 REPOSITORY_NAME="scanpro"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DOCKER_FILE_PATH="$SCRIPT_DIR/../../Dockerfile"
+# Get directories and git tag
+get_script_dirs
+DOCKER_FILE_PATH="$ROOT_DIR/Dockerfile"
+IMAGE_TAG=$(get_git_tag)
 
-# Get current git branch as tag
-IMAGE_TAG=$(git branch --show-current 2>/dev/null || echo "latest")
-if [ "$IMAGE_TAG" = "main" ] || [ "$IMAGE_TAG" = "master" ]; then
-    IMAGE_TAG="latest"
+# Verify Dockerfile exists, with fallback
+if [ ! -f "$DOCKER_FILE_PATH" ]; then
+    echo "⚠️  Dockerfile not found at: $DOCKER_FILE_PATH"
+    echo "   Current directory: $(pwd)"
+    echo "   ROOT_DIR: $ROOT_DIR"
+    echo "   SCRIPT_DIR: $SCRIPT_DIR"
+    
+    # Try current directory as fallback
+    if [ -f "Dockerfile" ]; then
+        echo "✅ Found Dockerfile in current directory, using that instead"
+        DOCKER_FILE_PATH="Dockerfile"
+        ROOT_DIR="$(pwd)"
+    else
+        echo "❌ Dockerfile not found in current directory either"
+        exit 1
+    fi
 fi
 
 # Build Configuration
@@ -29,14 +47,6 @@ PLATFORMS="linux/amd64,linux/arm64"
 # ===========================================
 # SCRIPT FUNCTIONS
 # ===========================================
-
-# Function to check if Docker is running
-check_docker() {
-    if ! docker info > /dev/null 2>&1; then
-        echo "❌ Docker is not running. Please start Docker and try again."
-        exit 1
-    fi
-}
 
 # Function to check git status
 check_git() {
@@ -96,9 +106,10 @@ build_and_push_multiarch() {
     docker buildx build \
         --platform $PLATFORMS \
         --tag $FULL_IMAGE_NAME \
+        --tag ${DOCKER_USERNAME}/${REPOSITORY_NAME}:latest \
         --push \
         -f "$DOCKER_FILE_PATH" \
-        .
+        "$ROOT_DIR"
 }
 
 

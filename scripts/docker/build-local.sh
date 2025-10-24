@@ -5,58 +5,51 @@
 
 set -e
 
+# Load utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/utils/utils.sh"
+
 # ===========================================
 # CONFIGURATION VARIABLES
 # ===========================================
 
-# Build Configuration
-IMAGE_TAG="local"
+# Docker Hub Configuration
+DOCKER_USERNAME="bradenacurtis801"
+REPOSITORY_NAME="scanpro"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DOCKER_FILE_PATH="$SCRIPT_DIR/../../Dockerfile"
+# Get directories and git tag
+get_script_dirs
+DOCKER_FILE_PATH="$ROOT_DIR/Dockerfile"
+IMAGE_TAG=$(get_git_tag)
+FULL_IMAGE_NAME="${DOCKER_USERNAME}/${REPOSITORY_NAME}:${IMAGE_TAG}"
 
 # ===========================================
 # SCRIPT FUNCTIONS
 # ===========================================
 
-# Function to check if Docker is running
-check_docker() {
-    if ! docker info > /dev/null 2>&1; then
-        echo "❌ Docker is not running. Please start Docker and try again."
-        exit 1
-    fi
-}
-
 # Function to show build information
 show_build_info() {
     echo "📋 Local build configuration:"
-    echo "   Tag: scanpro:local"
+    echo "   Tag: $FULL_IMAGE_NAME"
     echo "   Platform: $(docker version --format '{{.Server.Arch}}')"
     echo ""
 }
 
 # Function to build the image
 build_image() {
+    local full_image_name="$1"
+    
     echo "🏗️  Building image for local development..."
     echo "   Platform: $(docker version --format '{{.Server.Arch}}')"
-    echo "   Tag: scanpro:local"
+    echo "   Tag: $full_image_name"
+    echo "   Also tagged as: ${DOCKER_USERNAME}/${REPOSITORY_NAME}:latest"
     echo ""
     
     docker build \
-        --tag scanpro:local \
+        --tag "$full_image_name" \
+        --tag "${DOCKER_USERNAME}/${REPOSITORY_NAME}:latest" \
         -f "$DOCKER_FILE_PATH" \
-        .
-}
-
-# Function to show usage instructions
-show_usage_instructions() {
-    echo "📖 You can now run the image locally with:"
-    echo ""
-    echo "   # Run the local image"
-    echo "   docker run -p 3000:3000 -p 5000:5000 scanpro:local"
-    echo ""
-    echo "   # Or use docker-compose with the local image"
-    echo "   # Update docker-compose.yml to use: image: scanpro:local"
+        $ROOT_DIR
 }
 
 # ===========================================
@@ -75,13 +68,11 @@ show_build_info
 
 # Build the image
 echo "🚀 Starting local build process..."
-build_image
+build_image "$FULL_IMAGE_NAME"
 
 if [ $? -eq 0 ]; then
     echo "✅ Local build completed successfully!"
     echo ""
-    # Show usage instructions
-    show_usage_instructions
     echo "🎉 Done! Your local ScanPro image is ready."
 else
     echo "❌ Build failed!"
