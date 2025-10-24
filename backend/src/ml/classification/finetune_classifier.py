@@ -60,13 +60,15 @@ class PreTrainedFinetuneClassifier(DocumentClassifier):
             model_path = str(self.cache_folder / model_name_or_path.replace("/", "-"))
             
             # Check cache for model
+            logger.debug(f"Checking cache for model: {model_path}")
             if os.path.exists(model_path) and self.validate_model_directory(model_path):
                 self.model_path = model_path
 
             else:
+                logger.debug(f"Model not found in cache, downloading from Hugging Face: {model_name_or_path}")
                 # Download model from Hugging Face
                 logger.info(f"Loading model from Hugging Face: {model_name_or_path}")
-                self.model_path = self._download_from_huggingface(model_name_or_path, token)
+                self.model_path = self._download_from_huggingface(model_name_or_path, model_path, token)
 
         else:
             # This is a local path
@@ -174,13 +176,14 @@ class PreTrainedFinetuneClassifier(DocumentClassifier):
             self.is_initialized = False
 
     def _download_from_huggingface(
-        self, model_id: str, token: Optional[str] = None
+        self, repo_id: str, local_path: str, token: Optional[str] = None
     ) -> str:
         """
         Download model from Hugging Face Hub with caching.
 
         Args:
-            model_id: Hugging Face model ID
+            repo_id: Hugging Face repository ID
+            local_path: Local path where model should be downloaded
             token: Hugging Face token for private models
 
         Returns:
@@ -189,10 +192,10 @@ class PreTrainedFinetuneClassifier(DocumentClassifier):
         try:
 
             # Download the model
-            logger.info(f"Downloading model to: {self.cache_folder}")
+            logger.info(f"Downloading model to: {local_path}")
             model_path = snapshot_download(
-                repo_id=model_id,
-                local_dir=self.cache_folder,
+                repo_id=repo_id,
+                local_dir=local_path,
                 token=token,
                 local_dir_use_symlinks=False,  # Avoid symlinks for better compatibility
             )
@@ -200,7 +203,7 @@ class PreTrainedFinetuneClassifier(DocumentClassifier):
             return model_path
 
         except Exception as e:
-            logger.error(f"Failed to download model from Hugging Face {model_id}: {e}")
+            logger.error(f"Failed to download model from Hugging Face {repo_id}: {e}")
             raise
 
     @staticmethod
