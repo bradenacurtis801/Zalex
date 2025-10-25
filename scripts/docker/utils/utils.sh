@@ -7,15 +7,52 @@
 # CONFIGURATION FUNCTIONS
 # ==========================================
 
+absolute_path() {
+    local path="$1"
+    
+    # Handle empty input
+    if [ -z "$path" ]; then
+        echo "Error: No path provided to absolute_path()" >&2
+        return 1
+    fi
+    
+    # Try readlink -f first (works on most Linux systems)
+    if command -v readlink >/dev/null 2>&1 && readlink -f "$path" >/dev/null 2>&1; then
+        readlink -f "$path"
+    # Try realpath as fallback (available on macOS and modern Linux)
+    elif command -v realpath >/dev/null 2>&1; then
+        realpath "$path"
+    # Final fallback using cd/pwd (doesn't resolve symlinks)
+    else
+        # Check if path is a file or directory
+        if [ -d "$path" ]; then
+            (cd "$path" && pwd)
+        elif [ -e "$path" ]; then
+            # It's a file, get the directory and append filename
+            local dir=$(dirname "$path")
+            local file=$(basename "$path")
+            (cd "$dir" && echo "$(pwd)/$file")
+        else
+            # Path doesn't exist yet, try to resolve parent directory
+            local dir=$(dirname "$path")
+            local file=$(basename "$path")
+            if [ -d "$dir" ]; then
+                echo "$(cd "$dir" && pwd)/$file"
+            else
+                echo "Error: Cannot resolve path '$path'" >&2
+                return 1
+            fi
+        fi
+    fi
+}
+
 # Get script directory and root directory
 get_script_dirs() {
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # Get the last element of BASH_SOURCE array (the original calling script)
+    local last_source_index=$((${#BASH_SOURCE[@]} - 1))
+    SCRIPT_DIR=$(dirname $(absolute_path "${BASH_SOURCE[$last_source_index]}"))
     # Go up two levels from utils to root: utils -> docker -> scripts -> root
-    ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-    # If we're in a scripts directory, go up one more level to get to the actual root
-    if [ "$(basename "$ROOT_DIR")" = "scripts" ]; then
-        ROOT_DIR="$(cd "$ROOT_DIR/.." && pwd)"
-    fi
+    ROOT_DIR=$(absolute_path "$SCRIPT_DIR/../..")
     ENV_FILE_PATH="$ROOT_DIR/.env"
     
     # Debug output for CI
@@ -93,9 +130,14 @@ stop_existing_container() {
     
     echo "Checking for existing container..."
     if docker ps -q --filter "name=$container_name" | grep -q .; then
-        echo "🛑 Stopping existing container..."
+        echo "🛑 Stopping running container..."
         docker stop "$container_name"
         docker rm "$container_name"
+    elif docker ps -aq --filter "name=$container_name" | grep -q .; then
+        echo "🛑 Removing stopped container..."
+        docker rm "$container_name"
+    else
+        echo "ℹ️  No existing container found"
     fi
 }
 
