@@ -8,6 +8,39 @@ This document explains how to build and run ScanPro using Docker.
 
 ## 🚀 Quick Start
 
+### Using Helper Scripts (Recommended)
+
+We provide convenient helper scripts in `scripts/docker/`:
+
+**For macOS/Linux:**
+```bash
+# Build locally for your architecture
+./scripts/docker/build-local.sh
+
+# Run the container
+./scripts/docker/run.sh
+
+# Build for multiple architectures (amd64 + arm64)
+./scripts/docker/build-multiarch.sh
+
+# Run in debug mode
+./scripts/docker/debug-container.sh
+```
+
+**For Windows PowerShell:**
+```powershell
+# Build locally
+.\scripts\docker\build-local.ps1
+
+# Run the container
+.\scripts\docker\run.ps1
+
+# Build multi-architecture
+.\scripts\docker\build-multiarch.ps1
+```
+
+### Manual Docker Commands
+
 ```bash
 # Build for your current architecture
 docker build -t bradenacurtis801/scanpro:latest .
@@ -83,17 +116,39 @@ docker run -it --rm ^
   bradenacurtis801/scanpro:v2.0.0-dev
 ```
 
-## 🏗️ Multi-Architecture Build (Work in Progress)
+## 🏗️ Multi-Architecture Build
 
-> **Note**: The multi-platform build script (`build-and-push.sh`) is currently under development. For now, use the simple build command above.
+> **Note**: Multi-architecture builds are primarily for CI/CD via GitHub Actions. They run automatically when you push to a version branch. Manual multi-arch builds are typically not needed for local development as they take a long time to build.
+
+### Automated CI/CD (Recommended)
+
+Multi-architecture builds are automatically triggered by GitHub Actions when pushing to version branches:
 
 ```bash
-# Multi-platform build (experimental)
-./build-and-push.sh
-
-# This will build for both Intel and Apple M1 architectures
-# and push to Docker Hub when ready
+# Push to version branch to trigger automatic multi-arch build
+git push origin v2.1.0
 ```
+
+GitHub Actions will automatically:
+- Build for both `linux/amd64` (Intel) and `linux/arm64` (Apple Silicon/M1)
+- Tag with version and `latest`
+- Push to Docker Hub
+
+### Manual Multi-Architecture Build (Advanced)
+
+Only use manually if you need to build locally:
+
+**macOS/Linux:**
+```bash
+./scripts/docker/build-multiarch.sh
+```
+
+**Windows PowerShell:**
+```powershell
+.\scripts\docker\build-multiarch.ps1
+```
+
+**Warning**: This will take a long time to build and push to Docker Hub. For development, use `build-local.sh` instead.
 
 ## 🌐 Accessing the Application
 
@@ -116,7 +171,7 @@ docker run [OPTIONS] bradenacurtis801/scanpro:latest
 |-----------|----------------|---------|-------------|
 | `3000` | `3000` | Frontend | Next.js web interface |
 | `5000` | `5000` | Backend | FastAPI server |
-| `5678` | `5678` | Debugger | VS Code remote debugging (debug mode only) |
+| `5678` | `5678` | Debugger | Remote debugging backend inside container (requires VS Code configuration) |
 
 ### Common Options
 
@@ -156,87 +211,70 @@ docker run [OPTIONS] bradenacurtis801/scanpro:latest
 
 ## 🐛 Debug Options
 
-### External PostgreSQL for Debugging
+### Local Development with Containerized Database
 
-For easier debugging, you can use an external PostgreSQL container with your existing data:
+For easier debugging, you can run PostgreSQL in a Docker container while running the backend on your local machine.
 
-#### Start PostgreSQL 17 with Existing Data
-```powershell
-# Windows PowerShell - Persistent database
-docker run -d --name scanpro-postgres `
-  -p 5432:5432 `
-  -v "C:\Users\brade\Downloads\ScanPro\ScanPro\APP_DATA\db\postgres_data:/var/lib/postgresql/data" `
-  -e POSTGRES_USER=postgres `
-  -e POSTGRES_PASSWORD=postgres123 `
-  -e POSTGRES_DB=scanpro_db `
-  postgres:17
-```
+#### Quick Start (Recommended)
 
 ```bash
-# macOS/Linux - Persistent database
-docker run -d --name scanpro-postgres \
-  -p 5432:5432 \
-  -v "$(pwd)/APP_DATA/db/postgres_data:/var/lib/postgresql/data" \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres123 \
-  -e POSTGRES_DB=scanpro_db \
-  postgres:17
+# Terminal 1: Start PostgreSQL in its own container
+python scripts/run_dev_database.py
+
+# Terminal 2: Run the backend on your host machine
+cd backend
+python main.py
 ```
 
-#### Run ScanPro with External PostgreSQL
-```powershell
-# Windows PowerShell
-docker run -it --rm `
-  -p 3000:3000 `
-  -p 5000:5000 `
-  -v "C:\Users\brade\Downloads\ScanPro\ScanPro\APP_DATA:/app/APP_DATA" `
-  -e NODE_ENV=development `
-  -e DEBUG=0 `
-  -e BACKEND_PORT=5000 `
-  -e BACKEND_HOST=0.0.0.0 `
-  -e POSTGRES_USERNAME=postgres `
-  -e POSTGRES_PASSWORD=postgres123 `
-  -e POSTGRES_DB_NAME=scanpro_db `
-  -e POSTGRES_HOST=host.docker.internal `
-  -e POSTGRES_PORT=5432 `
-  -e CORS_ORIGINS='["http://127.0.0.1:3000"]' `
-  --network host `
-  bradenacurtis801/scanpro:v2.0.0-dev
-```
+This setup:
+- PostgreSQL runs in Docker with your data mounted
+- Backend runs natively on your host (easier to debug)
+- Reads configuration from `backend/config.py`
+- Mounts your local `APP_DATA/db/postgres_data/` directory
+- Applies development PostgreSQL configs from `scripts/dev_db_config/`
+- Exposes PostgreSQL on port 5432 for local backend connection
 
+**Benefits:**
+- Debug backend with local tools (VS Code, Python debugger)
+- Direct access to backend logs and process
+- Database persists in container
+- Easy to restart just the database or just the backend
+
+### Summary
+
+**Two ways to run ScanPro:**
+
+1. **All-in-One Container** (Production/Testing):
+   - Everything in one container (PostgreSQL, Backend, Frontend)
+   - See "Quick Start" section above
+   - `docker run ... bradenacurtis801/scanpro:latest`
+
+2. **PostgreSQL in Container + Backend on Host** (Local Development):
+   - PostgreSQL in Docker, Backend runs locally for easier debugging
+   - See "Local Development with Containerized Database" section above
+   - Use `python scripts/run_dev_database.py` + run backend locally
+
+#### Stopping the Development Database
+
+**If using the helper script (`run_dev_database.py`):**
 ```bash
-# macOS/Linux
-docker run -it --rm \
-  -p 3000:3000 \
-  -p 5000:5000 \
-  -v "$(pwd)/APP_DATA:/app/APP_DATA" \
-  -e NODE_ENV=development \
-  -e DEBUG=0 \
-  -e BACKEND_PORT=5000 \
-  -e BACKEND_HOST=0.0.0.0 \
-  -e POSTGRES_USERNAME=postgres \
-  -e POSTGRES_PASSWORD=postgres123 \
-  -e POSTGRES_DB_NAME=scanpro_db \
-  -e POSTGRES_HOST=host.docker.internal \
-  -e POSTGRES_PORT=5432 \
-  -e CORS_ORIGINS='["http://127.0.0.1:3000"]' \
-  --network host \
-  bradenacurtis801/scanpro:v2.0.0-dev
+# Just press Ctrl+C in the terminal where it's running
+# The --rm flag will automatically remove the container
 ```
 
-#### Benefits of External PostgreSQL
-- **🔍 Easy Debugging**: Direct access to PostgreSQL logs and data
-- **📊 Database Tools**: Use pgAdmin, DBeaver, or psql directly
-- **🔄 Data Persistence**: Your data survives container restarts
-- **⚡ Performance**: No overhead from containerized database
-- **🛠️ Development**: Easier to inspect and modify data
-
-#### Cleanup External PostgreSQL
+**If started manually with docker run:**
 ```bash
-# Stop and remove PostgreSQL container
+# Stop the PostgreSQL container
 docker stop scanpro-postgres
+
+# Remove the container (if started without --rm)
 docker rm scanpro-postgres
 ```
+
+**Using Docker Desktop:**
+- Go to Containers tab
+- Find `scanpro-postgres`
+- Click Stop or Delete
 
 ### Debug Mode Levels
 
@@ -292,16 +330,52 @@ docker run -it --name scanpro-debug \
 - **Behavior**: Starts normally, debugger can connect anytime
 - **VS Code**: Connect when ready to debug
 
-### VS Code Debugging Setup
+### Debugging Approaches
 
-1. **Install Python extension** in VS Code
-2. **Create `.vscode/launch.json`**:
+You have two options for debugging the backend:
+
+#### Option 1: Debug Backend on Host (Recommended for Development)
+
+PostgreSQL in container + Backend on host for easier debugging:
+
+```bash
+# Terminal 1: Start PostgreSQL
+python scripts/run_dev_database.py
+
+# Terminal 2: Run backend on host (easier debugging)
+cd backend
+python main.py
+```
+
+**Benefits:**
+- No VS Code configuration needed
+- Direct access to backend process
+- Faster iteration
+- Use native debugging tools
+
+#### Option 2: Debug Backend Inside Container (Simulate Runtime Environment)
+
+Debug the backend inside the container to match production runtime:
+
+```bash
+# Run container with debug port
+docker run -it --rm \
+  -p 3000:3000 -p 5000:5000 -p 5678:5678 \
+  -e DEBUG=1 \
+  bradenacurtis801/scanpro:latest
+```
+
+### VS Code Configuration for Container Debugging
+
+**Only needed for Option 2 (debugging inside container).**
+
+Create `.vscode/launch.json`:
 ```json
 {
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Remote Attach",
+            "name": "Python: Attach to Container",
             "type": "debugpy",
             "request": "attach",
             "connect": {
@@ -313,14 +387,19 @@ docker run -it --name scanpro-debug \
                     "localRoot": "${workspaceFolder}/backend",
                     "remoteRoot": "/app/backend"
                 }
-            ]
+            ],
+            "justMyCode": false
         }
     ]
 }
 ```
-3. **Set breakpoints** in your Python code
-4. **Start container** with `DEBUG=1` or `DEBUG=2`
-5. **Press F5** in VS Code to connect debugger
+
+**Steps:**
+1. Set breakpoints in your Python code
+2. Start container with `DEBUG=1` (waits for debugger) or `DEBUG=2` (runs normally)
+3. Press F5 in VS Code to attach debugger to the container
+
+**Note**: This requires configuring launch.json and path mappings to connect your local code to the code running inside the container.
 
 ## ⚙️ Configuration
 
@@ -370,8 +449,29 @@ docker volume inspect scanpro_data
 
 ## 🔧 Development
 
+### Helper Scripts
+
+We provide several helper scripts in `scripts/docker/` to make Docker operations easier:
+
+**Available Scripts (macOS/Linux):**
+- `build-local.sh` - Build for your local architecture (use for development)
+- `run.sh` - Run the container with proper configuration
+- `build-multiarch.sh` - Build for multiple architectures (mainly for CI/CD, takes long time)
+- `debug-container.sh` - Run in debug mode with debugger support
+
+**Available Scripts (Windows PowerShell):**
+- `build-local.ps1` - Build for your local architecture (use for development)
+- `run.ps1` - Run the container with proper configuration
+- `build-multiarch.ps1` - Build for multiple architectures (mainly for CI/CD, takes long time)
+
 ### Building for Development
 
+Using helper script (recommended):
+```bash
+./scripts/docker/build-local.sh
+```
+
+Or manually:
 ```bash
 # Build with development settings
 docker build --build-arg NODE_ENV=development -t bradenacurtis801/scanpro:dev .
@@ -381,17 +481,6 @@ docker run -p 3000:3000 -p 5000:5000 \
   -e NODE_ENV=development \
   -e DEBUG=true \
   bradenacurtis801/scanpro:dev
-```
-
-### Multi-Architecture Development (Work in Progress)
-
-> **Note**: Multi-architecture builds are currently under development. Use the simple build command for now.
-
-```bash
-# Multi-platform build (experimental)
-./build-and-push.sh
-
-# This will create architecture-specific tags when ready
 ```
 
 ### Viewing Logs

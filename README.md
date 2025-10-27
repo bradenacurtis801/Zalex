@@ -112,29 +112,49 @@ See individual component READMEs for detailed setup instructions.
 
 ## 🚀 Model Deployment Strategy
 
-### Development/Testing
-- **Hugging Face Hub**: Models automatically downloaded from `bradenacurtis/scanpro-classifier-v1-finetune`
-- **Local Caching**: Models cached in `APP_DATA/ml_models/` for faster subsequent loads
-- **Fallback Support**: Similarity-based classifier available as fallback
+### Hugging Face Authentication
 
-### Production Deployment
-- **Automatic Download**: Backend automatically downloads model on first startup
-- **Caching**: Model files cached locally for performance
-- **Token Support**: Optional Hugging Face token for private models via `SCANPRO_HF_TOKEN`
+**IMPORTANT**: A Hugging Face token (`SCANPRO_HF_TOKEN`) is **required** for downloading models.
+
+- **With Token**: Backend automatically downloads models from `bradenacurtis/scanpro-classifier-v1-finetune`
+- **Without Token + Cached Models**: Program runs successfully using locally cached models in `APP_DATA/ml_models/`
+- **Without Token + No Cache**: Authentication error from HuggingFace API - backend will fail to start
 
 ### Model Lifecycle
-1. **Download**: Backend automatically downloads model from Hugging Face Hub
+1. **Download**: Backend automatically downloads model from Hugging Face Hub (requires token)
 2. **Cache**: Model files cached locally in `APP_DATA/ml_models/`
 3. **Load**: Model loaded into memory for inference
-4. **Update**: New model versions automatically downloaded on restart
+4. **Subsequent Runs**: Uses cached models (no token required if already cached)
 
-## 📚 Component Documentation
+### Setting Up the Token
+Set the `SCANPRO_HF_TOKEN` environment variable with your HuggingFace token:
+```bash
+export SCANPRO_HF_TOKEN="hf_xxxxx"
+```
 
-Each component has its own detailed documentation with setup instructions and code examples:
+## 📚 Documentation
 
-- **Training Pipeline**: `train/README.md` - Model training, data preparation, and evaluation
-- **Backend Server**: `backend/README.md` - API documentation, setup, and deployment
-- **Frontend Application**: `frontend/README.md` - User interface development and deployment
+ScanPro includes comprehensive documentation for setup, development, and deployment:
+
+### Setup & Development
+- **[Development Setup Guide](docs/DEV-SETUP.md)** - Complete guide for setting up local development environment
+- **[Docker Deployment](DOCKER.md)** - Container deployment and Docker configuration
+
+### Component-Specific Documentation
+- **[Training Pipeline](train/README.md)** - Model training, data preparation, and evaluation
+- **[Backend Server](backend/README.md)** - API documentation, setup, and deployment
+- **[Frontend Application](frontend/README.md)** - User interface development and deployment
+- **[Backend Tests](backend/tests/README.md)** - Testing framework and mock-based testing approach
+- **[OCR Engine](backend/src/ocr/README.md)** - OCR configuration (Tesseract vs EasyOCR)
+
+### Architecture & Database
+- **[Architecture Diagram](backend/docs/architecture.svg)** - System architecture overview
+- **[Database Schema](docs/database/README.md)** - Database schema and ERD documentation
+- **[Design Documentation](docs/README.md)** - Overall design and architecture
+
+### Additional Resources
+- **[GitHub Actions](docs/github-actions-setup.md)** - CI/CD pipeline configuration
+- **[Classifier Details](docs/classifier.md)** - Model architecture and classification logic
 
 ## 🎯 Key Technologies
 

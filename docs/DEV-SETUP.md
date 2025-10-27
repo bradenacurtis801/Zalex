@@ -5,7 +5,7 @@ This guide will help you set up the ScanPro development environment from scratch
 ## Prerequisites
 
 - **Docker** - Required for running the PostgreSQL database
-- **Python 3.8+** - For the backend
+- **Python 3.10+** - For the backend
 - **Node.js 18+** - For the frontend
 - **Git** - For version control
 
