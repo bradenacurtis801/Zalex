@@ -26,6 +26,8 @@ from src.utils.file_hasher import calculate_file_hash, get_content_based_filenam
 import hashlib
 from src.event_bus import EventBus, EventType
 from src.ml.classification.base_classifier import DocumentClassifier
+from src.ml.faiss.embeddings import EmbeddingsIndex
+import config as config
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +40,19 @@ def calculate_file_hash_from_content(content: bytes) -> str:
 class UploadService:
     """Service for handling file uploads and document processing."""
 
-    def __init__(self, db: Session, event_bus: EventBus, ocr_engine: OCREngine, document_classifier: DocumentClassifier):
+    def __init__(
+        self, 
+        db: Session, 
+        event_bus: EventBus, 
+        ocr_engine: OCREngine, 
+        document_classifier: DocumentClassifier,
+        embeddings_index: Optional[EmbeddingsIndex] = None
+    ):
         self.db = db
         self.event_bus = event_bus
         self.ocr_engine = ocr_engine
         self.document_classifier = document_classifier
+        self.embeddings_index = embeddings_index
 
     async def process_upload(self, files: List[UploadFile], user_id: Optional[int] = None) -> UploadResponse:
         """
@@ -175,15 +185,25 @@ class UploadService:
             ).first()
             
             if existing_classification:
-                logger.info(
-                    f"Document {original_filename} already classified as {existing_classification.category} "
-                    f"(confidence: {existing_classification.confidence:.3f}) - returning cached result"
-                )
-                return DocumentClassification(
-                    filename=original_filename,
-                    category=existing_classification.category,
-                    confidence=existing_classification.confidence
-                ), True
+                # Check if cached classification meets confidence threshold
+                if existing_classification.confidence >= config.CLASSIFIER_CONFIDENCE_THRESHOLD:
+                    logger.info(
+                        f"Document {original_filename} already classified as {existing_classification.category} "
+                        f"(confidence: {existing_classification.confidence:.3f}) - returning cached result"
+                    )
+                    return DocumentClassification(
+                        filename=original_filename,
+                        category=existing_classification.category,
+                        confidence=existing_classification.confidence
+                    ), True
+                else:
+                    # Cached classification below threshold - re-classify
+                    logger.info(
+                        f"Document {original_filename} has cached classification with low confidence "
+                        f"({existing_classification.confidence:.3f} < {config.CLASSIFIER_CONFIDENCE_THRESHOLD}) - re-classifying"
+                    )
+                    # Use existing document for re-classification
+                    document = existing_document
             else:
                 # Document exists but not classified yet - use existing document
                 logger.info(f"Document {original_filename} exists but not classified yet - processing")
@@ -206,18 +226,61 @@ class UploadService:
             
             logger.info(f"Created document record for {original_filename} with hash {file_hash}")
 
-        # Extract text and classify document in thread pool to avoid blocking API
+        # Process document page by page with confidence threshold
         logger.debug(f"Starting document processing for {original_filename}...")
         
-        # Run CPU-intensive processing in a thread pool to avoid blocking the event loop
         loop = asyncio.get_event_loop()
+        
+        # Extract all pages first (this needs to complete before parallel processing)
         with ThreadPoolExecutor() as executor:
-            category, confidence = await loop.run_in_executor(
-                executor, self._process_document_content, file_content, original_filename, file_hash
+            extracted_texts, page_numbers = await loop.run_in_executor(
+                executor, self._extract_text_from_content, file_content, original_filename, file_hash
             )
         
+        # Prepare page data for processing
+        all_page_data = [
+            (text.strip(), page_num)
+            for text, page_num in zip(extracted_texts, page_numbers)
+            if text and text.strip()
+        ]
+        
+        logger.debug(f"Extracted {len(all_page_data)} pages for processing")
+        
+        # Run classification and FAISS indexing in parallel threads
+        logger.info(
+            f"Starting parallel processing: classification (until threshold met) and "
+            f"FAISS indexing (all {len(all_page_data)} pages)"
+        )
+        
+        classification_task = asyncio.create_task(
+            self._classify_pages_until_threshold(all_page_data, original_filename, loop)
+        )
+        faiss_task = asyncio.create_task(
+            self._index_all_pages_faiss(all_page_data, file_hash, original_filename, loop)
+        )
+        
+        # Wait for classification (needed for database storage)
+        # FAISS indexing runs in parallel and will complete independently
+        category, confidence, accepted_page_number = await classification_task
+        
+        # Wait for FAISS indexing to complete (don't block on errors)
+        try:
+            await faiss_task
+        except Exception as e:
+            logger.warning(f"FAISS indexing completed with errors: {e}")
+        
+        # If no page met threshold, use "other" category
+        if confidence < config.CLASSIFIER_CONFIDENCE_THRESHOLD:
+            logger.warning(
+                f"No page met confidence threshold ({config.CLASSIFIER_CONFIDENCE_THRESHOLD}). "
+                f"Best classification was {category} with {confidence:.3f} confidence from page {accepted_page_number + 1}. "
+                f"Using 'other' category instead."
+            )
+            category = "other"
+        
         logger.debug(
-            f"Final classification result: category={category}, confidence={confidence}"
+            f"Final classification result: {category} (confidence: {confidence:.3f}) "
+            f"from page {accepted_page_number + 1}"
         )
         
         # Store classification in database
@@ -246,7 +309,137 @@ class UploadService:
             False,
         )
 
-    def _extract_text_from_content(self, file_content: bytes, filename: str, document_id: str = None) -> list:
+    async def _classify_pages_until_threshold(
+        self, 
+        all_page_data: List[tuple], 
+        filename: str, 
+        loop: asyncio.AbstractEventLoop
+    ) -> tuple:
+        """
+        Classify pages sequentially until confidence threshold is met.
+        This runs in a separate async task/thread.
+        
+        Args:
+            all_page_data: List of (text, page_number) tuples
+            filename: Filename for context
+            loop: Event loop for running in executor
+            
+        Returns:
+            Tuple of (category, confidence, accepted_page_number)
+        """
+        category = None
+        confidence = 0.0
+        accepted_page_number = -1
+        
+        with ThreadPoolExecutor() as executor:
+            for page_text, page_num in all_page_data:
+                # Check if we've already met the threshold
+                if confidence >= config.CLASSIFIER_CONFIDENCE_THRESHOLD:
+                    logger.debug(
+                        f"Classification threshold already met on page {accepted_page_number + 1}. "
+                        f"Skipping remaining {len(all_page_data) - page_num} pages."
+                    )
+                    break
+                
+                logger.debug(
+                    f"[Classification Thread] Classifying page {page_num + 1} "
+                    f"(current confidence: {confidence:.3f} < threshold: {config.CLASSIFIER_CONFIDENCE_THRESHOLD})"
+                )
+                
+                # Classify this page in thread pool
+                page_category, page_confidence = await loop.run_in_executor(
+                    executor,
+                    self._classify_single_page,
+                    page_text,
+                    filename
+                )
+                
+                logger.debug(
+                    f"[Classification Thread] Page {page_num + 1} classification: {page_category} "
+                    f"(confidence: {page_confidence:.3f})"
+                )
+                
+                # Update if this page has higher confidence
+                if page_confidence > confidence:
+                    category = page_category
+                    confidence = page_confidence
+                    accepted_page_number = page_num
+                
+                # Check if we've met the threshold
+                if confidence >= config.CLASSIFIER_CONFIDENCE_THRESHOLD:
+                    logger.info(
+                        f"[Classification Thread] Confidence threshold met on page {page_num + 1}: "
+                        f"{category} (confidence: {confidence:.3f})"
+                    )
+                    break
+        
+        # Fallback to "other" if no classification was found
+        if category is None:
+            category = "other"
+            confidence = 0.0
+            logger.warning(
+                f"[Classification Thread] No classification found for {filename}, using default: other"
+            )
+        
+        return category, confidence, accepted_page_number
+    
+    async def _index_all_pages_faiss(
+        self,
+        all_page_data: List[tuple],
+        document_id: str,
+        filename: str,
+        loop: asyncio.AbstractEventLoop
+    ) -> None:
+        """
+        Index all pages in FAISS index.
+        This runs in a separate async task/thread and processes all pages.
+        
+        Args:
+            all_page_data: List of (text, page_number) tuples
+            document_id: Document ID (file hash)
+            filename: Filename for logging
+            loop: Event loop for running in executor
+        """
+        if not self.embeddings_index or not all_page_data:
+            logger.debug("[FAISS Thread] No embeddings index or page data, skipping FAISS indexing")
+            return
+        
+        try:
+            logger.debug(f"[FAISS Thread] Starting FAISS indexing for {len(all_page_data)} pages...")
+            
+            # Separate texts and page numbers
+            filtered_texts = [data[0] for data in all_page_data]
+            filtered_page_numbers = [data[1] for data in all_page_data]
+            
+            # Add all text chunks to the index (runs in thread pool to avoid blocking)
+            with ThreadPoolExecutor() as executor:
+                await loop.run_in_executor(
+                    executor,
+                    self.embeddings_index.add,
+                    filtered_texts,
+                    document_id,
+                    filtered_page_numbers
+                )
+            
+            logger.debug(
+                f"[FAISS Thread] Added {len(filtered_texts)} page(s) to FAISS index for {filename} "
+                f"(document_id: {document_id})"
+            )
+            
+            # Save the index
+            with ThreadPoolExecutor() as executor:
+                await loop.run_in_executor(
+                    executor,
+                    self.embeddings_index.store_embeddings
+                )
+            
+            logger.debug("[FAISS Thread] FAISS index saved to disk")
+            
+        except Exception as e:
+            logger.error(f"[FAISS Thread] Failed to index pages in FAISS: {e}", exc_info=True)
+            raise
+
+    def _extract_text_from_content(self, file_content: bytes, filename: str, document_id: str = None) -> tuple:
         """
         Extract text from file content for classification.
         
@@ -256,13 +449,14 @@ class UploadService:
             document_id: Document ID for storing OCR data (optional)
             
         Returns:
-            List of extracted text chunks
+            Tuple of (list of extracted text chunks, list of page numbers)
         """
         import fitz
         import os
         
         file_extension = os.path.splitext(filename)[1].lower()
         extracted_texts = []
+        page_numbers = []
         
         if file_extension == ".pdf":
             try:
@@ -296,8 +490,9 @@ class UploadService:
                                 )
                                 self.db.add(ocr_data)
                             
-                            # Also add to extracted_texts for backward compatibility
+                            # Add text and page number
                             extracted_texts.append(ocr_result.get('text', '').strip())
+                            page_numbers.append(page_num)  # 0-indexed page number
                             logger.debug(f"Extracted text from page {page_num + 1}: {len(ocr_result.get('text', ''))} characters")
                     except Exception as e:
                         logger.warning(f"OCR failed for page {page_num + 1}: {e}")
@@ -307,7 +502,7 @@ class UploadService:
             except Exception as e:
                 logger.error(f"PDF processing failed: {e}")
         else:
-            # For image files, process directly
+            # For image files, process directly (treat as page 0)
             try:
                 image_format = file_extension.lstrip('.')
                 if image_format not in ['png', 'jpg', 'jpeg', 'tiff', 'bmp']:
@@ -316,27 +511,50 @@ class UploadService:
                 text = self.ocr_engine.extract_text_from_bytes(file_content, image_format)
                 if text and text.strip():
                     extracted_texts.append(text.strip())
+                    page_numbers.append(0)  # Single image file = page 0
                     logger.debug(f"Extracted text from image: {len(text)} characters")
             except Exception as e:
                 logger.error(f"Image processing failed: {e}")
         
-        return extracted_texts
+        return extracted_texts, page_numbers
 
-    def _process_document_content(self, file_content: bytes, filename: str, file_hash: str) -> tuple:
+    def _classify_single_page(self, page_text: str, filename: str) -> tuple:
         """
-        Process document content (extract text and classify) in a thread pool.
+        Classify a single page of text.
         
         Args:
-            file_content: The file content as bytes
-            filename: The filename for format detection
-            file_hash: The file hash for OCR data storage
+            page_text: Text content from a single page
+            filename: The filename for context
             
         Returns:
             Tuple of (category, confidence)
         """
-        # Extract text from file content
-        extracted_texts = self._extract_text_from_content(file_content, filename, file_hash)
+        if not page_text or not page_text.strip():
+            logger.warning(f"No text provided for classification of {filename}")
+            return "other", 0.0
         
+        try:
+            logger.debug(f"Classifying page text with {len(page_text)} characters...")
+            classification_result = self.document_classifier.classify(page_text.strip(), filename)
+            category = classification_result.category
+            confidence = classification_result.confidence
+            logger.debug(f"Page classification result: {category} ({confidence:.3f})")
+            return category, confidence
+        except Exception as e:
+            logger.error(f"Classification failed for page: {e}")
+            return "other", 0.0
+
+    def _classify_extracted_text(self, extracted_texts: list, filename: str) -> tuple:
+        """
+        Classify document using extracted text (backward compatibility method).
+        
+        Args:
+            extracted_texts: List of extracted text chunks
+            filename: The filename for context
+            
+        Returns:
+            Tuple of (category, confidence)
+        """
         if not extracted_texts:
             logger.warning(f"No text extracted from {filename}")
             return "other", 0.0
@@ -353,6 +571,23 @@ class UploadService:
         except Exception as e:
             logger.error(f"Classification failed: {e}")
             return "other", 0.0
+
+    def _process_document_content(self, file_content: bytes, filename: str, file_hash: str) -> tuple:
+        """
+        Process document content (extract text and classify) in a thread pool.
+        This method is kept for backward compatibility but is now split into separate methods.
+        
+        Args:
+            file_content: The file content as bytes
+            filename: The filename for format detection
+            file_hash: The file hash for OCR data storage
+            
+        Returns:
+            Tuple of (category, confidence)
+        """
+        # Extract text from file content (returns tuple now)
+        extracted_texts, _ = self._extract_text_from_content(file_content, filename, file_hash)
+        return self._classify_extracted_text(extracted_texts, filename)
 
     async def delete_document(self, document_id: str) -> Dict[str, Any]:
         """

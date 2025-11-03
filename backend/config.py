@@ -140,6 +140,8 @@ DB_DIR = APP_DIR / "db" / "postgres_data"
 ML_MODELS_DIR = APP_DIR / "ml_models"
 # CLASSIFIER_MODEL_PATH = ML_MODELS_DIR / "classifier_model"
 CLASSIFIER_MODEL_ID = "bradenacurtis/scanpro-classifier-v1-finetune"
+FAISS_INDEX_PATH = APP_DIR / "document_index.faiss"
+CLASSIFIER_CONFIDENCE_THRESHOLD = 0.6  # Minimum confidence threshold for classification acceptance
 
 def setup_app_dirs():
     """Create all required application directories."""

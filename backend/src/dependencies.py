@@ -29,12 +29,24 @@ def get_db() -> Session:
 def get_auth_service(db: Session = Depends(get_session)) -> AuthService:
     return AuthService(db)
 
+def get_embeddings_index():
+    """Dependency injection for FAISS embeddings index."""
+    app_state = get_app_state()
+    return app_state.embeddings_index
+
 def get_upload_service(
     db: Session = Depends(get_session),
+    embeddings_index = Depends(get_embeddings_index),
 ) -> UploadService:
     """Dependency injection for UploadService."""
     app_state = get_app_state()
-    return UploadService(db, event_bus, app_state.ocr_engine, app_state.document_classifier)
+    return UploadService(
+        db, 
+        event_bus, 
+        app_state.ocr_engine, 
+        app_state.document_classifier,
+        embeddings_index
+    )
 
 
 def get_pdf_service(db: Session = Depends(get_session)) -> PDFService:
@@ -63,28 +75,11 @@ def get_feedback_service(
     """Dependency injection for FeedbackService."""
     return FeedbackService(document_classifier, db)
 
-def get_index():
-    """Dependency injection for FAISS index."""
-    app_state = get_app_state()
-    return app_state.index
-
-def get_metadata():
-    """Dependency injection for metadata."""
-    app_state = get_app_state()
-    return app_state.metadata
-
-def get_model():
-    """Dependency injection for SentenceTransformer model."""
-    app_state = get_app_state()
-    return app_state.model
-
 def get_query_service(
-    index=Depends(get_index),
-    metadata=Depends(get_metadata),
-    model=Depends(get_model),
+    embeddings_index = Depends(get_embeddings_index),
 ) -> QueryService:
     """Dependency injection for QueryService."""
-    return QueryService(index, metadata, model)
+    return QueryService(embeddings_index)
 
 # Simple authentication - only session tokens
 async def get_current_user(

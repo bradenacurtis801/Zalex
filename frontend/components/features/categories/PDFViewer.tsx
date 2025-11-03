@@ -32,6 +32,35 @@ export default function PDFViewer({
     loadPDFPages()
   }, [document])
 
+  // Scroll to the current page when pages are loaded or currentPage changes
+  useEffect(() => {
+    if (!loading && pdfPages.length > 0 && currentPage >= 0) {
+      const targetPageNumber = currentPage + 1
+      const scrollToTargetPage = () => {
+        const container = scrollRef.current
+        if (container) {
+          const pageElement = container.querySelector(`[data-page="${targetPageNumber}"]`)
+          if (pageElement) {
+            pageElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            return true
+          }
+        }
+        return false
+      }
+
+      // Try immediately
+      if (!scrollToTargetPage()) {
+        // If not found, try again after a short delay to allow images to render
+        const timer = setTimeout(() => {
+          scrollToTargetPage()
+        }, 500)
+
+        return () => clearTimeout(timer)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, pdfPages.length, currentPage])
+
   const loadPDFPages = async () => {
     setLoading(true)
     setError(null)

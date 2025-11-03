@@ -70,9 +70,9 @@ def create_default_admin_user():
             db.commit()
             db.refresh(admin_user)
             
-            logger.info(f"\033[92m✅ Created default admin user: {admin_user.username}\033[0m")
-            logger.info("\033[93m🔑 Default credentials: admin / admin123\033[0m")
-            logger.info("\033[96m🚀 ScanPro is ready! Visit http://localhost:3000 to get started\033[0m")
+            logger.info(f"\033[92m[SUCCESS] Created default admin user: {admin_user.username}\033[0m")
+            logger.info("\033[93m[INFO] Default credentials: admin / admin123\033[0m")
+            logger.info("\033[96m[READY] ScanPro is ready! Visit http://localhost:3000 to get started\033[0m")
             
     except Exception as e:
         logger.error(f"Failed to create default admin user: {e}")
@@ -83,7 +83,7 @@ def create_default_admin_user():
 async def lifespan(app: FastAPI):
     """Manage application lifespan - startup and shutdown events."""
     # Startup
-    logger.info("\033[96m🚀 Starting up application...\033[0m")
+    logger.info("\033[96m[STARTUP] Starting up application...\033[0m")
     logger.debug(f"Working directory: {os.getcwd()}")
     logger.debug(f"App directory: {config.APP_DIR}")
 
@@ -155,7 +155,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(upload.router, prefix="/api", tags=["upload"])
-# app.include_router(query.router, prefix="/api", tags=["query"]) # Commented out until query endpoint is implemented
+app.include_router(query.router, prefix="/api", tags=["query"])
 app.include_router(category.router, prefix="/api", tags=["category"])
 app.include_router(feedback.router, prefix="/api", tags=["feedback"])
 app.include_router(ocr.router, prefix="/api", tags=["ocr"])

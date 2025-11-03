@@ -3,9 +3,18 @@
 import { useState, useRef, useEffect } from 'react'
 import { queryApi } from '@/api'
 import { Button, Input } from '@/components/ui'
+import { SearchResult } from '@/generated/models/SearchResult'
+import SearchResultViewer from './SearchResultViewer'
+
+interface Message {
+  text: string
+  sender: 'user' | 'bot'
+  searchResults?: SearchResult[]
+  query?: string
+}
 
 export default function ChatInterface() {
-  const [messages, setMessages] = useState<Array<{ text: string; sender: 'user' | 'bot' }>>([
+  const [messages, setMessages] = useState<Message[]>([
     { text: "Hello! Ask me anything about your enrolled documents.", sender: 'bot' }
   ])
   const [inputValue, setInputValue] = useState('')
@@ -36,29 +45,33 @@ export default function ChatInterface() {
     setIsLoading(true)
 
     try {
-      const results = await queryApi.queryIndexApiQueryPost({ queryRequest: { query } })
+      const response = await queryApi.queryIndexApiQueryPost({ queryRequest: { query } })
       
       let botResponse = ''
-      if (results && results.results && results.results.length > 0) {
-        botResponse = 'Here are the most relevant results from your documents:\n\n'
-        // Limit to first 10 results for readability
-        const displayResults = results.results.slice(0, 10)
-        displayResults.forEach((result: any, index: number) => {
-          botResponse += `${index + 1}. "${result.text}"\n   Source: ${result.source} (Page ${result.page})\n\n`
+      if (response && response.results && response.results.length > 0) {
+        botResponse = `Found ${response.results.length} result${response.results.length !== 1 ? 's' : ''} for your query.`
+        
+        // Replace loading message with response that includes search results
+        setMessages(prev => {
+          const newMessages = [...prev]
+          newMessages[newMessages.length - 1] = { 
+            text: botResponse, 
+            sender: 'bot',
+            searchResults: response.results,
+            query: query
+          }
+          return newMessages
         })
-        if (results.results.length > 10) {
-          botResponse += `... and ${results.results.length - 10} more results.\n`
-        }
       } else {
         botResponse = "I couldn't find any relevant information in your documents for that query."
+        
+        // Replace loading message with no results message
+        setMessages(prev => {
+          const newMessages = [...prev]
+          newMessages[newMessages.length - 1] = { text: botResponse, sender: 'bot' }
+          return newMessages
+        })
       }
-
-      // Replace loading message with actual response
-      setMessages(prev => {
-        const newMessages = [...prev]
-        newMessages[newMessages.length - 1] = { text: botResponse, sender: 'bot' }
-        return newMessages
-      })
     } catch (error) {
       // Replace loading message with error
       setMessages(prev => {
@@ -79,13 +92,27 @@ export default function ChatInterface() {
       <div className="flex-grow bg-gray-50 p-4 rounded-lg overflow-y-auto mb-4 border">
         {messages.map((message, index) => (
           <div key={index} className={`flex mb-4 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`rounded-lg p-3 max-w-lg ${message.sender === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}`}>
-              {message.text ? (
+            {message.sender === 'user' ? (
+              <div className={`rounded-lg p-3 max-w-lg ${message.sender === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}`}>
                 <p className="text-sm whitespace-pre-wrap">{message.text}</p>
-              ) : (
-                <div className="loader"></div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="rounded-lg p-3 max-w-4xl w-full chat-bubble-bot">
+                {message.text ? (
+                  <p className="text-sm whitespace-pre-wrap mb-3">{message.text}</p>
+                ) : (
+                  <div className="loader"></div>
+                )}
+                {message.searchResults && message.query && (
+                  <div className="mt-3">
+                    <SearchResultViewer 
+                      results={message.searchResults} 
+                      query={message.query}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
         <div ref={messagesEndRef} />
