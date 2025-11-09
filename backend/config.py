@@ -77,7 +77,6 @@ class Settings(BaseSettings):
 
     class Config:
         case_sensitive = False
-        env_file = ".env"
         env_file_encoding = "utf-8"
         protected_namespaces = ("settings_",)
         extra = "allow"
@@ -125,6 +124,7 @@ DB_ENGINE = "PostgreSQL"
 # Create settings instance
 settings = Settings()
 
+
 # Environment checks
 is_development = settings.node_env_value == "dev"
 is_production = settings.node_env_value == "prod"
@@ -142,6 +142,7 @@ ML_MODELS_DIR = APP_DIR / "ml_models"
 CLASSIFIER_MODEL_ID = "bradenacurtis/scanpro-classifier-v1-finetune"
 FAISS_INDEX_PATH = APP_DIR / "document_index.faiss"
 CLASSIFIER_CONFIDENCE_THRESHOLD = 0.6  # Minimum confidence threshold for classification acceptance
+CLASSIFIER_UNCERTAINTY_MARGIN = 0.2
 
 def setup_app_dirs():
     """Create all required application directories."""
