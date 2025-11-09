@@ -6,6 +6,8 @@ import {
   AuthApi,
   OcrApi,
   Configuration,
+  Middleware,
+  ResponseContext,
 } from "@/generated";
 
 // Use relative URLs to leverage Next.js proxy
@@ -13,6 +15,29 @@ let apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
 // Keep an in-memory token so we can immediately use fresh tokens after login
 let currentToken: string | null = null;
+
+// Global logout callback that will be set by AuthContext
+let globalLogoutCallback: (() => void) | null = null;
+
+// Function to set the logout callback from AuthContext
+export const setLogoutCallback = (callback: (() => void) | null) => {
+  globalLogoutCallback = callback;
+};
+
+// Middleware to handle 401 responses and automatically log out
+const authErrorMiddleware: Middleware = {
+  post: async (context: ResponseContext): Promise<Response | void> => {
+    // Check if response is 401 Unauthorized
+    // Exclude login endpoint - 401 there means wrong credentials, not expired token
+    if (context.response.status === 401 && !context.url.includes('/api/auth/login')) {
+      // Call the global logout callback if it's set
+      if (globalLogoutCallback) {
+        globalLogoutCallback();
+      }
+    }
+    return context.response;
+  },
+};
 
 // Callback function to get the current token
 const getCurrentToken = async (): Promise<string> => {
@@ -22,10 +47,11 @@ const getCurrentToken = async (): Promise<string> => {
   return token || '';
 };
 
-// Create initial configuration
+// Create initial configuration with auth error middleware
 let sharedConfig = new Configuration({
   basePath: apiBaseUrl,
   accessToken: getCurrentToken,
+  middleware: [authErrorMiddleware],
 });
 
 // Declare API clients (initially with the default sharedConfig)
@@ -60,6 +86,7 @@ export const updateApiClients = () => {
   sharedConfig = new Configuration({
     basePath: apiBaseUrl,
     accessToken: getCurrentToken,
+    middleware: [authErrorMiddleware],
   });
 
   // Reinitialize API clients with the updated sharedConfig

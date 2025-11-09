@@ -1,7 +1,7 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
-import { authApi, setAuthToken } from '@/api'
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { authApi, setAuthToken, setLogoutCallback } from '@/api'
 
 interface User {
   id: number
@@ -125,10 +125,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setAuthToken(null) // clears localStorage and updates clients
     setUser(null)
-  }
+  }, [])
+
+  // Register logout callback with API layer for automatic logout on 401
+  useEffect(() => {
+    setLogoutCallback(logout)
+    
+    // Cleanup: unregister callback when component unmounts
+    return () => {
+      setLogoutCallback(null)
+    }
+  }, [logout])
 
   const value = {
     user,
