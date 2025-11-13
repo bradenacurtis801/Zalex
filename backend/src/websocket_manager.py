@@ -28,7 +28,7 @@ class ConnectionManager:
             self.active_connections: Dict[str, WebSocket] = {}
             self._initialized = True
             # Subscribe to upload progress events
-            event_bus.subscribe_async(EventType.UPLOAD_PROGRESS, self._handle_upload_progress)
+            event_bus.subscribe(EventType.UPLOAD_PROGRESS, self._handle_upload_progress)
     
     async def connect(self, websocket: WebSocket, user_id: str):
         """Accept a WebSocket connection and store it."""
