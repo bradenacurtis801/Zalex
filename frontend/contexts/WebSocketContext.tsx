@@ -20,7 +20,7 @@ interface WebSocketContextType {
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined)
 
 export function WebSocketProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, logout } = useAuth()
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const ws = useRef<WebSocket | null>(null)
@@ -102,8 +102,16 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             setError(null)
             reconnectAttempts.current = 0 // Reset reconnection attempts on successful connection
           } else if (message.type === WebSocketMessageType.ERROR) {
-            console.error('WebSocket error:', message.data.message)
-            setError(message.data.message || 'WebSocket error')
+            const errorMessage = message.data.message || 'WebSocket error'
+            console.error('WebSocket error:', errorMessage)
+            setError(errorMessage)
+            
+            // Check if error is related to invalid session token and logout user
+            if (errorMessage.toLowerCase().includes('invalid session token') || 
+                errorMessage.toLowerCase().includes('session token')) {
+              console.warn('Invalid session token detected via WebSocket - logging out user')
+              logout()
+            }
           } else {
             // Dispatch to all registered handlers
             dispatch(message.type, message.data)
