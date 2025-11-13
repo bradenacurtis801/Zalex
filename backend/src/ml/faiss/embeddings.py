@@ -1,27 +1,19 @@
 """
 FAISS embeddings index for document search and retrieval.
 Uses IndexFlatL2 (exact L2 distance search) - no training required.
+
+Note: This class only handles embeddings. Metadata is stored separately in the database.
 """
 
-import json
 import logging
 import numpy as np
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
-from dataclasses import dataclass, asdict
+import faiss
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
 
-
-@dataclass
-class EmbeddingMetadata:
-    """Metadata associated with an embedding."""
-    document_id: str
-    page_number: int
-    text: str
-
-import faiss
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +54,6 @@ class EmbeddingsIndex:
                 logger.warning("Could not auto-detect dimension, using default 384")
         
         self.dimension = dimension
-        self.original_sentences: List[str] = []  # Kept for backward compatibility
-        self.metadata: List[EmbeddingMetadata] = []  # Stores document_id, page_number, and text
         self._is_trained = True  # Flat index doesn't need training
 
         # Create Flat index structure (no training required, can add immediately)
@@ -73,81 +63,57 @@ class EmbeddingsIndex:
         if index_path and index_path.exists():
             try:
                 self.load_embeddings(index_path)
-                logger.info(f"Loaded FAISS index from {index_path} with {len(self.original_sentences)} embeddings")
+                logger.info(f"Loaded FAISS index from {index_path} with {self.embeddings.ntotal} embeddings")
             except Exception as e:
                 logger.warning(f"Failed to load existing index from {index_path}: {e}")
                 logger.info("Creating new index")
         else:
             logger.info("Initializing new FAISS index")
 
-    def add(
-        self, 
-        sentences: List[str],
-        document_id: Optional[str] = None,
-        page_numbers: Optional[List[int]] = None,
-    ) -> None:
+    def add(self, sentences: List[str]) -> List[int]:
         """
-        Add sentences to the index with optional metadata.
+        Add sentences to the FAISS index (embeddings only) and save automatically.
+        Metadata should be stored separately in the database.
 
         Args:
             sentences: List of sentences/text to add to the index
-            document_id: Document ID (file hash) - if provided, applies to all sentences
-            page_numbers: List of page numbers corresponding to each sentence.
-                         If None and document_id is provided, defaults to sequential pages (0, 1, 2...)
+
+        Returns:
+            List of FAISS index positions for the added embeddings
         """
         if not sentences:
-            return
-
-        # Handle metadata
-        if document_id is not None:
-            # If page_numbers not provided, default to sequential starting from 0
-            if page_numbers is None:
-                page_numbers = list(range(len(sentences)))
-            elif len(page_numbers) != len(sentences):
-                logger.warning(
-                    f"Page numbers count ({len(page_numbers)}) doesn't match sentences count ({len(sentences)}). "
-                    "Using sequential page numbers."
-                )
-                page_numbers = list(range(len(sentences)))
-            
-            # Create metadata for each sentence
-            for i, sentence in enumerate(sentences):
-                metadata = EmbeddingMetadata(
-                    document_id=document_id,
-                    page_number=page_numbers[i] if i < len(page_numbers) else i,
-                    text=sentence
-                )
-                self.metadata.append(metadata)
-                self.original_sentences.append(sentence)  # Keep for backward compatibility
-        else:
-            # No metadata provided - just add sentences (backward compatible)
-            self.original_sentences.extend(sentences)
-            # Create metadata with None values for backward compatibility
-            for sentence in sentences:
-                self.metadata.append(EmbeddingMetadata(
-                    document_id="",
-                    page_number=-1,
-                    text=sentence
-                ))
+            return []
 
         # Generate embeddings
         try:
+            # Get the starting index position before adding
+            start_index = self.embeddings.ntotal
+            
             new_embeddings = self.transformer.encode(sentences, convert_to_tensor=False)
             
             # Ensure embeddings are in float32 format for FAISS
             new_embeddings = new_embeddings.astype(np.float32)
             
-            # Add embeddings directly (Flat index doesn't require training)
+            # Add embeddings directly to FAISS (Flat index doesn't require training)
             self.embeddings.add(new_embeddings)
-            logger.debug(f"Added {len(sentences)} sentences to FAISS index")
+            
+            # Return the index positions of the added embeddings
+            indices = list(range(start_index, self.embeddings.ntotal))
+            logger.debug(f"Added {len(sentences)} embeddings to FAISS index at positions {indices}")
+            
+            # Automatically save the index
+            self.store_embeddings()
+            
+            return indices
 
         except Exception as e:
-            logger.error(f"Failed to add embeddings to index: {e}")
+            logger.error(f"Failed to add embeddings to FAISS index: {e}")
             raise
 
     def remove(self, indexes: List[int]) -> None:
         """
         Remove embeddings from the index by their indexes.
+        Note: Metadata removal should be handled separately in the database.
 
         Args:
             indexes: List of indexes to remove
@@ -160,66 +126,28 @@ class EmbeddingsIndex:
             index_array = np.array(indexes, dtype=np.int64)
             self.embeddings.remove_ids(index_array)
 
-            # Remove from original sentences and metadata lists
-            # Sort in reverse order to avoid index shifting issues
-            for idx in sorted(indexes, reverse=True):
-                if 0 <= idx < len(self.original_sentences):
-                    del self.original_sentences[idx]
-                if 0 <= idx < len(self.metadata):
-                    del self.metadata[idx]
-
             logger.info(f"Removed {len(indexes)} embeddings from index")
+            logger.warning("Note: Metadata in database should be removed separately")
 
         except Exception as e:
             logger.error(f"Failed to remove embeddings from index: {e}")
             raise
 
-    def search(self, sentence: str, depth: int = 10) -> List[str]:
+    def search_indices(self, sentence: str, depth: int = 10) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Search for similar sentences in the index (backward compatible method).
+        Search for similar embeddings in the index and return FAISS indices and distances.
+        Metadata should be retrieved separately from the database using the returned indices.
 
         Args:
             sentence: Query sentence to search for
             depth: Number of top results to return
 
         Returns:
-            List of top matching sentences
-        """
-        results = self.search_with_metadata(sentence, depth)
-        return [metadata.text for metadata in results]
-
-    def search_with_metadata(
-        self, sentence: str, depth: int = 10
-    ) -> List[EmbeddingMetadata]:
-        """
-        Search for similar sentences in the index and return metadata.
-
-        Args:
-            sentence: Query sentence to search for
-            depth: Number of top results to return
-
-        Returns:
-            List of EmbeddingMetadata objects containing document_id, page_number, and text
-        """
-        results, _ = self.search_with_metadata_and_distances(sentence, depth)
-        return results
-
-    def search_with_metadata_and_distances(
-        self, sentence: str, depth: int = 10
-    ) -> Tuple[List[EmbeddingMetadata], List[float]]:
-        """
-        Search for similar sentences in the index and return metadata with distances.
-
-        Args:
-            sentence: Query sentence to search for
-            depth: Number of top results to return
-
-        Returns:
-            Tuple of (List[EmbeddingMetadata], List[float]) containing metadata and distances
+            Tuple of (distances, indices) from FAISS search
         """
         if self.embeddings.ntotal == 0:
             logger.warning("Index is empty, returning empty results")
-            return [], []
+            return np.array([]), np.array([])
 
         try:
             # Generate embedding for query sentence
@@ -229,20 +157,12 @@ class EmbeddingsIndex:
             # Search in FAISS index
             distances, indices = self.embeddings.search(embedded_sentence, depth)
 
-            # Get metadata from indices
-            results = []
-            result_distances = []
-            for i, idx in enumerate(indices[0]):
-                if idx >= 0 and idx < len(self.metadata):
-                    results.append(self.metadata[idx.item()])
-                    result_distances.append(float(distances[0][i]))
-
-            logger.debug(f"Found {len(results)} results for query: {sentence[:50]}...")
-            return results, result_distances
+            logger.debug(f"Found {len(indices[0])} results for query: {sentence[:50]}...")
+            return distances[0], indices[0]
 
         except Exception as e:
             logger.error(f"Search failed: {e}")
-            return [], []
+            return np.array([]), np.array([])
 
     def train(self, sentences: Optional[List[str]] = None) -> None:
         """
@@ -259,7 +179,8 @@ class EmbeddingsIndex:
 
     def store_embeddings(self, path: Optional[Path] = None) -> None:
         """
-        Save the FAISS index and metadata to disk.
+        Save the FAISS index to disk.
+        Note: Metadata is stored separately in the database.
 
         Args:
             path: Optional path to save to. Uses self.index_path if not provided.
@@ -273,23 +194,9 @@ class EmbeddingsIndex:
             # Ensure directory exists
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Save FAISS index
+            # Save FAISS index only
             faiss.write_index(self.embeddings, str(save_path))
             logger.info(f"Saved FAISS index to {save_path}")
-
-            # Save metadata as JSON (same directory, .json extension)
-            metadata_path = save_path.with_suffix('.json')
-            metadata_dict = [
-                {
-                    "document_id": meta.document_id,
-                    "page_number": meta.page_number,
-                    "text": meta.text
-                }
-                for meta in self.metadata
-            ]
-            with open(metadata_path, 'w', encoding='utf-8') as f:
-                json.dump(metadata_dict, f, indent=2, ensure_ascii=False)
-            logger.info(f"Saved metadata to {metadata_path}")
 
         except Exception as e:
             logger.error(f"Failed to save embeddings to {save_path}: {e}")
@@ -297,7 +204,8 @@ class EmbeddingsIndex:
 
     def load_embeddings(self, path: Optional[Path] = None) -> None:
         """
-        Load the FAISS index and metadata from disk.
+        Load the FAISS index from disk.
+        Note: Metadata is loaded separately from the database.
 
         Args:
             path: Optional path to load from. Uses self.index_path if not provided.
@@ -328,31 +236,7 @@ class EmbeddingsIndex:
             self.embeddings = loaded_index
             self._is_trained = True
             logger.info(f"Loaded FAISS index from {load_path} (type: {index_type})")
-
-            # Load metadata from JSON file
-            metadata_path = load_path.with_suffix('.json')
-            if metadata_path.exists():
-                with open(metadata_path, 'r', encoding='utf-8') as f:
-                    metadata_list = json.load(f)
-                
-                # Reconstruct metadata objects
-                self.metadata = [
-                    EmbeddingMetadata(
-                        document_id=meta["document_id"],
-                        page_number=meta["page_number"],
-                        text=meta["text"]
-                    )
-                    for meta in metadata_list
-                ]
-                
-                # Reconstruct original_sentences for backward compatibility
-                self.original_sentences = [meta.text for meta in self.metadata]
-                
-                logger.info(f"Loaded {len(self.metadata)} metadata entries from {metadata_path}")
-            else:
-                logger.warning(f"Metadata file not found at {metadata_path}. Metadata will be empty.")
-                self.metadata = []
-                self.original_sentences = []
+            logger.info("Note: Metadata should be loaded separately from the database")
 
         except Exception as e:
             logger.error(f"Failed to load embeddings from {load_path}: {e}")
@@ -360,21 +244,14 @@ class EmbeddingsIndex:
 
     def get_stats(self) -> dict:
         """
-        Get statistics about the index.
+        Get statistics about the FAISS index.
+        Note: Metadata statistics should be queried separately from the database.
 
         Returns:
             Dictionary with index statistics
         """
-        # Count unique documents in metadata
-        unique_documents = set(
-            meta.document_id for meta in self.metadata if meta.document_id
-        ) if self.metadata else set()
-        
         return {
             "total_embeddings": self.embeddings.ntotal,
-            "original_sentences_count": len(self.original_sentences),
-            "metadata_count": len(self.metadata),
-            "unique_documents": len(unique_documents),
             "is_trained": self._is_trained,
             "dimension": self.dimension,
             "index_path": str(self.index_path) if self.index_path else None,
