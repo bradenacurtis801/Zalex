@@ -7,7 +7,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from huggingface_hub import snapshot_download
@@ -26,7 +26,6 @@ class PreTrainedFinetuneClassifier(DocumentClassifier):
     Pre-trained fine-tuned classifier for inference only.
     Loads a fine-tuned BERT model and provides classification functionality.
     """
-
     def __init__(
         self,
         model_name_or_path: str,
@@ -39,6 +38,9 @@ class PreTrainedFinetuneClassifier(DocumentClassifier):
         self.label2id: Dict[str, int] = {}
         self.id2label: Dict[int, str] = {}
         self.model_name: str = ""
+        
+        # Maximum sequence length for BERT-based models
+        self.max_sequence_length = 512
 
         if cache_folder is None:
             cache_folder = os.getenv('SENTENCE_TRANSFORMERS_HOME')
@@ -277,9 +279,21 @@ class PreTrainedFinetuneClassifier(DocumentClassifier):
             )
 
         try:
-            # Tokenize input text
+            # Check token length before processing
+            # Encode text to count tokens (includes special tokens)
+            encoded = self.tokenizer.encode(text, add_special_tokens=True)
+            token_count = len(encoded)
+            
+            if token_count > self.max_sequence_length:
+                raise ValueError(
+                    f"Input text exceeds maximum token limit of {self.max_sequence_length}. "
+                    f"Text contains {token_count} tokens. "
+                    f"Please truncate or split the text before classification."
+                )
+            
+            # Tokenize cleaned input text (truncation=False since we've validated length)
             inputs = self.tokenizer(
-                text, truncation=True, padding=True, max_length=512, return_tensors="pt"
+                text, truncation=False, padding=True, max_length=self.max_sequence_length, return_tensors="pt"
             )
 
             # Get model predictions
@@ -371,3 +385,96 @@ class PreTrainedFinetuneClassifier(DocumentClassifier):
             "id2label": self.id2label,
         })
         return base_info
+
+    def get_tokenizer(self) -> AutoTokenizer:
+        """Return the tokenizer for the classifier."""
+        return self.tokenizer
+
+    def get_max_sequence_length(self) -> int:
+        """Return the maximum sequence length for the classifier."""
+        return self.max_sequence_length
+
+    def classify_document(
+        self, 
+        page_texts: List[Tuple[str, int]], 
+        filename: str = None
+    ) -> Tuple[str, float, int, Dict[str, Any]]:
+        """
+        Classify a multi-page document using transformer strategy.
+        For transformer models, we classify each page separately and pick the best,
+        with chunking for pages that exceed token limits.
+        
+        Args:
+            page_texts: List of tuples (text, page_number) for each page
+            filename: Optional filename for context
+            
+        Returns:
+            Tuple of (category, confidence, page_number, details_dict)
+        """
+        from src.utils.tokenizer_helper import TokenizerHelper
+        
+        if not page_texts:
+            logger.warning("[Finetune] No page data to classify")
+            return ("other", 0.0, 0, {})
+        
+        # Strategy: Classify each page separately and pick the best
+        # This works better for transformer models with token limits
+        best_category = "other"
+        best_confidence = 0.0
+        best_page_num = 0
+        best_details = {}
+        
+        for page_text, page_num in page_texts:
+            try:
+                # Check if page needs chunking
+                encoded = self.tokenizer.encode(page_text, add_special_tokens=True)
+                token_count = len(encoded)
+                
+                if token_count > self.max_sequence_length:
+                    # Page exceeds limit - chunk it
+                    chunk_results = []
+                    for chunk in TokenizerHelper.chunks(page_text, self.max_sequence_length, self.tokenizer):
+                        try:
+                            result = self.classify(chunk, filename)
+                            chunk_results.append((result.category, result.confidence))
+                        except Exception as e:
+                            logger.warning(f"[Finetune] Failed to classify chunk on page {page_num + 1}: {e}")
+                            continue
+                    
+                    if chunk_results:
+                        # Aggregate chunk results: majority vote
+                        category_counts = {}
+                        category_confidences = {}
+                        for cat, conf in chunk_results:
+                            category_counts[cat] = category_counts.get(cat, 0) + 1
+                            if cat not in category_confidences:
+                                category_confidences[cat] = []
+                            category_confidences[cat].append(conf)
+                        
+                        page_category = max(category_counts, key=category_counts.get)
+                        page_confidence = sum(category_confidences[page_category]) / len(category_confidences[page_category])
+                    else:
+                        continue  # Skip this page if all chunks failed
+                else:
+                    # Page fits within limit - classify directly
+                    result = self.classify(page_text, filename)
+                    page_category = result.category
+                    page_confidence = result.confidence
+                
+                # Update best if this page is better
+                if page_confidence > best_confidence:
+                    best_confidence = page_confidence
+                    best_category = page_category
+                    best_page_num = page_num
+                    logger.debug(
+                        f"[Finetune] Page {page_num + 1}: {page_category} ({page_confidence:.3f}) - NEW BEST"
+                    )
+                else:
+                    logger.debug(
+                        f"[Finetune] Page {page_num + 1}: {page_category} ({page_confidence:.3f})"
+                    )
+            except Exception as e:
+                logger.warning(f"[Finetune] Failed to classify page {page_num + 1}: {e}")
+                continue
+        
+        return (best_category, best_confidence, best_page_num, best_details)

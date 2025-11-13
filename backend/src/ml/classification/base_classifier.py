@@ -70,6 +70,51 @@ class DocumentClassifier(ABC):
         """
         pass
 
+    def classify_document(
+        self, 
+        page_texts: List[Tuple[str, int]], 
+        filename: str = None
+    ) -> Tuple[str, float, int, Dict[str, Any]]:
+        """
+        Classify a multi-page document using classifier-specific strategy.
+        This method handles the processing logic (chunking, aggregation, etc.)
+        that varies by classifier type.
+        
+        Args:
+            page_texts: List of tuples (text, page_number) for each page
+            filename: Optional filename for context
+            
+        Returns:
+            Tuple of (category, confidence, page_number, details_dict)
+            - category: Predicted category name
+            - confidence: Confidence score (0.0-1.0)
+            - page_number: Page number that contributed to the classification (0-indexed)
+            - details: Additional classification details
+        """
+        # Default implementation: aggregate all pages and classify
+        # Subclasses can override for different strategies
+        if not page_texts:
+            return ("other", 0.0, 0, {})
+        
+        # Aggregate all pages with newline separator (matching training format)
+        aggregated_text = "\n".join([text for text, _ in page_texts])
+        
+        if not aggregated_text or not aggregated_text.strip():
+            return ("other", 0.0, 0, {})
+        
+        # Classify the aggregated text
+        result = self.classify(aggregated_text, filename)
+        
+        # Return first page number as reference
+        first_page_num = page_texts[0][1] if page_texts else 0
+        
+        return (
+            result.category,
+            result.confidence,
+            first_page_num,
+            result.details
+        )
+
     def build_category_embeddings(
         self, category_documents: Dict[str, List[str]]
     ) -> None:
