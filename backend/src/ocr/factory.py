@@ -48,4 +48,4 @@ def get_default_ocr_engine() -> OCREngine:
     Returns:
         Default OCR engine instance
     """
-    return create_ocr_engine(OCREngineType.TESSERACT)
+    return create_ocr_engine(OCREngineType.TESSERACT, languages=['spa'])

@@ -58,7 +58,8 @@ def extract_text_from_image(image_path: str, languages: str = "eng+spa") -> str:
 
             engine = create_ocr_engine(languages=lang_list)
 
-        return engine.extract_text(image_path)
+        ocr_result = engine.extract_text(image_path)
+        return ocr_result.text
     except TesseractNotFoundError as e:
         raise OCRNotAvailableException(f"Tesseract OCR is not available: {str(e)}")
     except Exception as e:
@@ -95,7 +96,8 @@ def extract_text_from_bytes(
 
             engine = create_ocr_engine(languages=lang_list)
 
-        return engine.extract_text_from_bytes(image_bytes, image_format)
+        ocr_result = engine.extract_text_from_bytes(image_bytes, image_format)
+        return ocr_result.text
     except TesseractNotFoundError as e:
         raise OCRNotAvailableException(f"Tesseract OCR is not available: {str(e)}")
     except Exception as e:
