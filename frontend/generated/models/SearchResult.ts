@@ -13,6 +13,14 @@
  */
 
 import { mapValues } from '../runtime';
+import type { Entity } from './Entity';
+import {
+    EntityFromJSON,
+    EntityFromJSONTyped,
+    EntityToJSON,
+    EntityToJSONTyped,
+} from './Entity';
+
 /**
  * 
  * @export
@@ -43,6 +51,12 @@ export interface SearchResult {
      * @memberof SearchResult
      */
     score?: number | null;
+    /**
+     * 
+     * @type {Array<Entity>}
+     * @memberof SearchResult
+     */
+    entities?: Array<Entity> | null;
 }
 
 /**
@@ -69,6 +83,7 @@ export function SearchResultFromJSONTyped(json: any, ignoreDiscriminator: boolea
         'source': json['source'],
         'page': json['page'],
         'score': json['score'] == null ? undefined : json['score'],
+        'entities': json['entities'] == null ? undefined : ((json['entities'] as Array<any>).map(EntityFromJSON)),
     };
 }
 
@@ -87,6 +102,7 @@ export function SearchResultToJSONTyped(value?: SearchResult | null, ignoreDiscr
         'source': value['source'],
         'page': value['page'],
         'score': value['score'],
+        'entities': value['entities'] == null ? undefined : ((value['entities'] as Array<any>).map(EntityToJSON)),
     };
 }
 

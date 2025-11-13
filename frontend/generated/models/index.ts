@@ -9,6 +9,7 @@ export * from './DocumentEntry';
 export * from './DocumentInfo';
 export * from './DocumentOCRDataResponse';
 export * from './DocumentTextSummary';
+export * from './Entity';
 export * from './FeedbackSummary';
 export * from './HTTPValidationError';
 export * from './OCRDataResponse';

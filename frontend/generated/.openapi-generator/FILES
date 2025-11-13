@@ -16,6 +16,7 @@ models/DocumentEntry.ts
 models/DocumentInfo.ts
 models/DocumentOCRDataResponse.ts
 models/DocumentTextSummary.ts
+models/Entity.ts
 models/FeedbackSummary.ts
 models/HTTPValidationError.ts
 models/OCRDataResponse.ts

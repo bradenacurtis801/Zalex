@@ -39,7 +39,7 @@ export interface GetDocumentContentApiDocumentsDocumentIdContentGetRequest {
 
 export interface GetPdfPagesApiDocumentsDocumentIdPagesGetRequest {
     documentId: string;
-    maxPages?: number;
+    pages?: string | null;
 }
 
 export interface UploadFilesApiUploadPostRequest {
@@ -102,10 +102,10 @@ export interface UploadApiInterface {
     getDocumentContentApiDocumentsDocumentIdContentGet(requestParameters: GetDocumentContentApiDocumentsDocumentIdContentGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any>;
 
     /**
-     * Get PDF pages with caching - first check cache, then convert if needed.  Args:     document_id: Document ID (SHA256 hash)     max_pages: Maximum number of pages to convert     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     JSON with page information and image data
+     * Get PDF pages with caching - first check cache, then convert if needed. Can fetch specific pages or all pages.  Args:     document_id: Document ID (SHA256 hash)     pages: Optional comma-separated list of page numbers (1-based) to fetch     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     JSON with page information and image data
      * @summary Get Pdf Pages
      * @param {string} documentId 
-     * @param {number} [maxPages] Maximum number of pages to convert
+     * @param {string} [pages] Comma-separated list of page numbers to fetch (e.g., \&#39;1,3,5\&#39;). If not provided, returns all pages.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof UploadApiInterface
@@ -113,7 +113,7 @@ export interface UploadApiInterface {
     getPdfPagesApiDocumentsDocumentIdPagesGetRaw(requestParameters: GetPdfPagesApiDocumentsDocumentIdPagesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>>;
 
     /**
-     * Get PDF pages with caching - first check cache, then convert if needed.  Args:     document_id: Document ID (SHA256 hash)     max_pages: Maximum number of pages to convert     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     JSON with page information and image data
+     * Get PDF pages with caching - first check cache, then convert if needed. Can fetch specific pages or all pages.  Args:     document_id: Document ID (SHA256 hash)     pages: Optional comma-separated list of page numbers (1-based) to fetch     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     JSON with page information and image data
      * Get Pdf Pages
      */
     getPdfPagesApiDocumentsDocumentIdPagesGet(requestParameters: GetPdfPagesApiDocumentsDocumentIdPagesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any>;
@@ -295,7 +295,7 @@ export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
     }
 
     /**
-     * Get PDF pages with caching - first check cache, then convert if needed.  Args:     document_id: Document ID (SHA256 hash)     max_pages: Maximum number of pages to convert     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     JSON with page information and image data
+     * Get PDF pages with caching - first check cache, then convert if needed. Can fetch specific pages or all pages.  Args:     document_id: Document ID (SHA256 hash)     pages: Optional comma-separated list of page numbers (1-based) to fetch     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     JSON with page information and image data
      * Get Pdf Pages
      */
     async getPdfPagesApiDocumentsDocumentIdPagesGetRaw(requestParameters: GetPdfPagesApiDocumentsDocumentIdPagesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>> {
@@ -308,8 +308,8 @@ export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
 
         const queryParameters: any = {};
 
-        if (requestParameters['maxPages'] != null) {
-            queryParameters['max_pages'] = requestParameters['maxPages'];
+        if (requestParameters['pages'] != null) {
+            queryParameters['pages'] = requestParameters['pages'];
         }
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -341,7 +341,7 @@ export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
     }
 
     /**
-     * Get PDF pages with caching - first check cache, then convert if needed.  Args:     document_id: Document ID (SHA256 hash)     max_pages: Maximum number of pages to convert     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     JSON with page information and image data
+     * Get PDF pages with caching - first check cache, then convert if needed. Can fetch specific pages or all pages.  Args:     document_id: Document ID (SHA256 hash)     pages: Optional comma-separated list of page numbers (1-based) to fetch     pdf_service: PDF service instance     current_user: Authenticated user  Returns:     JSON with page information and image data
      * Get Pdf Pages
      */
     async getPdfPagesApiDocumentsDocumentIdPagesGet(requestParameters: GetPdfPagesApiDocumentsDocumentIdPagesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any> {
