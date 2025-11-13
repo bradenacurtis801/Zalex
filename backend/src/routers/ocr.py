@@ -3,24 +3,17 @@ OCR data API endpoints.
 """
 
 import logging
-from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlmodel import Session
+from fastapi import APIRouter, Depends, Query
 
-from src.dependencies import get_db, get_ocr_service, get_current_user
+from src.dependencies import get_ocr_service, get_current_user
 from src.services.ocr_service import OCRService
-from src.models.database import OCRData, User
+from src.models.database import User
 from src.models.schemas.ocr import (
     DocumentOCRDataResponse,
-    OCRDataResponse,
     PageOCRDataResponse,
     OCRSearchResponse,
-    OCRSearchMatch,
     OCRSummaryResponse,
-    DocumentTextSummary,
-    OCRWordData,
-    OCRLineData
 )
 
 logger = logging.getLogger(__name__)
@@ -44,14 +37,7 @@ async def get_document_ocr_data(
         DocumentOCRDataResponse with all OCR data for the document
     """
     logger.info(f"Getting OCR data for document: {document_id}")
-    
-    response_data = ocr_service.get_document_ocr_data(document_id)
-    
-    return DocumentOCRDataResponse(
-        document_id=document_id,
-        total_pages=len(response_data),
-        ocr_data=response_data
-    )
+    return ocr_service.get_document_ocr_data(document_id)
 
 
 @router.get("/documents/{document_id}/ocr/pages/{page_number}", response_model=PageOCRDataResponse)
@@ -73,35 +59,7 @@ async def get_page_ocr_data(
         PageOCRDataResponse with detailed OCR data for the specified page
     """
     logger.info(f"Getting OCR data for document {document_id}, page {page_number}")
-    
-    ocr_data = ocr_service.get_ocr_data_by_page(document_id, page_number)
-    
-    if not ocr_data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"OCR data not found for document {document_id}, page {page_number}"
-        )
-    
-    # Get parsed words and lines data
-    words_data = ocr_service.get_words_data(ocr_data)
-    lines_data = ocr_service.get_lines_data(ocr_data)
-    
-    # Convert to response models
-    words_response = [OCRWordData(**word) for word in words_data]
-    lines_response = [OCRLineData(**line) for line in lines_data]
-    
-    return PageOCRDataResponse(
-        id=ocr_data.id,
-        document_id=ocr_data.document_id,
-        page_number=ocr_data.page_number,
-        full_text=ocr_data.full_text,
-        confidence_score=ocr_data.confidence_score,
-        total_words=ocr_data.total_words,
-        total_lines=ocr_data.total_lines,
-        words_data=words_response,
-        lines_data=lines_response,
-        created_at=ocr_data.created_at
-    )
+    return ocr_service.get_page_ocr_data(document_id, page_number)
 
 
 @router.get("/documents/{document_id}/ocr/search", response_model=OCRSearchResponse)
@@ -125,23 +83,7 @@ async def search_document_text(
         OCRSearchResponse with search matches and metadata
     """
     logger.info(f"Searching for '{query}' in document {document_id}")
-    
-    matches = ocr_service.search_text_in_document(
-        document_id, 
-        query, 
-        case_sensitive
-    )
-    
-    # Convert to response models
-    matches_response = [OCRSearchMatch(**match) for match in matches]
-    
-    return OCRSearchResponse(
-        document_id=document_id,
-        query=query,
-        case_sensitive=case_sensitive,
-        total_matches=len(matches_response),
-        matches=matches_response
-    )
+    return ocr_service.search_text_in_document(document_id, query, case_sensitive)
 
 
 @router.get("/documents/{document_id}/ocr/summary", response_model=OCRSummaryResponse)
@@ -161,12 +103,4 @@ async def get_document_text_summary(
         OCRSummaryResponse with document text summary
     """
     logger.info(f"Getting text summary for document: {document_id}")
-    
-    summary_data = ocr_service.get_document_text_summary(document_id)
-    
-    summary = DocumentTextSummary(**summary_data)
-    
-    return OCRSummaryResponse(
-        document_id=document_id,
-        summary=summary
-    )
+    return ocr_service.get_document_text_summary(document_id)
