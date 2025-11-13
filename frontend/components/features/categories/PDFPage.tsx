@@ -25,7 +25,7 @@ export default function PDFPage({ page, className = '' }: PDFPageProps) {
   }
 
   const handleImageError = () => {
-    console.error(`Failed to load page ${page.page_number} image`)
+    console.error(`Failed to load page ${page.page_number + 1} image`)
     setImageError(true)
   }
 
@@ -33,7 +33,7 @@ export default function PDFPage({ page, className = '' }: PDFPageProps) {
   return (
     <div className={`bg-white rounded-lg shadow-sm border ${className}`} data-page={page.page_number}>
       <div className="p-3 border-b bg-gray-50">
-        <h4 className="font-medium text-gray-700">Page {page.page_number}</h4>
+        <h4 className="font-medium text-gray-700">Page {page.page_number + 1}</h4>
       </div>
       <div className="p-4 relative">
         {imageError ? (
@@ -48,7 +48,7 @@ export default function PDFPage({ page, className = '' }: PDFPageProps) {
             <img
               ref={imageRef}
               src={page.image_data}
-              alt={`Page ${page.page_number}`}
+              alt={`Page ${page.page_number + 1}`}
               className="max-w-full h-auto mx-auto"
               style={{ maxHeight: '80vh' }}
               onLoad={handleImageLoad}

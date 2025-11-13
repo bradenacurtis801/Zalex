@@ -49,7 +49,16 @@ export default function ChatInterface() {
       
       let botResponse = ''
       if (response && response.results && response.results.length > 0) {
-        botResponse = `Found ${response.results.length} result${response.results.length !== 1 ? 's' : ''} for your query.`
+        // Sort results by score (ascending - lower distance = better match)
+        // Results with null/undefined scores go to the end
+        const sortedResults = [...response.results].sort((a, b) => {
+          if (a.score == null && b.score == null) return 0
+          if (a.score == null) return 1
+          if (b.score == null) return -1
+          return a.score - b.score
+        })
+        
+        botResponse = `Found ${sortedResults.length} result${sortedResults.length !== 1 ? 's' : ''} for your query.`
         
         // Replace loading message with response that includes search results
         setMessages(prev => {
@@ -57,7 +66,7 @@ export default function ChatInterface() {
           newMessages[newMessages.length - 1] = { 
             text: botResponse, 
             sender: 'bot',
-            searchResults: response.results,
+            searchResults: sortedResults,
             query: query
           }
           return newMessages

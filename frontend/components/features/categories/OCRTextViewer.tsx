@@ -70,7 +70,13 @@ export default function OCRTextViewer({
 
   const handlePageChange = (pageIndex: number) => {
     console.log(`Auto-switching OCR to page ${pageIndex + 1}`)
-    setCurrentPage(pageIndex)
+    // Find the OCR page that matches this page number
+    const ocrPageIndex = ocrData.findIndex(page => page.pageNumber === pageIndex)
+    if (ocrPageIndex !== -1) {
+      setCurrentPage(ocrPageIndex)
+    } else {
+      console.warn(`OCR page ${pageIndex} not found in OCR data`)
+    }
   }
 
   const jumpToTarget = (targetElement: HTMLElement, container: HTMLElement) => {
@@ -79,16 +85,26 @@ export default function OCRTextViewer({
   }
 
   const handlePageNavigation = (targetPage: number) => {
-    if (targetPage < 0 || targetPage >= ocrData.length) return
+    // Find the OCR page that matches this page number
+    const ocrPageIndex = ocrData.findIndex(page => page.pageNumber === targetPage)
+    if (ocrPageIndex === -1) {
+      console.warn(`OCR page ${targetPage} not found`)
+      return
+    }
+    
+    // Validate bounds
+    if (ocrPageIndex < 0 || ocrPageIndex >= ocrData.length) {
+      return
+    }
     
     console.log(`Manual navigation to page ${targetPage + 1}`)
     
     // Set the OCR page immediately
-    setCurrentPage(targetPage)
+    setCurrentPage(ocrPageIndex)
     
-    // Jump instantly to the target page in PDF viewer
+    // Jump instantly to the target page in PDF viewer (data-page is 0-indexed)
     if (pdfContainerRef.current) {
-      const targetElement = pdfContainerRef.current.querySelector(`[data-page="${targetPage + 1}"]`) as HTMLElement
+      const targetElement = pdfContainerRef.current.querySelector(`[data-page="${targetPage}"]`) as HTMLElement
       if (targetElement) {
         jumpToTarget(targetElement, pdfContainerRef.current)
       }
@@ -133,17 +149,17 @@ export default function OCRTextViewer({
           <div className="p-3 bg-blue-50 border-b">
             <div className="flex justify-center items-center space-x-4">
               <button
-                onClick={() => handlePageNavigation(currentPage - 1)}
+                onClick={() => handlePageNavigation(ocrData[currentPage - 1]?.pageNumber ?? -1)}
                 disabled={currentPage === 0}
                 className="px-4 py-2 text-sm bg-blue-500 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
               >
                 ← Previous
               </button>
               <span className="text-sm text-gray-700 font-medium">
-                Page {currentPage + 1} of {ocrData.length}
+                Page {ocrData[currentPage]?.pageNumber !== undefined ? ocrData[currentPage].pageNumber + 1 : currentPage + 1} of {ocrData.length}
               </span>
               <button
-                onClick={() => handlePageNavigation(currentPage + 1)}
+                onClick={() => handlePageNavigation(ocrData[currentPage + 1]?.pageNumber ?? -1)}
                 disabled={currentPage === ocrData.length - 1}
                 className="px-4 py-2 text-sm bg-blue-500 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
               >
@@ -219,8 +235,8 @@ export default function OCRTextViewer({
                 <h4 className="font-medium">OCR Text Display</h4>
               </div>
               
-              <div className="flex-1">
-                {!loading && !error && ocrData.length > 0 && (
+              <div className="flex-1 min-h-0 overflow-hidden">
+                {!loading && !error && ocrData.length > 0 && currentPage >= 0 && currentPage < ocrData.length && (
                   renderOCRPage(ocrData[currentPage])
                 )}
               </div>

@@ -34,21 +34,29 @@ export interface ErrorMessage {
 }
 
 export interface FileStartMessage {
-  type: WebSocketMessageType.FILE_START;
+  type: "file_start";
   user_id: number;
-  filename: string;
-  file_index: number;
+  current_file: number;
   total_files: number;
+  filename: string;
+  progress_percent: number;
 }
 
 export interface FileCompleteMessage {
-  type: WebSocketMessageType.FILE_COMPLETE;
+  type: "file_complete";
   user_id: number;
-  filename: string;
-  file_index: number;
+  current_file: number;
   total_files: number;
-  classification?: Record<string, any>;
+  filename: string;
+  progress_percent: number;
+  classification?: {
+    category: string;
+    confidence: number;
+  };
+  was_cached?: boolean;
 }
+
+export type UploadProgressEvent = FileStartMessage | FileCompleteMessage;
 
 export interface UploadProgressMessage {
   type: WebSocketMessageType.UPLOAD_PROGRESS;

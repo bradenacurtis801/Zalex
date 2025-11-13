@@ -35,7 +35,7 @@ export default function PDFViewer({
   // Scroll to the current page when pages are loaded or currentPage changes
   useEffect(() => {
     if (!loading && pdfPages.length > 0 && currentPage >= 0) {
-      const targetPageNumber = currentPage + 1
+      const targetPageNumber = currentPage // data-page is 0-indexed
       const scrollToTargetPage = () => {
         const container = scrollRef.current
         if (container) {
@@ -59,7 +59,7 @@ export default function PDFViewer({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, pdfPages.length, currentPage])
+  }, [])
 
   const loadPDFPages = async () => {
     setLoading(true)
@@ -90,10 +90,10 @@ export default function PDFViewer({
     const scrollTop = container.scrollTop
     
     // Find which page is most visible
-    let mostVisiblePage = 0
+    let mostVisiblePageNumber = 0
     let maxVisibility = 0
     
-    pdfPages.forEach((page, index) => {
+    pdfPages.forEach((page) => {
       const pageElement = container.querySelector(`[data-page="${page.page_number}"]`)
       if (pageElement) {
         const pageRect = pageElement.getBoundingClientRect()
@@ -108,17 +108,17 @@ export default function PDFViewer({
         
         if (visibility > maxVisibility) {
           maxVisibility = visibility
-          mostVisiblePage = index
+          mostVisiblePageNumber = page.page_number
         }
       }
     })
     
     // If the most visible page is more than 50% visible, switch to it
-    if (maxVisibility > 0.5 && mostVisiblePage !== currentPage) {
-      console.log(`Auto-switching to page ${mostVisiblePage + 1} (${(maxVisibility * 100).toFixed(1)}% visible)`)
+    if (maxVisibility > 0.5 && mostVisiblePageNumber !== currentPage) {
+      console.log(`Auto-switching to page ${mostVisiblePageNumber + 1} (${(maxVisibility * 100).toFixed(1)}% visible)`)
       // This will be handled by the parent component
       if (onPageChange) {
-        onPageChange(mostVisiblePage)
+        onPageChange(mostVisiblePageNumber)
       }
     }
   }
@@ -172,7 +172,7 @@ export default function PDFViewer({
     >
       <div className="space-y-4 p-4">
         {pdfPages.map((page) => {
-          const isCurrentPage = page.page_number === currentPage + 1
+          const isCurrentPage = page.page_number === currentPage
           
           return (
             <PDFPage

@@ -8,6 +8,7 @@ import { DocumentClassification } from '@/generated'
 import { useWebSocket } from '@/contexts/WebSocketContext'
 import { WebSocketMessageType } from '@/websocket-protocol'
 import { getCategoryColor, getCategoryLabel } from '@/utils/categoryUtils'
+import { FileStartMessage, FileCompleteMessage, UploadProgressEvent, ErrorMessage } from '@/websocket-protocol'
 
 interface DocumentUploadProps {
   onUploadStatus: (status: string, type?: 'success' | 'error' | 'warning') => void
@@ -95,11 +96,13 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
   }
 
   // WebSocket event handlers
-  const handleFileStart = useCallback((data: Record<string, any>) => {
+  const handleFileStart = useCallback((data: FileStartMessage) => {
     setCurrentFile(data.filename)
-    setTotalFiles(data.total_files)
-    setCurrentFileIndex(data.current_file)
-    setProgress(data.progress_percent)
+    // Don't override totalFiles - it's set from actual upload count
+    // Only update if it's not already set
+    setTotalFiles(prev => prev || data.total_files || 1)
+    // Don't update progress here - it will be calculated in handleFileComplete
+    // Don't update currentFileIndex here - it will be calculated in handleFileComplete
     setShowProgress(true)
     
     // Mark file as processing
@@ -109,56 +112,82 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
     }))
   }, [])
 
-  const handleFileComplete = useCallback((data: Record<string, any>) => {
-    setProgress(data.progress_percent)
-    setCurrentFileIndex(data.current_file)
-    
+  const handleFileComplete = useCallback((data: FileCompleteMessage) => {
     // Mark file as completed with classification data if available
-    setFileStatuses(prev => ({
-      ...prev,
-      [data.filename]: { 
-        ...prev[data.filename], 
-        status: 'completed',
-        classification: data.classification ? {
-          filename: data.filename,
-          category: data.classification.category,
-          confidence: data.classification.confidence
-        } : undefined,
-        wasCached: data.was_cached || false
+    setFileStatuses(prev => {
+      const updated: Record<string, {
+        status: 'pending' | 'processing' | 'completed' | 'error'
+        classification?: DocumentClassification
+        wasCached?: boolean
+      }> = {
+        ...prev,
+        [data.filename]: { 
+          ...prev[data.filename], 
+          status: 'completed',
+          classification: data.classification ? {
+            filename: data.filename,
+            category: data.classification.category,
+            confidence: data.classification.confidence
+          } : undefined,
+          wasCached: data.was_cached || false
+        }
       }
-    }))
-    
-    // If this is the last file, hide progress after a short delay
-    if (data.current_file === data.total_files) {
-      setTimeout(() => {
-        setShowProgress(false)
-        setProgress(0)
-        setCurrentFile('')
-      }, 1000)
-    }
+      
+      // Calculate progress based on completed files out of total
+      const allFiles = Object.keys(updated)
+      const completedFiles = allFiles.filter(filename => {
+        const fileStatus = updated[filename]
+        return fileStatus && fileStatus.status === 'completed'
+      })
+      
+      // Update progress based on actual completion count
+      const totalFiles = allFiles.length
+      const completedCount = completedFiles.length
+      const progressPercent = totalFiles > 0 ? Math.round((completedCount / totalFiles) * 100) : 0
+      
+      setProgress(progressPercent)
+      setCurrentFileIndex(completedCount)
+      
+      // If all files are completed, mark upload as completed and hide progress after a short delay
+      if (completedCount === totalFiles && totalFiles > 0) {
+        setUploadCompleted(true)
+        setTimeout(() => {
+          setShowProgress(false)
+          setProgress(0)
+          setCurrentFile('')
+        }, 1000)
+      }
+      
+      return updated
+    })
   }, [])
 
-  const handleError = useCallback((data: Record<string, any>) => {
+  const handleError = useCallback((data: ErrorMessage) => {
     console.error('❌ WebSocket error message:', data.message)
     onUploadStatus(`WebSocket Error: ${data.message}`, 'error')
     setShowProgress(false)
   }, [onUploadStatus])
 
   // Handle upload progress messages that contain nested file events
-  const handleUploadProgress = useCallback((data: Record<string, any>) => {
+  const handleUploadProgress = useCallback((data: UploadProgressEvent) => {
+    console.log('📨 Received WebSocket UPLOAD_PROGRESS message:', data)
     
     // Check the nested type in the data
     if (data.type === 'file_start') {
+      console.log('✅ Handling file_start event for:', data.filename)
       handleFileStart(data)
     } else if (data.type === 'file_complete') {
+      console.log('✅ Handling file_complete event for:', data.filename)
       handleFileComplete(data)
+    } else {
+      console.warn('⚠️ Unknown event type in UPLOAD_PROGRESS:', (data as any).type, 'Full data:', data)
     }
   }, [handleFileStart, handleFileComplete])
 
   // Register for WebSocket events
   useEffect(() => {
-    const unsubscribeUploadProgress = register(WebSocketMessageType.UPLOAD_PROGRESS, handleUploadProgress)
-    const unsubscribeError = register(WebSocketMessageType.ERROR, handleError)
+    const unsubscribeUploadProgress = register(WebSocketMessageType.UPLOAD_PROGRESS, handleUploadProgress as (data: Record<string, any>) => void)
+    const unsubscribeError = register(WebSocketMessageType.ERROR, handleError as (data: Record<string, any>) => void)
     
     return () => {
       unsubscribeUploadProgress()
@@ -177,6 +206,9 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
     setIsUploading(true)
     setShowProgress(true) // Show progress bar
     setUploadCompleted(false) // Reset upload completed state
+    setTotalFiles(files.length) // Set total files from actual upload count
+    setCurrentFileIndex(0) // Reset current file index
+    setProgress(0) // Reset progress
     
     // Mark all files as processing
     const processingStatuses: Record<string, { status: 'processing', classification?: DocumentClassification }> = {}
@@ -189,68 +221,19 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
         files
       })
       
-      // Handle classification results if available
-      if (result.classifications && result.classifications.length > 0) {
-        
-        // Update file statuses with classifications
-        setFileStatuses(prev => {
-          const updated = { ...prev }
-          result.classifications?.forEach((classification: DocumentClassification) => {
-            if (updated[classification.filename]) {
-              updated[classification.filename] = {
-                ...updated[classification.filename],
-                status: 'completed',
-                classification: classification,
-                // Don't override wasCached here - it should already be set from WebSocket events
-                // wasCached: result.alreadyClassified || false
-              }
-            }
-          })
-          return updated
-        })
-        
-        // Create detailed classification message
-        const classificationDetails = result.classifications
-          .map((classification: DocumentClassification) => {
-            const truncatedFilename = classification.filename.length > 25 
-              ? `${classification.filename.substring(0, 25)}...` 
-              : classification.filename
-            return `${truncatedFilename}: ${classification.category} (${(classification.confidence * 100).toFixed(1)}%)`
-          })
-          .join(', ')
-        
-        // Add special message for already classified documents
-        const statusMessage = result.alreadyClassified 
-          ? `📋 ${result.message} Classifications: ${classificationDetails}`
-          : `${result.message} Classifications: ${classificationDetails}`
-        
-        onUploadStatus(statusMessage, 'success')
-      } else {
-        // Mark all files as completed even without classifications
-        // Don't override wasCached status - it should already be set from WebSocket events
-        setFileStatuses(prev => {
-          const updated = { ...prev }
-          Object.keys(updated).forEach(filename => {
-            updated[filename] = { ...updated[filename], status: 'completed' }
-          })
-          return updated
-        })
-        
-        // Add special message for already classified documents even without classifications
-        const statusMessage = result.alreadyClassified 
-          ? `📋 ${result.message}`
-          : result.message
-        
-        onUploadStatus(statusMessage, 'success')
-      }
+      // Files are now uploaded to database and submitted to processing queue
+      // Keep all files as 'processing' - WebSocket events will update their status
+      // as they are actually processed in the background
       
-      // Don't clear files immediately - let users see the results
-      // setFiles([])
-      setUploadCompleted(true) // Mark upload as completed
+      // Show message that files are being processed
+      onUploadStatus(result.message || 'Files uploaded successfully. Processing in background...', 'success')
+      
+      // Don't mark files as completed here - let WebSocket events handle that
+      // Don't hide progress bar - keep it visible until all files are processed
+      // Don't set uploadCompleted - that will be set when all files are done via WebSocket
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
-      setShowProgress(false) // Hide progress bar on success
     } catch (error: any) {
       let errorMessage = 'Upload failed'
       

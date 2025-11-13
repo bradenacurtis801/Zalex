@@ -362,10 +362,12 @@ export default function OCRPage({
           </div>
         </div>
       ) : (
-        /* Full Text - Plain text in a single paragraph */
-        <div className="bg-gray-900 p-4 rounded-lg">
-          <div className="text-gray-100 leading-relaxed whitespace-pre-wrap">
+        /* Full Text - Plain text in a single paragraph with scrolling */
+        <div className="flex-1 min-h-0 overflow-y-auto bg-gray-900 overscroll-contain">
+          <div className="p-4">
+            <pre className="text-gray-100 leading-relaxed whitespace-pre-wrap font-sans">
             {pageData.fullText || 'No text available'}
+            </pre>
           </div>
         </div>
       )}
