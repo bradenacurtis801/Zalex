@@ -24,12 +24,16 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
+import config
 
 # Set up logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+CLASSIFIER_MODEL_ID = "finetune_classifier"
+CLASSIFIER_MODEL_PATH = config.ML_MODELS_DIR / CLASSIFIER_MODEL_ID
 
 
 class FinetuneTrainer:
@@ -283,17 +287,16 @@ def main():
     import config as train_config
 
     data_path = str(train_config.DOCUMENT_DATASET_DIR)
-    output_dir = str(train_config.CLASSIFIER_MODEL / "finetune_classifier")
 
     # Create trainer
     trainer = FinetuneTrainer()
 
     # Train the model
-    success = trainer.train(data_path, output_dir)
+    success = trainer.train(data_path, CLASSIFIER_MODEL_PATH)
 
     if success:
         print("✅ Fine-tuned classifier training completed successfully!")
-        print(f"📁 Model saved to: {output_dir}")
+        print(f"📁 Model saved to: {CLASSIFIER_MODEL_PATH}")
         print("🚀 You can now use this model for inference")
     else:
         print("❌ Training failed!")

@@ -15,11 +15,16 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from sklearn.model_selection import train_test_split
 
+import config
+
 # Set up logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+CLASSIFIER_MODEL_ID = "similarity_classifier"
+CLASSIFIER_MODEL_PATH = config.ML_MODELS_DIR / CLASSIFIER_MODEL_ID
 
 
 class SimilarityTrainer:
@@ -320,17 +325,16 @@ def main():
 
     # Paths
     data_path = str(train_config.DOCUMENT_DATASET_DIR)
-    output_dir = str(train_config.CLASSIFIER_MODEL / "similarity_classifier")
 
     # Create trainer
     trainer = SimilarityTrainer()
 
     # Train the model
-    success = trainer.train(data_path, output_dir)
+    success = trainer.train(data_path, CLASSIFIER_MODEL_PATH)
 
     if success:
         print("✅ Training completed successfully!")
-        print(f"📁 Model saved to: {output_dir}")
+        print(f"📁 Model saved to: {CLASSIFIER_MODEL_PATH}")
         print("🚀 You can now start the backend for inference")
     else:
         print("❌ Training failed!")
