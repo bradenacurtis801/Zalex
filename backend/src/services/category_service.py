@@ -2,11 +2,10 @@
 
 import logging
 from typing import Any, Dict, List, Optional
-from sqlmodel import Session, select
 
 from src.ml.classification.base_classifier import DocumentClassifier
 from src.models.schemas.category import CategoriesResponse, CategoryResponse, DocumentEntry, CategoryDocument, UserInfo
-from src.models.database import Document, DocumentClassification, User
+from src.repositories.document_classification_repository import DocumentClassificationRepository
 
 logger = logging.getLogger(__name__)
 
@@ -15,38 +14,12 @@ class CategoryService:
     """Service for handling document category operations."""
 
     def __init__(
-        self, document_classifier: DocumentClassifier, db: Session
+        self,
+        document_classifier: DocumentClassifier,
+        classification_repo: Optional[DocumentClassificationRepository],
     ):
         self.document_classifier = document_classifier
-        self.db = db
-        self._model_categories = None
-
-    def _get_model_categories(self) -> List[str]:
-        """
-        Get categories from the trained model metadata.
-
-        Returns:
-            List of categories supported by the current model
-        """
-        if self._model_categories is not None:
-            return self._model_categories
-
-        try:
-            # Get categories directly from the loaded classifier
-            if self.document_classifier and self.document_classifier.is_initialized:
-                self._model_categories = (
-                    self.document_classifier.get_supported_categories()
-                )
-                logger.info(f"Loaded categories from model: {self._model_categories}")
-                return self._model_categories
-            else:
-                logger.warning("Document classifier not available")
-        except Exception as e:
-            logger.warning(f"Failed to load model categories: {e}")
-
-        # No fallback - backend requires a trained model
-        logger.error("Cannot get categories without a trained model")
-        return []
+        self.classification_repo = classification_repo
 
     def get_documents_by_category(self, category: str, skip: int = 0, limit: int = 100) -> CategoryResponse:
         """
@@ -62,28 +35,19 @@ class CategoryService:
         """
         logger.info(f"Retrieving documents for category: {category} (skip={skip}, limit={limit})")
 
-        # First check if category exists in the model
-        available_categories = self._get_model_categories()
+        # Check if category exists in the database
+        available_categories = self.classification_repo.get_all_categories()
         if category not in available_categories:
-            logger.warning(f"Category '{category}' not found in model")
+            logger.warning(f"Category '{category}' not found in database")
             return CategoryResponse(
                 category=category,
                 documents=[],
                 total_count=0,
             )
 
-        # Query database for documents in this category with users (with pagination)
-        stmt = select(Document, DocumentClassification, User).join(
-            DocumentClassification, Document.id == DocumentClassification.document_id
-        ).outerjoin(User, DocumentClassification.user_id == User.id).where(DocumentClassification.category == category).offset(skip).limit(limit)
-        
-        results = self.db.exec(stmt).all()
-        
-        # Get total count for this category
-        total_count_stmt = select(Document.id).join(
-            DocumentClassification, Document.id == DocumentClassification.document_id
-        ).where(DocumentClassification.category == category)
-        total_count = len(self.db.exec(total_count_stmt).all())
+        # Get documents from repository
+        results = self.classification_repo.get_documents_by_category(category, skip, limit)
+        total_count = self.classification_repo.get_document_count_by_category(category)
         
         # Convert to DocumentEntry objects
         document_entries = []
@@ -122,15 +86,9 @@ class CategoryService:
         """
         logger.info(f"Retrieving all categories (skip={skip}, limit={limit})")
 
-        # Get categories from model
-        available_categories = self._get_model_categories()
-
-        # Query database for documents with their classifications and users (with pagination)
-        stmt = select(Document, DocumentClassification, User).join(
-            DocumentClassification, Document.id == DocumentClassification.document_id
-        ).outerjoin(User, DocumentClassification.user_id == User.id).offset(skip).limit(limit)
-        
-        results = self.db.exec(stmt).all()
+        # Get documents from repository
+        results = self.classification_repo.get_all_documents_with_classifications(skip, limit)
+        total_documents = self.classification_repo.get_total_document_count()
         
         # Group documents by category
         categories_data = {}
@@ -160,12 +118,6 @@ class CategoryService:
                 user=user_data
             )
 
-        # Get total count for pagination info
-        total_count_stmt = select(Document.id).join(
-            DocumentClassification, Document.id == DocumentClassification.document_id
-        )
-        total_documents = len(self.db.exec(total_count_stmt).all())
-
         logger.info(
             f"Found {len(categories_data)} categories with {len(results)} documents (total: {total_documents})"
         )
@@ -173,6 +125,8 @@ class CategoryService:
         return CategoriesResponse(
             categories=categories_data, total_documents=total_documents
         )
+
+    
 
     def get_categories_summary(self) -> Dict[str, int]:
         """
@@ -183,15 +137,7 @@ class CategoryService:
         """
         logger.info("Retrieving categories summary")
 
-        # Query database for document counts per category
-        stmt = select(DocumentClassification.category, DocumentClassification.id).distinct()
-        results = self.db.exec(stmt).all()
-        
-        # Count documents per category
-        summary = {}
-        for category, _ in results:
-            summary[category] = summary.get(category, 0) + 1
+        summary = self.classification_repo.get_category_counts()
 
         logger.info(f"Categories summary: {summary}")
-
         return summary

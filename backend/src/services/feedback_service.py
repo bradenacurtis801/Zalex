@@ -1,27 +1,20 @@
 """Feedback service for handling user corrections and model updates."""
 
-import json
 import logging
-import os
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, List, Optional
-from sqlmodel import Session, select
+from sqlmodel import select
 
-import numpy as np
-from sentence_transformers import SentenceTransformer
-from src.core.exceptions import (
-    CategoryNotFoundError,
-    DocumentNotFoundError,
-    FeedbackException,
-)
+from src.core.exceptions import DocumentNotFoundError
 from src.ml.classification.base_classifier import DocumentClassifier
 from src.models.schemas.feedback import (
     FeedbackSummary,
     ReclassificationRequest,
     ReclassificationResponse,
 )
-from src.models.database import Document, DocumentClassification
+from src.repositories.document_repository import DocumentRepository
+from src.repositories.document_classification_repository import DocumentClassificationRepository
+from src.repositories.document_feedback_repository import DocumentFeedbackRepository
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +25,14 @@ class FeedbackService:
     def __init__(
         self,
         document_classifier: DocumentClassifier,
-        db: Session,
+        document_repo: DocumentRepository,
+        classification_repo: DocumentClassificationRepository,
+        feedback_repo: DocumentFeedbackRepository,
     ):
         self.document_classifier = document_classifier
-        self.db = db
+        self.document_repo = document_repo
+        self.classification_repo = classification_repo
+        self.feedback_repo = feedback_repo
 
 
     def process_reclassification(
@@ -68,8 +65,13 @@ class FeedbackService:
         # This will throw an exception if it fails
         self._update_document_category(request)
 
-        # Log the correction
-        self._log_correction(request, user_id)
+        self.feedback_repo.create(
+            document_id=request.id,
+            user_id=user_id,
+            feedback_type="incorrect",  # Reclassification implies incorrect classification
+            suggested_category=request.new_category,
+            comment=request.user_comment,
+        )
 
         # Get updated categories
         updated_categories = self._get_available_categories()
@@ -83,7 +85,7 @@ class FeedbackService:
     def _update_document_category(self, request: ReclassificationRequest):
         """Update the document's category in the database."""
         # Find the document by ID
-        document = self.db.get(Document, request.id)
+        document = self.document_repo.get_by_id(request.id)
         
         if not document:
             raise DocumentNotFoundError(
@@ -91,10 +93,8 @@ class FeedbackService:
             )
         
         # Find the classification for this document
-        stmt = select(DocumentClassification).where(
-            DocumentClassification.document_id == request.id
-        )
-        classification = self.db.exec(stmt).first()
+        classifications = self.classification_repo.get_by_document_id(request.id)
+        classification = classifications[0] if classifications else None
         
         if not classification:
             raise DocumentNotFoundError(
@@ -108,17 +108,11 @@ class FeedbackService:
             )
         
         # Update the classification
-        classification.category = request.new_category
-        if request.confidence is not None:
-            classification.confidence = request.confidence
-        
-        # Update document timestamp
-        document.updated_at = datetime.now()
-        
-        # Save changes to database
-        self.db.add(classification)
-        self.db.add(document)
-        self.db.commit()
+        self.classification_repo.update(
+            classification,
+            category=request.new_category,
+            confidence=request.confidence,
+        )
         
         logger.info(
             f"Document ID '{request.id}' reclassified from {request.current_category} to {request.new_category}"
@@ -126,40 +120,15 @@ class FeedbackService:
 
     def _get_available_categories(self) -> List[str]:
         """Queries DB for available categories."""
-        stmt = select(DocumentClassification.category).distinct()
-        categories = self.db.exec(stmt).all()
-        return [category[0] for category in categories]
-
-    def _log_correction(self, request: ReclassificationRequest, user_id: Optional[int] = None):
-        """Log the correction in the database for tracking and model updates."""
-        from src.models.database import DocumentFeedback
-        
-        # Create feedback record using the document ID directly
-        feedback = DocumentFeedback(
-            document_id=request.id,
-            user_id=user_id,  # Track who made the update
-            feedback_type="incorrect",  # Reclassification implies incorrect classification
-            suggested_category=request.new_category,
-            comment=request.user_comment,
-        )
-        
-        self.db.add(feedback)
-        self.db.commit()
-        
-        logger.info(f"Feedback logged for document ID '{request.id}' by user {user_id}")
-
+        return self.classification_repo.get_all_categories()
 
     def get_feedback_summary(self, skip: int = 0, limit: int = 100) -> FeedbackSummary:
         """Get a summary of feedback corrections from database."""
-        from src.models.database import DocumentFeedback
-        
         # Get feedback records with pagination
-        stmt = select(DocumentFeedback).offset(skip).limit(limit).order_by(DocumentFeedback.created_at.desc())
-        feedback_records = self.db.exec(stmt).all()
+        feedback_records = self.feedback_repo.get_all(skip, limit)
         
         # Get total count for pagination info
-        total_count_stmt = select(DocumentFeedback.id)
-        total_corrections = len(self.db.exec(total_count_stmt).all())
+        total_corrections = self.feedback_repo.get_total_count()
         
         # Count corrections by category
         corrections_by_category = {}

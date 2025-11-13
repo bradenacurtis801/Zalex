@@ -9,6 +9,7 @@
 import logging
 import logging.config
 import os
+from pathlib import Path
 from contextlib import asynccontextmanager
 
 import config as config
@@ -21,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from src.routers import auth, category, feedback, query, upload, ocr
 from src.websocket_manager import get_connection_manager
+from src.db.connection import get_session
 import json
 import asyncio
 
@@ -87,7 +89,9 @@ async def lifespan(app: FastAPI):
     logger.debug(f"Working directory: {os.getcwd()}")
     logger.debug(f"App directory: {config.APP_DIR}")
 
-    create_db_and_tables()
+    # Run database migrations
+    from scripts.alemic_utils import run_migrations
+    run_migrations()
 
     app_state = get_app_state()
     logger.debug("Initializing app state...")
@@ -101,6 +105,40 @@ async def lifespan(app: FastAPI):
     app_state.initialize()
     logger.debug("App state initialization complete")
     
+    # Initialize document processing service
+    with next(get_session()) as db:
+        from src.services.document_processing_service import DocumentProcessingService
+        from src.event_bus import event_bus
+        from src.repositories import (
+            DocumentRepository,
+            DocumentClassificationRepository,
+            OCRDataRepository,
+            ProcessingTaskRepository,
+        )
+        
+        # Create repositories for DocumentProcessingService
+        document_repo = DocumentRepository(db)
+        classification_repo = DocumentClassificationRepository(db)
+        ocr_data_repo = OCRDataRepository(db)
+        processing_task_repo = ProcessingTaskRepository(db)
+        
+        app_state.document_processing_service = DocumentProcessingService(
+            ocr_engine=app_state.ocr_engine,
+            document_classifier=app_state.document_classifier,
+            document_repo=document_repo,
+            classification_repo=classification_repo,
+            processing_task_repo=processing_task_repo,
+            ocr_data_repo=ocr_data_repo,
+            ner_model=app_state.ner_model,
+            event_bus=event_bus,
+            embeddings_index=app_state.embeddings_index,
+        )
+        
+        # Start processing service workers and load pending tasks
+        logger.info("Starting document processing service workers and loading pending tasks...")
+        await app_state.document_processing_service.start()
+        logger.info("Document processing service workers started")
+    
     # Create default admin user if no users exist (at the very end)
     create_default_admin_user()
     
@@ -110,6 +148,9 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down application...")
+    if app_state.document_processing_service:
+        logger.info("Stopping document processing service workers...")
+        await app_state.document_processing_service.stop()
     logger.debug("Application shutdown complete")
 
 

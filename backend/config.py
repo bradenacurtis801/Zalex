@@ -140,9 +140,13 @@ DB_DIR = APP_DIR / "db" / "postgres_data"
 ML_MODELS_DIR = APP_DIR / "ml_models"
 # CLASSIFIER_MODEL_PATH = ML_MODELS_DIR / "classifier_model"
 CLASSIFIER_MODEL_ID = "bradenacurtis/scanpro-classifier-v1-finetune"
+TFIDF_CLASSIFIER_MODEL_ID = "bradenacurtis/scanpro-classifier-tfidf"
 FAISS_INDEX_PATH = APP_DIR / "document_index.faiss"
-CLASSIFIER_CONFIDENCE_THRESHOLD = 0.6  # Minimum confidence threshold for classification acceptance
+CLASSIFIER_CONFIDENCE_THRESHOLD = 0.8  # Minimum confidence threshold for classification acceptance
 CLASSIFIER_UNCERTAINTY_MARGIN = 0.2
+
+# Database migration paths
+ALEMBIC_INI_PATH = Path(__file__).parent / "alembic.ini"
 
 def setup_app_dirs():
     """Create all required application directories."""
