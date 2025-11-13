@@ -21,6 +21,9 @@ from src.models.database import (
     PDFCache,
     UploadSession,
     UploadSessionFile,
+    ProcessingTask,
+    EmbeddingMetadata,
+    Entity,
     User
 )
 import config
@@ -53,6 +56,9 @@ def clear_document_data():
             pdf_cache_count = len(session.exec(select(PDFCache)).all())
             upload_session_count = len(session.exec(select(UploadSession)).all())
             upload_session_file_count = len(session.exec(select(UploadSessionFile)).all())
+            processing_task_count = len(session.exec(select(ProcessingTask)).all())
+            embedding_metadata_count = len(session.exec(select(EmbeddingMetadata)).all())
+            entity_count = len(session.exec(select(Entity)).all())
             user_count = len(session.exec(select(User)).all())
             
             logger.info(f"Current data counts:")
@@ -63,6 +69,9 @@ def clear_document_data():
             logger.info(f"  PDF Cache: {pdf_cache_count}")
             logger.info(f"  Upload Sessions: {upload_session_count}")
             logger.info(f"  Upload Session Files: {upload_session_file_count}")
+            logger.info(f"  Processing Tasks: {processing_task_count}")
+            logger.info(f"  Embedding Metadata: {embedding_metadata_count}")
+            logger.info(f"  Entities: {entity_count}")
             logger.info(f"  Users: {user_count} (will be preserved)")
             
             if document_count == 0:
@@ -124,7 +133,28 @@ def clear_document_data():
                 session.delete(classification)
             logger.info(f"Deleted {len(classifications)} classification records")
             
-            # 7. Finally, delete Documents
+            # 7. Delete ProcessingTasks (references documents)
+            logger.info("Deleting processing tasks...")
+            processing_tasks = session.exec(select(ProcessingTask)).all()
+            for task in processing_tasks:
+                session.delete(task)
+            logger.info(f"Deleted {len(processing_tasks)} processing task records")
+            
+            # 8. Delete Entities (references embedding_metadata)
+            logger.info("Deleting entities...")
+            entities = session.exec(select(Entity)).all()
+            for entity in entities:
+                session.delete(entity)
+            logger.info(f"Deleted {len(entities)} entity records")
+            
+            # 9. Delete EmbeddingMetadata (references documents)
+            logger.info("Deleting embedding metadata...")
+            embedding_metadata = session.exec(select(EmbeddingMetadata)).all()
+            for metadata in embedding_metadata:
+                session.delete(metadata)
+            logger.info(f"Deleted {len(embedding_metadata)} embedding metadata records")
+            
+            # 10. Finally, delete Documents
             logger.info("Deleting documents...")
             documents = session.exec(select(Document)).all()
             for document in documents:
