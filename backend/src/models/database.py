@@ -154,7 +154,7 @@ class UploadSessionFile(UploadSessionFileBase, table=True):
 
 class PDFCacheBase(SQLModel):
     """Base PDF cache model"""
-    max_pages: int = Field(ge=1, le=100)
+    max_pages: int = Field(ge=0, default=0)  # 0 represents "all pages"
     total_pages: int = Field(ge=0)
     pages_data: str = Field()  # JSON string containing page data
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -188,5 +188,70 @@ class OCRData(OCRDataBase, table=True):
     
     # Relationships
     document: Document = Relationship(back_populates="ocr_data")
+
+
+class ProcessingTaskStatus(str, Enum):
+    """Processing task status enumeration."""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class ProcessingTaskBase(SQLModel):
+    """Base processing task model"""
+    document_id: str = Field(foreign_key="document.id", index=True)
+    filename: str = Field()
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    status: ProcessingTaskStatus = Field(default=ProcessingTaskStatus.PENDING, index=True)
+    error: Optional[str] = Field(default=None)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ProcessingTask(ProcessingTaskBase, table=True):
+    """Processing task table - stores document processing tasks for background workers"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # Relationships
+    document: Document = Relationship()
+
+
+class EntityBase(SQLModel):
+    """Base entity model"""
+    text: str = Field(max_length=500)  # The entity text
+    label: str = Field(max_length=50, index=True)  # Entity type (e.g., "PERSON", "LOC", "ORG")
+    start: int = Field(ge=0)  # Start character position in the text
+    end: int = Field(ge=0)  # End character position in the text
+    confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)  # Optional confidence score
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Entity(EntityBase, table=True):
+    """Named entity extracted from documents"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    embedding_metadata_id: int = Field(foreign_key="embeddingmetadata.id", index=True)
+    
+    # Relationships
+    embedding_metadata: "EmbeddingMetadata" = Relationship(back_populates="entities")
+
+
+class EmbeddingMetadataBase(SQLModel):
+    """Base embedding metadata model"""
+    document_id: str = Field(foreign_key="document.id", index=True)
+    faiss_index: int = Field(ge=0, index=True)  # Position in FAISS index (for linking)
+    page_number: int = Field(ge=0)  # Page number (0-indexed)
+    text: str = Field()  # The text content that was embedded
+    category: str = Field(max_length=100, default="")  # Document classification category
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class EmbeddingMetadata(EmbeddingMetadataBase, table=True):
+    """FAISS embedding metadata table - stores metadata for embeddings indexed in FAISS"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # Relationships
+    document: Document = Relationship()
+    entities: List["Entity"] = Relationship(back_populates="embedding_metadata")
 
 # Relationships are now defined directly in the User class
