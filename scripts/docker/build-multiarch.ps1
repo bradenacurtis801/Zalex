@@ -1,5 +1,11 @@
 # ScanPro Multi-Architecture Docker Build and Push Script (PowerShell)
 # Builds multi-architecture image and pushes to Docker Hub
+#
+# Authentication:
+# This script assumes the Docker user is already logged in with credentials
+# being handled by Docker itself (via `docker login`). The GitHub workflow
+# handles logging into Docker before this automated script runs.
+
 
 # Load utilities
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
