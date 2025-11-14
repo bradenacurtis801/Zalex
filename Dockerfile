@@ -49,6 +49,9 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install spaCy Spanish model
+RUN pip install --no-cache-dir https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.7.0/es_core_news_sm-3.7.0-py3-none-any.whl
+
 # Copy backend source code
 COPY backend/ ./backend/
 
