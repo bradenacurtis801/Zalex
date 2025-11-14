@@ -19,6 +19,18 @@ $IMAGE_NAME = "$DOCKER_USERNAME/$REPOSITORY_NAME`:$IMAGE_TAG"
 $CONTAINER_NAME = "scanpro"
 $FRONTEND_PORT = 3000
 
+# Check if .env file exists
+if (-not (Test-Path $ENV_FILE_PATH)) {
+    Write-Host "Error: .env file not found at $ENV_FILE_PATH" -ForegroundColor Red
+    Write-Host "   The .env file is required for the container to run properly." -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "   To create a .env file with a template, run:" -ForegroundColor Gray
+    Write-Host "   . scripts/docker/utils/utils.ps1; Create-EnvFile" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "   Or manually create it at: $ENV_FILE_PATH" -ForegroundColor Gray
+    exit 1
+}
+
 # ==========================================
 # FUNCTIONS
 # ==========================================
@@ -26,44 +38,55 @@ $FRONTEND_PORT = 3000
 
 function Start-Container {
     Write-Host "Starting ScanPro container..." -ForegroundColor Yellow
+    Write-Host "   Container name: $CONTAINER_NAME" -ForegroundColor Gray
+    Write-Host "   Image: $IMAGE_NAME" -ForegroundColor Gray
+    Write-Host ""
     
-    # Find available port
-    $originalPort = $FRONTEND_PORT
-    $actualPort = Find-AvailablePort -StartingPort $FRONTEND_PORT
-    
-    # Check if we need to use a different port
-    if ($actualPort -ne $originalPort) {
-        Write-Host "Port $originalPort is already in use" -ForegroundColor Yellow
-        Write-Host "Found available port: $actualPort" -ForegroundColor Cyan
+    # Check if the desired port is available
+    $portStatus = Test-PortOpen -Port $FRONTEND_PORT
+    if ($portStatus -eq 0) {
+        # Port is available, use it
+        $openFrontendPort = $FRONTEND_PORT
+        Write-Host "Port $FRONTEND_PORT is available" -ForegroundColor Green
+    }
+    else {
+        # Port is in use
+        Write-Host "Port $FRONTEND_PORT is already in use" -ForegroundColor Yellow
+        Write-Host ""
         
-        $userChoice = Read-Host "Would you like to use port $actualPort instead? (y/n)"
-        if ($userChoice -eq "y" -or $userChoice -eq "Y") {
-            $script:FRONTEND_PORT = $actualPort
-            Write-Host "Using port $actualPort" -ForegroundColor Green
+        # Find an open port
+        Write-Host "Finding available port starting from $FRONTEND_PORT..." -ForegroundColor Cyan
+        $openFrontendPort = Find-OpenPort -StartPort $FRONTEND_PORT
+        
+        if (-not $openFrontendPort) {
+            Write-Host "Failed to find an available port starting from $FRONTEND_PORT" -ForegroundColor Red
+            exit 1
         }
-        else {
-            Write-Host "Port $originalPort is not available. Please free the port and try again." -ForegroundColor Red
+        
+        # Ask for confirmation
+        Write-Host "   Found available port: $openFrontendPort" -ForegroundColor Cyan
+        Write-Host ""
+        $userChoice = Read-Host "   Do you want to run on port $openFrontendPort instead? (y/n)"
+        
+        if ($userChoice -ne "y" -and $userChoice -ne "Y") {
+            Write-Host "Aborted. Please free up port $FRONTEND_PORT or choose a different port." -ForegroundColor Red
             exit 1
         }
     }
     
-    Write-Host "   Container name: $CONTAINER_NAME" -ForegroundColor Gray
-    Write-Host "   Frontend port: $FRONTEND_PORT" -ForegroundColor Gray
-    Write-Host "   Image: $IMAGE_NAME" -ForegroundColor Gray
+    Write-Host "   Using port: $openFrontendPort" -ForegroundColor Gray
     Write-Host ""
     
     # Run docker run with real-time output using Start-Process
-    $dockerArgs = @("run", "-it", "--rm", "--name", $CONTAINER_NAME, "-p", "${FRONTEND_PORT}:3000", "-v", "scanpro_data:/app/APP_DATA", "--env-file", $ENV_FILE_PATH, "-e", "DEBUG=0", $IMAGE_NAME)
+    $dockerArgs = @("run", "-it", "--rm", "--name", $CONTAINER_NAME, "-p", "${openFrontendPort}:3000", "-v", "scanpro_data:/app/APP_DATA", "--env-file", $ENV_FILE_PATH, "-e", "DEBUG=0", $IMAGE_NAME)
     $process = Start-Process -FilePath "docker" -ArgumentList $dockerArgs -Wait -NoNewWindow -PassThru
     
-    if ($process.ExitCode -ne 0) {
-        Write-Host "Failed to start container!" -ForegroundColor Red
-        Write-Host "   Check if port $FRONTEND_PORT is already in use" -ForegroundColor Gray
-        Write-Host "   Try: netstat -an | findstr :$FRONTEND_PORT" -ForegroundColor Gray
-        Write-Host "   Check container logs: docker logs $CONTAINER_NAME" -ForegroundColor Gray
+    $exitCode = $process.ExitCode
+    if ($exitCode -ne 0) {
+        Write-Host ""
+        Write-Host "Failed to start container (exit code: $exitCode)" -ForegroundColor Red
         exit 1
     }
-    
     Write-Host "Container started successfully" -ForegroundColor Green
 }
 
@@ -82,6 +105,14 @@ if (-not (Test-Docker)) {
 
 # Stop existing container
 Stop-ExistingContainer -ContainerName $CONTAINER_NAME
+
+# Check if image exists and pull if needed
+$pullSuccess = Invoke-PullImageIfNeeded -ImageName $IMAGE_NAME
+if (-not $pullSuccess) {
+    Write-Host "Failed to pull required image. Exiting." -ForegroundColor Red
+    Write-Host "   You can build the image locally by running: scripts/docker/build-local.ps1" -ForegroundColor Gray
+    exit 1
+}
 
 # Run container
 Start-Container

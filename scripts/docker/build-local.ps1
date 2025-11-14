@@ -29,6 +29,24 @@ function Show-BuildInfo {
     Write-Host ""
 }
 
+function Convert-LineEndings {
+    $entrypointPath = Join-Path $ROOT_DIR "entrypoint.sh"
+    
+    if (-not (Get-Command dos2unix -ErrorAction SilentlyContinue)) {
+        Write-Host "Warning: dos2unix not available, skipping line ending conversion..." -ForegroundColor Yellow
+        return
+    }
+    
+    Write-Host "Converting entrypoint.sh line endings (CRLF to LF)..." -ForegroundColor Yellow
+    $process = Start-Process -FilePath "dos2unix" -ArgumentList $entrypointPath -Wait -NoNewWindow -PassThru
+    
+    if ($process.ExitCode -eq 0) {
+        Write-Host "Line endings converted successfully" -ForegroundColor Green
+    } else {
+        Write-Host "Warning: dos2unix failed, skipping..." -ForegroundColor Yellow
+    }
+}
+
 function Invoke-BuildImage {
     param($FullImageName)
     
@@ -65,6 +83,10 @@ if (-not (Test-Docker)) {
 
 # Show build information
 Show-BuildInfo
+
+# Convert entrypoint.sh line endings before building -- dos2unix entrypoint.sh
+Convert-LineEndings
+Write-Host ""
 
 # Build the image
 Write-Host "Starting local build process..." -ForegroundColor Yellow

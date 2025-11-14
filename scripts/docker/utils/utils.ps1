@@ -9,14 +9,8 @@
 function Get-ScriptDirs {
     # Get the directory of the utils script
     $script:SCRIPT_DIR = Split-Path -Parent $PSScriptRoot
-    $script:ROOT_DIR = Join-Path $SCRIPT_DIR "..\.."
+    $script:ROOT_DIR = (Resolve-Path (Join-Path $SCRIPT_DIR "..\..")).Path
     $script:ENV_FILE_PATH = Join-Path $ROOT_DIR ".env"
-    
-    # Check if .env file exists
-    if (-not (Test-Path $script:ENV_FILE_PATH)) {
-        Write-Host "Warning: .env file not found at $script:ENV_FILE_PATH" -ForegroundColor Yellow
-        Write-Host "   Container will run without environment variables" -ForegroundColor Gray
-    }
 }
 
 # Get current git branch as tag
@@ -34,6 +28,97 @@ function Get-GitTag {
     catch {
         return "latest"
     }
+}
+
+# Create .env file with template
+function Create-EnvFile {
+    param(
+        [string]$EnvFilePath = $null
+    )
+    
+    # If EnvFilePath is not provided, try to determine it
+    if (-not $EnvFilePath) {
+        # First, try to use ENV_FILE_PATH if it's already set
+        if ($ENV_FILE_PATH) {
+            $EnvFilePath = $ENV_FILE_PATH
+        }
+        # Try to use ROOT_DIR if it's already set
+        elseif ($ROOT_DIR) {
+            $EnvFilePath = Join-Path $ROOT_DIR ".env"
+        }
+        else {
+            # Try to calculate root directory similar to Get-ScriptDirs
+            $scriptFile = $PSScriptRoot
+            if ($scriptFile) {
+                $calculatedRoot = (Resolve-Path (Join-Path $scriptFile "..\..\..")).Path
+                
+                # Verify it's the right directory by checking for Dockerfile
+                if (Test-Path (Join-Path $calculatedRoot "Dockerfile")) {
+                    $EnvFilePath = Join-Path $calculatedRoot ".env"
+                }
+            }
+            
+            # Fallback: search from current directory
+            if (-not $EnvFilePath) {
+                $currentDir = Get-Location
+                $searchDir = $currentDir.Path
+                
+                # Walk up the directory tree looking for Dockerfile
+                while ($searchDir -and $searchDir -ne (Split-Path $searchDir)) {
+                    if (Test-Path (Join-Path $searchDir "Dockerfile")) {
+                        $EnvFilePath = Join-Path $searchDir ".env"
+                        break
+                    }
+                    $searchDir = Split-Path $searchDir
+                }
+                
+                # If still not found, use current directory
+                if (-not $EnvFilePath) {
+                    $EnvFilePath = Join-Path $currentDir.Path ".env"
+                }
+            }
+        }
+    }
+    
+    # Check if .env already exists
+    if (Test-Path $EnvFilePath) {
+        Write-Host ".env file already exists at $EnvFilePath" -ForegroundColor Yellow
+        return
+    }
+    
+    # Create .env file with template
+    $envContent = @"
+# ScanPro Environment Configuration
+# ==========================================
+# This file contains environment variables required for ScanPro to run.
+# DO NOT commit this file to version control (it's in .gitignore)
+
+# Hugging Face Token
+# ==========================================
+# Required for downloading and accessing ML models from Hugging Face.
+# Get your token from: https://huggingface.co/settings/tokens
+# Format: hf_xxxxxxxxxxxxxxxxxxxx
+SCANPRO_HF_TOKEN=
+
+# Below contains config that is optional and is not required for the container to run.
+# Database Configuration (if needed)
+# ==========================================
+# DATABASE_URL=postgresql://user:password@localhost:5432/scanpro
+
+# Other Configuration (add as needed)
+# ==========================================
+# DEBUG=0
+"@
+    
+    $envContent | Out-File -FilePath $EnvFilePath -Encoding utf8 -NoNewline
+    
+    Write-Host "Created .env file at $EnvFilePath" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Next steps:" -ForegroundColor Cyan
+    Write-Host "   1. Open the .env file: $EnvFilePath" -ForegroundColor Gray
+    Write-Host "   2. Add your Hugging Face token: SCANPRO_HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxx" -ForegroundColor Gray
+    Write-Host "   3. Get your token from: https://huggingface.co/settings/tokens" -ForegroundColor Gray
+    Write-Host ""
 }
 
 # ==========================================
@@ -107,28 +192,106 @@ function Stop-ExistingContainer {
     
     Write-Host "Checking for existing container..." -ForegroundColor Yellow
     
-    $existingContainer = docker ps -q --filter "name=$ContainerName" 2>$null
-    if ($existingContainer) {
-        Write-Host "Stopping existing container..." -ForegroundColor Yellow
+    $runningContainer = docker ps -q --filter "name=$ContainerName" 2>$null
+    if ($runningContainer) {
+        Write-Host "Stopping running container..." -ForegroundColor Yellow
         docker stop $ContainerName
         docker rm $ContainerName
     }
+    else {
+        $stoppedContainer = docker ps -aq --filter "name=$ContainerName" 2>$null
+        if ($stoppedContainer) {
+            Write-Host "Removing stopped container..." -ForegroundColor Yellow
+            docker rm $ContainerName
+        }
+        else {
+            Write-Host "No existing container found" -ForegroundColor Gray
+        }
+    }
 }
 
-# Find available port
-function Find-AvailablePort {
-    param([int]$StartingPort)
+# Check if a port is open/available
+function Test-PortOpen {
+    param([int]$Port)
     
-    $port = $StartingPort
-    
-    while ($true) {
-        # Check if port is available using Get-NetTCPConnection
-        $connection = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
-        if (-not $connection) {
-            return $port
-        }
-        $port++
+    if (-not $Port) {
+        Write-Error "Error: No port provided to Test-PortOpen()"
+        return 2
     }
+    
+    # Check if port is a valid number
+    if ($Port -lt 1 -or $Port -gt 65535) {
+        Write-Error "Error: Port must be between 1 and 65535"
+        return 2
+    }
+    
+    # Check if port is available using Get-NetTCPConnection
+    try {
+        $connection = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue
+        if ($connection) {
+            return 1  # Port is in use
+        } else {
+            return 0  # Port is open
+        }
+    }
+    catch {
+        # If Get-NetTCPConnection fails, try alternative method
+        try {
+            $listener = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties()
+            $connections = $listener.GetActiveTcpListeners() | Where-Object { $_.Port -eq $Port }
+            if ($connections) {
+                return 1  # Port is in use
+            } else {
+                return 0  # Port is open
+            }
+        }
+        catch {
+            Write-Warning "Cannot check port availability, assuming port is open"
+            return 0  # Assume port is open if we can't check
+        }
+    }
+}
+
+# Find an open port starting from the given port, incrementing until one is found
+function Find-OpenPort {
+    param(
+        [int]$StartPort,
+        [int]$MaxAttempts = 100
+    )
+    
+    if (-not $StartPort) {
+        Write-Error "Error: No starting port provided to Find-OpenPort()"
+        return $null
+    }
+    
+    # Validate starting port
+    if ($StartPort -lt 1 -or $StartPort -gt 65535) {
+        Write-Error "Error: Invalid starting port: $StartPort"
+        return $null
+    }
+    
+    $currentPort = $StartPort
+    $attempts = 0
+    
+    while ($attempts -lt $MaxAttempts) {
+        $portStatus = Test-PortOpen -Port $currentPort
+        if ($portStatus -eq 0) {
+            return $currentPort
+        }
+        
+        # Increment port
+        $currentPort++
+        $attempts++
+        
+        # Don't exceed max port number
+        if ($currentPort -gt 65535) {
+            Write-Error "Error: Reached maximum port number (65535) without finding an open port"
+            return $null
+        }
+    }
+    
+    Write-Error "Error: Could not find an open port after $MaxAttempts attempts starting from $StartPort"
+    return $null
 }
 
 # ==========================================

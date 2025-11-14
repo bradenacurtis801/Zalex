@@ -63,12 +63,6 @@ get_script_dirs() {
         echo "   Current dir: $(pwd)"
         echo "   Dockerfile exists: $([ -f "$ROOT_DIR/Dockerfile" ] && echo "yes" || echo "no")"
     fi
-    
-    # Check if .env file exists
-    if [ ! -f "$ENV_FILE_PATH" ]; then
-        echo "⚠️  Warning: .env file not found at $ENV_FILE_PATH"
-        echo "   Container will run without environment variables"
-    fi
 }
 
 # Get current git branch as tag
@@ -78,6 +72,90 @@ get_git_tag() {
         IMAGE_TAG="latest"
     fi
     echo "$IMAGE_TAG"
+}
+
+# Create .env file with template
+create_env_file() {
+    local env_file_path="${1:-$ENV_FILE_PATH}"
+    
+    # If ENV_FILE_PATH is not set, try to determine it
+    if [ -z "$env_file_path" ]; then
+        # First, try to use ROOT_DIR if it's already set
+        if [ -n "$ROOT_DIR" ]; then
+            env_file_path="$ROOT_DIR/.env"
+        else
+            # Try to calculate root directory similar to get_script_dirs
+            # Get the directory where this script is located
+            local script_file="${BASH_SOURCE[0]}"
+            if [ -z "$script_file" ]; then
+                script_file="${0}"
+            fi
+            local script_dir="$(cd "$(dirname "$script_file")" && pwd)"
+            # Go up three levels: utils -> docker -> scripts -> root
+            local calculated_root=$(absolute_path "$script_dir/../../..")
+            
+            # Verify it's the right directory by checking for Dockerfile
+            if [ -f "$calculated_root/Dockerfile" ]; then
+                env_file_path="$calculated_root/.env"
+            else
+                # Fallback: search from current directory
+                local current_dir="$(pwd)"
+                local search_dir="$current_dir"
+                
+                # Walk up the directory tree looking for Dockerfile
+                while [ "$search_dir" != "/" ]; do
+                    if [ -f "$search_dir/Dockerfile" ]; then
+                        env_file_path="$search_dir/.env"
+                        break
+                    fi
+                    search_dir="$(dirname "$search_dir")"
+                done
+                
+                # If still not found, use current directory
+                if [ -z "$env_file_path" ]; then
+                    env_file_path="$current_dir/.env"
+                fi
+            fi
+        fi
+    fi
+    
+    # Check if .env already exists
+    if [ -f "$env_file_path" ]; then
+        echo "ℹ️  .env file already exists at $env_file_path"
+        return 0
+    fi
+    
+    # Create .env file with template
+    cat > "$env_file_path" << 'EOF'
+# ScanPro Environment Configuration
+# ==========================================
+# This file contains environment variables required for ScanPro to run.
+# DO NOT commit this file to version control (it's in .gitignore)
+
+# Hugging Face Token
+# ==========================================
+# Required for downloading and accessing ML models from Hugging Face.
+# Get your token from: https://huggingface.co/settings/tokens
+# Format: hf_xxxxxxxxxxxxxxxxxxxx
+SCANPRO_HF_TOKEN=
+
+# Below contains config that is optional and is not required for the container to run.
+# Database Configuration (if needed)
+# ==========================================
+# DATABASE_URL=postgresql://user:password@localhost:5432/scanpro
+
+# Other Configuration (add as needed)
+# ==========================================
+# DEBUG=0
+EOF
+    
+    echo "✅ Created .env file at $env_file_path"
+    echo ""
+    echo "📝 Next steps:"
+    echo "   1. Open the .env file: $env_file_path"
+    echo "   2. Add your Hugging Face token: SCANPRO_HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxx"
+    echo "   3. Get your token from: https://huggingface.co/settings/tokens"
+    echo ""
 }
 
 # ==========================================
@@ -139,6 +217,137 @@ stop_existing_container() {
     else
         echo "ℹ️  No existing container found"
     fi
+}
+
+# Remove Docker volume
+remove_volume() {
+    local volume_name="$1"
+    
+    if [ -z "$volume_name" ]; then
+        echo "Error: No volume name provided to remove_volume()" >&2
+        return 1
+    fi
+    
+    # Check if volume exists
+    if ! docker volume inspect "$volume_name" >/dev/null 2>&1; then
+        echo "ℹ️  Volume '$volume_name' does not exist"
+        return 0
+    fi
+    
+    # Find containers using this volume
+    local containers=$(docker ps -a --filter "volume=$volume_name" --format "{{.Names}}")
+    
+    if [ -n "$containers" ]; then
+        echo "⚠️  Warning: The following containers are using volume '$volume_name':"
+        echo "$containers" | while read -r container; do
+            echo "   - $container"
+        done
+        echo ""
+        echo "   Stopping and removing containers..."
+        echo "$containers" | while read -r container; do
+            docker stop "$container" 2>/dev/null
+            docker rm "$container" 2>/dev/null
+        done
+    fi
+    
+    # Remove the volume
+    echo "🗑️  Removing volume '$volume_name'..."
+    if docker volume rm "$volume_name" 2>/dev/null; then
+        echo "✅ Volume '$volume_name' removed successfully"
+        return 0
+    else
+        echo "❌ Failed to remove volume '$volume_name'"
+        return 1
+    fi
+}
+
+# Check if a port is open/available
+is_port_open() {
+    local port="$1"
+    
+    if [ -z "$port" ]; then
+        echo "Error: No port provided to is_port_open()" >&2
+        return 2
+    fi
+    
+    # Check if port is a valid number
+    if ! [[ "$port" =~ ^[0-9]+$ ]]; then
+        echo "Error: Invalid port number: $port" >&2
+        return 2
+    fi
+    
+    # Check if port is in valid range
+    if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        echo "Error: Port must be between 1 and 65535" >&2
+        return 2
+    fi
+    
+    # Try different methods based on OS
+    # macOS and Linux both support lsof
+    if command -v lsof >/dev/null 2>&1; then
+        if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+            return 1  # Port is in use
+        else
+            return 0  # Port is open
+        fi
+    # Fallback to netstat (older systems)
+    elif command -v netstat >/dev/null 2>&1; then
+        if netstat -an 2>/dev/null | grep -q ":$port.*LISTEN"; then
+            return 1  # Port is in use
+        else
+            return 0  # Port is open
+        fi
+    # Final fallback: try to bind to the port (requires nc or similar)
+    elif command -v nc >/dev/null 2>&1; then
+        if nc -z localhost $port 2>/dev/null; then
+            return 1  # Port is in use
+        else
+            return 0  # Port is open
+        fi
+    else
+        echo "Warning: Cannot check port availability (lsof/netstat/nc not found)" >&2
+        # Assume port is open if we can't check
+        return 0
+    fi
+}
+
+# Find an open port starting from the given port, incrementing until one is found
+find_open_port() {
+    local start_port="$1"
+    local max_attempts="${2:-100}"  # Default to 100 attempts
+    local current_port="$start_port"
+    local attempts=0
+    
+    if [ -z "$start_port" ]; then
+        echo "Error: No starting port provided to find_open_port()" >&2
+        return 1
+    fi
+    
+    # Validate starting port
+    if ! [[ "$start_port" =~ ^[0-9]+$ ]] || [ "$start_port" -lt 1 ] || [ "$start_port" -gt 65535 ]; then
+        echo "Error: Invalid starting port: $start_port" >&2
+        return 1
+    fi
+    
+    while [ $attempts -lt $max_attempts ]; do
+        if is_port_open "$current_port"; then
+            echo "$current_port"
+            return 0
+        fi
+        
+        # Increment port
+        current_port=$((current_port + 1))
+        attempts=$((attempts + 1))
+        
+        # Don't exceed max port number
+        if [ "$current_port" -gt 65535 ]; then
+            echo "Error: Reached maximum port number (65535) without finding an open port" >&2
+            return 1
+        fi
+    done
+    
+    echo "Error: Could not find an open port after $max_attempts attempts starting from $start_port" >&2
+    return 1
 }
 
 # ==========================================
