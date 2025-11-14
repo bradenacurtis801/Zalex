@@ -73,6 +73,59 @@ init_database() {
     echo -e "\033[92m✅ PostgreSQL database started successfully\033[0m"
 }
 
+# Function to check if database tables have been initialized
+check_tables_initialized() {
+    local db_name="${POSTGRES_DB_NAME:-scanpro_db}"
+    
+    # Query to count tables in the public schema (excluding system tables)
+    local table_count=$(su postgres -c "psql -d ${db_name} -t -c \"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE';\" 2>/dev/null" | tr -d ' ' || echo "0")
+    
+    # Check if we got a valid number
+    if ! [[ "$table_count" =~ ^[0-9]+$ ]]; then
+        # If we couldn't determine the table count, return 1 to indicate database is not initialized
+        return 1
+    fi
+    
+    if [ "$table_count" -gt 0 ]; then
+        # If tables exist, return 0 to indicate database is initialized
+        return 0
+    else
+        # If no tables, return 1 to indicate database is not initialized
+        return 1
+    fi
+}
+
+# Function to run database migrations
+run_migrations() {
+    echo "🔄 Running database migrations..."
+    cd /app/backend
+
+    # Check current migration version before running
+    CURRENT_VERSION=$(alembic current 2>/dev/null | head -1 | awk '{print $1}' || echo "none")
+    if [ "$CURRENT_VERSION" != "none" ] && [ -n "$CURRENT_VERSION" ]; then
+        echo "   Current migration version: ${CURRENT_VERSION}"
+    else
+        echo "   No migrations applied yet"
+        CURRENT_VERSION="none"
+    fi
+
+    # Run migrations (blocking operation - waits for completion)
+    echo "   Running migrations..."
+    if alembic upgrade head; then
+        # Check new version after migration
+        NEW_VERSION=$(alembic current 2>/dev/null | head -1 | awk '{print $1}' || echo "none")
+        if [ "$CURRENT_VERSION" != "$NEW_VERSION" ] && [ "$NEW_VERSION" != "none" ]; then
+            echo "✅ Migrations completed successfully (${CURRENT_VERSION} → ${NEW_VERSION})"
+        else
+            echo "✅ Database is already up to date (version: ${NEW_VERSION})"
+        fi
+    else
+        echo "⚠️  Migration failed, but continuing startup..."
+        return 1
+    fi
+    return 0
+}
+
 # Normalize NODE_ENV for Next.js compatibility
 if [ "$NODE_ENV" = "dev" ]; then
     export NODE_ENV=development
@@ -94,6 +147,15 @@ trap cleanup SIGTERM SIGINT
 
 # Initialize and start PostgreSQL database
 init_database
+
+# Run database migrations before starting backend
+# Only run migrations if tables are already initialized
+if check_tables_initialized; then
+    echo "Database tables are already initialized, running migrations..."
+    run_migrations
+else
+    echo "Database tables are not initialized, skipping migrations..."
+fi
 
 # Start backend
 echo "📡 Starting FastAPI backend on port 5000..."

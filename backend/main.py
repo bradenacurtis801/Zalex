@@ -89,9 +89,7 @@ async def lifespan(app: FastAPI):
     logger.debug(f"Working directory: {os.getcwd()}")
     logger.debug(f"App directory: {config.APP_DIR}")
 
-    # Run database migrations
-    from scripts.alemic_utils import run_migrations
-    run_migrations()
+    create_db_and_tables()
 
     app_state = get_app_state()
     logger.debug("Initializing app state...")
@@ -228,8 +226,17 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+    import os
 
     host = config.settings.backend_host if config.is_production else "0.0.0.0"
+
+    # Disable reload in Docker or when DEBUG is explicitly set to 0
+    # Reload requires file watching which doesn't work well in containers
+    enable_reload = (
+        bool(config.is_development) 
+        and os.getenv("DEBUG") != "0" 
+        and not os.path.exists("/.dockerenv")  # Docker detection
+    )
 
     RELOAD_EXCLUDES = ["venv", ".git", "__pycache__", "frontend", "*.log"]
 
@@ -237,6 +244,6 @@ if __name__ == "__main__":
         "main:app",
         host=host,
         port=config.BACKEND_PORT,
-        reload=bool(config.is_development),
-        reload_excludes=RELOAD_EXCLUDES,
+        reload=enable_reload,
+        reload_excludes=RELOAD_EXCLUDES if enable_reload else None,
     )
