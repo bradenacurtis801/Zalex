@@ -494,10 +494,18 @@ class DocumentProcessingService:
                 logger.error(f"PDF processing failed: {e}")
         else:
             # For image files, process directly (treat as page 0)
+            # File type already validated at API layer, so we can map directly
             try:
-                image_format = file_extension.lstrip(".")
-                if image_format not in ["png", "jpg", "jpeg", "tiff", "bmp"]:
-                    image_format = "png"
+                # Map file extension to OCR format (validation ensures these are safe)
+                # PNG is the universal fallback - PIL can auto-detect, but format helps EasyOCR
+                extension_to_format = {
+                    ".jpg": "jpg",
+                    ".jpeg": "jpeg",
+                    ".png": "png",
+                    ".webp": "webp",
+                }
+                # Use mapped format or default to PNG (universal fallback supported by all OCR engines)
+                image_format = extension_to_format.get(file_extension, "png")
 
                 ocr_result = self.ocr_engine.extract_text_from_bytes(file_content, image_format)
                 if ocr_result and ocr_result.text.strip():

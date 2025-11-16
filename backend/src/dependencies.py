@@ -53,7 +53,7 @@ def validate_file_type(file: UploadFile) -> UploadFile:
     
     Supported types:
     - PDF: .pdf (application/pdf)
-    - Images: .jpg, .jpeg, .png (image/jpeg, image/png)
+    - Images: .jpg, .jpeg, .png, .webp (image/jpeg, image/png, image/webp)
     
     Args:
         file: Uploaded file to validate
@@ -79,19 +79,20 @@ def validate_file_type(file: UploadFile) -> UploadFile:
     content_type = (file.content_type or "").lower()
     
     # Define allowed file types
-    ALLOWED_EXTENSIONS = {'.pdf', '.jpg', '.jpeg', '.png'}
+    ALLOWED_EXTENSIONS = {'.pdf', '.jpg', '.jpeg', '.png', '.webp'}
     ALLOWED_MIME_TYPES = {
         'application/pdf',
         'image/jpeg',
         'image/jpg',  # Some servers use this
         'image/png',
+        'image/webp',
     }
     
     # Check extension
     if file_extension not in ALLOWED_EXTENSIONS:
         raise UnsupportedFileTypeError(
             f"Unsupported file type: {file_extension or 'unknown'}. "
-            f"Only PDF and image files (.pdf, .jpg, .jpeg, .png) are allowed."
+            f"Only PDF and image files (.pdf, .jpg, .jpeg, .png, .webp) are allowed."
         )
     
     # Check MIME type (if provided)
