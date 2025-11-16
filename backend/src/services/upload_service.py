@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import UploadFile
 from src.models.schemas.upload import UploadResponse
-from src.models.database import DocumentStatus
+from src.models.database import DocumentStatus, Document, DocumentClassification
 from src.services.document_processing_service import DocumentProcessingService
 from src.event_bus import EventBus, EventType
 from src.models.schemas.events import FileCompleteEvent
@@ -47,16 +47,7 @@ class UploadService:
         self.event_bus = event_bus
 
     async def process_upload(self, files: List[UploadFile], user_id: Optional[int] = None) -> UploadResponse:
-        """
-        Process uploaded files - saves documents to DB and submits processing tasks to queue.
-
-        Args:
-            files: List of uploaded files
-            user_id: User ID for document ownership
-
-        Returns:
-            UploadResponse indicating successful upload
-        """
+        """Process uploaded files - saves documents to DB and submits processing tasks to queue."""
         logger.info(f"Processing upload request with {len(files)} file(s)")
         logger.debug(f"File names: {[f.filename for f in files]}")
 
@@ -69,35 +60,20 @@ class UploadService:
         for file in files:
             logger.debug(f"Processing file: {file.filename}")
 
-            # Read file content first to calculate hash
             file_content = await file.read()
             file_hash = calculate_file_hash_from_content(file_content)
             
-            # Reset file pointer so _save_document can read it again
-            await file.seek(0)
+            # Save document and handle processing/events
+            task_submitted = await self._handle_document_upload(
+                file, file_hash, file_content, user_id
+            )
             
-            # Save document and get file content for processing
-            needs_processing, file_content = await self._save_document(file, file_hash, user_id)
-            
-            # Submit processing task if needed
-            if needs_processing and file_content:
-                # check_and_submit is synchronous - checks if classified, creates DB task if needed, adds to queue
-                needs_processing = self.processing_service.check_and_submit(
-                    document_id=file_hash,
-                    filename=file.filename,
-                    file_content=file_content,
-                    user_id=user_id
-                )
-                if needs_processing:
-                    tasks_submitted += 1
-                    logger.info(f"Submitted processing task for {file.filename}")
-                else:
-                    logger.info(f"Document {file.filename} already classified, event published")
+            if task_submitted:
+                tasks_submitted += 1
             
             logger.debug(f"Successfully processed {file.filename}")
 
         message = f"Successfully uploaded {len(files)} file(s). Processing in background."
-
         logger.info(f"Upload complete. {len(files)} files saved. {tasks_submitted} submitted for processing.")
 
         return UploadResponse(
@@ -106,88 +82,157 @@ class UploadService:
             already_classified=False,
         )
 
-    async def _save_document(
-        self, file: UploadFile, file_hash: str, user_id: Optional[int] = None
-    ) -> tuple[bool, Optional[bytes]]:
+    async def _handle_document_upload(
+        self, 
+        file: UploadFile, 
+        file_hash: str, 
+        file_content: bytes,
+        user_id: Optional[int]
+    ) -> bool:
         """
-        Save document to database.
-
-        Args:
-            file: The uploaded file
-            user_id: User ID for document ownership
-
-        Returns:
-            Tuple of (needs_processing, file_content)
-        """
-        original_filename = file.filename
+        Handle document upload - save to DB and submit for processing if needed.
         
-        # Read file content
-        file_content = await file.read()
-        file_size = len(file_content)
-        mime_type = file.content_type or "application/octet-stream"
-
-        # Check if document already exists in database
+        Returns:
+            True if a processing task was submitted, False otherwise
+        """
         existing_document = self.document_repo.get_by_id(file_hash)
         
         if existing_document:
-            logger.info(f"Document with same content already exists: {file_hash}")
-            # Update status to processing if not already completed
-            if existing_document.status != DocumentStatus.COMPLETED:
-                self.document_repo.update_status(existing_document, DocumentStatus.PROCESSING)
-                return (True, file_content)  # Needs processing
-            else:
-                # Document already processed - check if it's classified and post to event bus directly
-                logger.info(f"Document {original_filename} already processed - checking classification")
-                
-                # Check if document has a classification
-                classification = self.classification_repo.get_latest_by_document_id(file_hash)
-            
-                if classification and classification.confidence >= config.CLASSIFIER_CONFIDENCE_THRESHOLD:
-                    # Document is already classified - post to event bus directly
-                    logger.info(
-                        f"Document {original_filename} already classified as {classification.category} "
-                        f"(confidence: {classification.confidence:.3f}) - posting to event bus"
-                    )
-                    
-                    if self.event_bus and user_id:
-                        event = FileCompleteEvent(
-                            user_id=user_id,
-                            current_file=1,
-                            total_files=1,
-                            filename=original_filename,
-                            progress_percent=100,
-                            classification={
-                                "category": classification.category,
-                                "confidence": classification.confidence
-                            },
-                            was_cached=True
-                        )
-                        # Post to event bus asynchronously
-                        await self.event_bus.publish_async(
-                            EventType.UPLOAD_PROGRESS, 
-                            event.dict(), 
-                            source="UploadService"
-                        )
-                    
-                    return (False, None)  # No processing needed, event already posted
-                else:
-                    # Document completed but not classified or low confidence - submit to processing queue
-                    logger.info(f"Document {original_filename} completed but needs classification - submitting to processing queue")
-                    return (True, file_content)  # Submit task for processing
-        else:
-            # Create new document record
-            self.document_repo.create(
-                document_id=file_hash,
-                filename=original_filename,
-                file_content=file_content,
-                file_size=file_size,
-                mime_type=mime_type,
-                user_id=user_id,
-                status=DocumentStatus.PROCESSING
+            return await self._handle_existing_document(
+                existing_document, file.filename, file_hash, file_content, user_id
             )
-            
-            logger.info(f"Created document record for {original_filename} with hash {file_hash}")
-            return (True, file_content)  # Needs processing
+        else:
+            return await self._handle_new_document(
+                file, file_hash, file_content, user_id
+            )
+
+    async def _handle_existing_document(
+        self,
+        document: Document,
+        filename: str,
+        file_hash: str,
+        file_content: bytes,
+        user_id: Optional[int]
+    ) -> bool:
+        """
+        Handle an existing document upload.
+        
+        Returns:
+            True if a processing task was submitted, False otherwise
+        """
+        logger.info(f"Document with same content already exists: {file_hash}")
+        
+        if document.status != DocumentStatus.COMPLETED:
+            # Document exists but not completed - reprocess
+            self.document_repo.update_status(document, DocumentStatus.PROCESSING)
+            return self._submit_for_processing(file_hash, filename, file_content, user_id)
+        
+        # Document is completed - check classification
+        classification = self.classification_repo.get_by_document_id(file_hash)
+        
+        if self._is_classified(classification):
+            await self._publish_cached_classification_event(
+                filename, classification, user_id
+            )
+            return False
+        else:
+            # Completed but needs classification
+            logger.info(f"Document {filename} completed but needs classification")
+            return self._submit_for_processing(file_hash, filename, file_content, user_id)
+
+    async def _handle_new_document(
+        self,
+        file: UploadFile,
+        file_hash: str,
+        file_content: bytes,
+        user_id: Optional[int]
+    ) -> bool:
+        """
+        Handle a new document upload.
+        
+        Returns:
+            True if a processing task was submitted, False otherwise
+        """
+        file_size = len(file_content)
+        mime_type = file.content_type or "application/octet-stream"
+        
+        self.document_repo.create(
+            document_id=file_hash,
+            filename=file.filename,
+            file_content=file_content,
+            file_size=file_size,
+            mime_type=mime_type,
+            user_id=user_id,
+            status=DocumentStatus.PROCESSING
+        )
+        
+        logger.info(f"Created document record for {file.filename} with hash {file_hash}")
+        return self._submit_for_processing(file_hash, file.filename, file_content, user_id)
+
+    def _is_classified(self, classification: Optional[DocumentClassification]) -> bool:
+        """Check if a classification exists and meets confidence threshold."""
+        return (
+            classification is not None 
+            and classification.confidence >= config.CLASSIFIER_CONFIDENCE_THRESHOLD
+        )
+
+    async def _publish_cached_classification_event(
+        self,
+        filename: str,
+        classification: DocumentClassification,
+        user_id: Optional[int]
+    ) -> None:
+        """Publish an event for a cached classification."""
+        logger.info(
+            f"Document {filename} already classified as {classification.category} "
+            f"(confidence: {classification.confidence:.3f}) - posting to event bus"
+        )
+        
+        if self.event_bus and user_id:
+            event = FileCompleteEvent(
+                user_id=user_id,
+                current_file=1,
+                total_files=1,
+                filename=filename,
+                progress_percent=100,
+                classification={
+                    "category": classification.category,
+                    "confidence": classification.confidence
+                },
+                was_cached=True
+            )
+            await self.event_bus.publish_async(
+                EventType.UPLOAD_PROGRESS, 
+                event.model_dump(), 
+                source="UploadService"
+            )
+
+    def _submit_for_processing(
+        self,
+        file_hash: str,
+        filename: str,
+        file_content: bytes,
+        user_id: Optional[int]
+    ) -> bool:
+        """
+        Submit document for processing.
+        
+        Returns:
+            True if task was submitted, False if already classified
+        """
+        needs_processing = self.processing_service.check_and_submit(
+            document_id=file_hash,
+            filename=filename,
+            file_content=file_content,
+            user_id=user_id
+        )
+        
+        if needs_processing:
+            logger.info(f"Submitted processing task for {filename}")
+        else:
+            logger.info(f"Document {filename} already classified, event published")
+        
+        return needs_processing
 
     async def delete_document(self, document_id: str) -> Dict[str, Any]:
         """
