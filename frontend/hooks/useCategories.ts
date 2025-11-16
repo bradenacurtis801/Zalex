@@ -17,20 +17,27 @@ export interface CategoryDocument {
 }
 
 export function useCategories() {
-  const [categories, setCategories] = useState<CategorySummary[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // Category summary state (list of categories with counts)
+  const [categorySummary, setCategorySummary] = useState<CategorySummary[]>([])
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
+
+  // Category documents state (documents for a selected category)
+  const [categoryDocuments, setCategoryDocuments] = useState<CategoryDocument[]>([])
+  const [documentsLoading, setDocumentsLoading] = useState(false)
+  const [documentsError, setDocumentsError] = useState<string | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   const fetchCategories = async (skip: number = 0, limit: number = 100) => {
-    setLoading(true)
-    setError(null)
+    setSummaryLoading(true)
+    setSummaryError(null)
     try {
       const response = await categoryApi.getAllCategoriesApiCategoriesGet({ skip, limit })
       
       // Ensure response.categories exists and is an object
       if (!response || typeof response.categories !== 'object') {
         console.warn('Invalid response structure:', response)
-        setCategories([])
+        setCategorySummary([])
         return
       }
       
@@ -55,26 +62,46 @@ export function useCategories() {
         }
       })
 
-      setCategories(categoriesArray)
+      setCategorySummary(categoriesArray)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch categories')
+      setSummaryError(err instanceof Error ? err.message : 'Failed to fetch categories')
       console.error('Error fetching categories:', err)
     } finally {
-      setLoading(false)
+      setSummaryLoading(false)
     }
   }
 
   const fetchCategorySummary = async () => {
+    setSummaryLoading(true)
+    setSummaryError(null)
     try {
       const response = await categoryApi.getCategoriesSummaryApiCategoriesSummaryGet()
+      
+      // Response is Dict[str, int] - category name -> count
+      // Convert to CategorySummary[] format
+      const categoriesArray: CategorySummary[] = Object.entries(response).map(([categoryName, count]) => ({
+        category: categoryName,
+        count: count as number,
+        // Summary endpoint doesn't provide lastUpdated, so we omit it
+        lastUpdated: undefined
+      }))
+
+      setCategorySummary(categoriesArray)
       return response
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch category summary'
+      setSummaryError(errorMessage)
       console.error('Error fetching category summary:', err)
       throw err
+    } finally {
+      setSummaryLoading(false)
     }
   }
 
   const fetchDocumentsByCategory = async (category: string, skip: number = 0, limit: number = 100) => {
+    setDocumentsLoading(true)
+    setDocumentsError(null)
+    setSelectedCategory(category)
     try {
       const response = await categoryApi.getDocumentsByCategoryApiCategoriesCategoryGet({ 
         category, 
@@ -89,24 +116,51 @@ export function useCategories() {
         confidence: doc.confidence,
         timestamp: doc.timestamp || ''
       }))
+      setCategoryDocuments(documents)
       return { ...response, documents }
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : `Failed to fetch documents for category ${category}`
+      setDocumentsError(errorMessage)
       console.error(`Error fetching documents for category ${category}:`, err)
       throw err
+    } finally {
+      setDocumentsLoading(false)
     }
   }
 
+  const clearSelectedCategory = () => {
+    setSelectedCategory(null)
+    setCategoryDocuments([])
+    setDocumentsError(null)
+  }
+
   useEffect(() => {
-    fetchCategories()
+    // Use summary endpoint for initial load (more efficient - only gets counts)
+    fetchCategorySummary()
   }, [])
 
   return {
-    categories,
-    loading,
-    error,
+    // Category summary (for list view)
+    categorySummary,
+    summaryLoading,
+    summaryError,
+    
+    // Category documents (for detail view)
+    categoryDocuments,
+    documentsLoading,
+    documentsError,
+    selectedCategory,
+    
+    // Functions
     fetchCategories,
     fetchCategorySummary,
     fetchDocumentsByCategory,
-    refetch: fetchCategories
+    clearSelectedCategory,
+    
+    // Legacy aliases for backward compatibility
+    categories: categorySummary,
+    loading: summaryLoading,
+    error: summaryError,
+    refetch: fetchCategorySummary
   }
 }

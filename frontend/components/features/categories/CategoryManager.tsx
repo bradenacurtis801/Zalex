@@ -8,7 +8,13 @@ import CategoryList from './CategoryList'
 import CategoryDocuments from './CategoryDocuments'
 
 export default function CategoryManager() {
-  const { categories, loading, error, fetchCategories } = useCategories()
+  const { 
+    categorySummary, 
+    summaryLoading, 
+    summaryError, 
+    fetchCategorySummary,
+    clearSelectedCategory
+  } = useCategories()
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState<string>('')
   const [statusType, setStatusType] = useState<'success' | 'error' | 'warning'>('success')
@@ -20,6 +26,7 @@ export default function CategoryManager() {
 
   const handleBackToList = () => {
     setSelectedCategory(null)
+    clearSelectedCategory()
     setStatusMessage('')
   }
 
@@ -27,7 +34,7 @@ export default function CategoryManager() {
     setStatusMessage('Refreshing categories...')
     setStatusType('success')
     try {
-      await fetchCategories()
+      await fetchCategorySummary()
       setStatusMessage('Categories refreshed successfully!')
       setStatusType('success')
     } catch (err) {
@@ -38,7 +45,7 @@ export default function CategoryManager() {
   }
 
 
-  if (loading && categories.length === 0) {
+  if (summaryLoading && categorySummary.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -49,10 +56,10 @@ export default function CategoryManager() {
     )
   }
 
-  if (error) {
+  if (summaryError) {
     return (
       <div className="text-center p-6">
-        <StatusMessage message={error} type="error" />
+        <StatusMessage message={summaryError} type="error" />
         <Button onClick={handleRefresh} className="mt-4">
           Try Again
         </Button>
@@ -81,7 +88,7 @@ export default function CategoryManager() {
             variant="secondary" 
             onClick={handleRefresh}
             size="sm"
-            isLoading={loading}
+            isLoading={summaryLoading}
           >
             Refresh
           </Button>
@@ -104,13 +111,13 @@ export default function CategoryManager() {
               setStatusMessage(message)
               setStatusType('error')
             }}
-            availableCategories={categories.map(cat => cat.category)}
+            availableCategories={categorySummary.map(cat => cat.category)}
           />
         ) : (
           <CategoryList 
-            categories={categories}
+            categories={categorySummary}
             onCategorySelect={handleCategorySelect}
-            loading={loading}
+            loading={summaryLoading}
           />
         )}
       </div>

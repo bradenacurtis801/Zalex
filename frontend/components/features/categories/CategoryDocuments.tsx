@@ -16,10 +16,12 @@ interface CategoryDocumentsProps {
 }
 
 export default function CategoryDocuments({ category, onError, availableCategories = [] }: CategoryDocumentsProps) {
-  const { fetchDocumentsByCategory } = useCategories()
-  const { getFeedbackSummary } = useFeedback()
-  const [documents, setDocuments] = useState<CategoryDocument[]>([])
-  const [loading, setLoading] = useState(false)
+  const { 
+    categoryDocuments, 
+    documentsLoading, 
+    documentsError,
+    fetchDocumentsByCategory 
+  } = useCategories()
   const [reclassifyModal, setReclassifyModal] = useState<{
     isOpen: boolean
     document: CategoryDocument | null
@@ -34,15 +36,11 @@ export default function CategoryDocuments({ category, onError, availableCategori
   }, [category])
 
   const loadDocuments = async () => {
-    setLoading(true)
     try {
-      const response = await fetchDocumentsByCategory(category)
-      setDocuments(response.documents || [])
+      await fetchDocumentsByCategory(category)
     } catch (err) {
       onError(`Failed to load documents for ${category}`)
       console.error('Error loading documents:', err)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -59,9 +57,9 @@ export default function CategoryDocuments({ category, onError, availableCategori
     setReclassifyModal({ isOpen: true, document })
   }
 
-  const handleReclassifySuccess = () => {
+  const handleReclassifySuccess = async () => {
     // Reload documents after successful reclassification
-    loadDocuments()
+    await loadDocuments()
   }
 
   const handleCloseModal = () => {
@@ -76,7 +74,7 @@ export default function CategoryDocuments({ category, onError, availableCategori
     setViewerModal({ isOpen: false, document: null })
   }
 
-  if (loading) {
+  if (documentsLoading) {
     return (
       <div className="flex items-center justify-center h-32">
         <div className="text-center">
@@ -87,7 +85,18 @@ export default function CategoryDocuments({ category, onError, availableCategori
     )
   }
 
-  if (documents.length === 0) {
+  if (documentsError) {
+    return (
+      <div className="text-center p-6">
+        <StatusMessage message={documentsError} type="error" />
+        <Button onClick={loadDocuments} className="mt-4" size="sm">
+          Try Again
+        </Button>
+      </div>
+    )
+  }
+
+  if (categoryDocuments.length === 0) {
     return (
       <div className="text-center p-8 text-gray-500">
         <div className="text-4xl mb-4">📄</div>
@@ -101,11 +110,11 @@ export default function CategoryDocuments({ category, onError, availableCategori
     <>
       <div className="space-y-3">
         <div className="text-sm text-gray-600 mb-4">
-          Showing {documents.length} document{documents.length !== 1 ? 's' : ''} in {category}
+          Showing {categoryDocuments.length} document{categoryDocuments.length !== 1 ? 's' : ''} in {category}
         </div>
         
         <div className="max-h-96 overflow-y-auto space-y-3 border border-gray-200 rounded-lg p-2">
-          {documents.map((doc, index) => (
+          {categoryDocuments.map((doc, index) => (
           <div
             key={`${doc.filename}-${index}`}
             className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
