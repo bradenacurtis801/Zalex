@@ -328,3 +328,60 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "slow: Slow-running tests that should be excluded from quick runs"
     )
+
+
+# Mock repository fixtures
+@pytest.fixture
+def mock_category_repository():
+    """Mock CategoryRepository for testing."""
+    from tests.fixtures.mock_repositories import MockCategoryRepository
+    return MockCategoryRepository()
+
+
+@pytest.fixture
+def mock_document_repository():
+    """Mock DocumentRepository for testing."""
+    from tests.fixtures.mock_repositories import MockDocumentRepository
+    return MockDocumentRepository()
+
+
+@pytest.fixture
+def mock_document_classification_repository():
+    """Mock DocumentClassificationRepository for testing."""
+    from tests.fixtures.mock_repositories import MockDocumentClassificationRepository
+    return MockDocumentClassificationRepository()
+
+
+@pytest.fixture
+def mock_task_repository():
+    """Mock TaskRepository for testing."""
+    from tests.fixtures.mock_repositories import MockTaskRepository
+    return MockTaskRepository()
+
+
+@pytest.fixture
+def mock_metadata_repository():
+    """Mock MetadataRepository for testing."""
+    from tests.fixtures.mock_repositories import MockMetadataRepository
+    return MockMetadataRepository()
+
+
+@pytest.fixture
+def mock_pdf_cache_repository():
+    """Mock PDFCacheRepository for testing."""
+    from tests.fixtures.mock_repositories import MockPDFCacheRepository
+    return MockPDFCacheRepository()
+
+
+@pytest.fixture
+def mock_ocr_data_repository():
+    """Mock OCRDataRepository for testing."""
+    from tests.fixtures.mock_repositories import MockOCRDataRepository
+    return MockOCRDataRepository()
+
+
+@pytest.fixture
+def mock_document_feedback_repository():
+    """Mock DocumentFeedbackRepository for testing."""
+    from tests.fixtures.mock_repositories import MockDocumentFeedbackRepository
+    return MockDocumentFeedbackRepository()
