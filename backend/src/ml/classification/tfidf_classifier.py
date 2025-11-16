@@ -173,7 +173,7 @@ class PreTrainedTFIDFClassifier(DocumentClassifier):
             return ""
         
         # Use the shared TextCleaner (same as training)
-        cleaned_text = self.text_cleaner.clean_text(text)
+        cleaned_text, _ = self.text_cleaner.clean_text(text)
         return cleaned_text
 
     def load_model(self) -> bool:
@@ -570,26 +570,21 @@ class PreTrainedTFIDFClassifier(DocumentClassifier):
             f"(limited to first {max_pages_for_classification} pages to match training)"
         )
         
-        try:
-            # Classify the full aggregated document (no chunking needed for TF-IDF)
-            result = self.classify(aggregated_text, filename)
-            
-            # Return first page number as reference (since we classified the whole document)
-            first_page_num = page_texts[0][1] if page_texts else 0
-            
-            logger.debug(
-                f"[TF-IDF] Full document classification: {result.category} "
-                f"(confidence: {result.confidence:.3f})"
-            )
-            
-            return (
-                result.category,
-                result.confidence,
-                first_page_num,
-                result.details
-            )
-        except Exception as e:
-            logger.error(f"[TF-IDF] Failed to classify aggregated document: {e}", exc_info=True)
-            first_page_num = page_texts[0][1] if page_texts else 0
-            return ("other", 0.0, first_page_num, {})
+        # Classify the full aggregated document (no chunking needed for TF-IDF)
+        result = self.classify(aggregated_text, filename)
+        
+        # Return first page number as reference (since we classified the whole document)
+        first_page_num = page_texts[0][1] if page_texts else 0
+        
+        logger.debug(
+            f"[TF-IDF] Full document classification: {result.category} "
+            f"(confidence: {result.confidence:.3f})"
+        )
+        
+        return (
+            result.category,
+            result.confidence,
+            first_page_num,
+            result.details
+        )
 
