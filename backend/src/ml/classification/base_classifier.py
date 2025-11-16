@@ -149,6 +149,17 @@ class DocumentClassifier(ABC):
         )
         return False
 
+    @abstractmethod
+    def get_metadata(self) -> Dict[str, Any]:
+        """
+        Get metadata about the classifier model.
+        
+        Returns:
+            Dict[str, Any]: Dictionary containing model metadata such as
+            training information, model parameters, performance metrics, etc.
+        """
+        pass
+
     def get_classifier_info(self) -> Dict[str, Any]:
         """
         Get information about this classifier.
@@ -158,7 +169,6 @@ class DocumentClassifier(ABC):
         """
         return {
             "name": self.model_name_or_path,
-            "is_initialized": self.is_initialized,
-            "supported_categories": self.get_supported_categories(),
+            "metadata": self.get_metadata(),
             "type": self.__class__.__name__,
         }

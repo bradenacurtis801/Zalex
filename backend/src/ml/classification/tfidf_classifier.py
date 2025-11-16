@@ -17,8 +17,9 @@ from sklearn.naive_bayes import MultinomialNB
 if TYPE_CHECKING:
     from src.models.schemas.feedback import CorrectionData
 
-from ...utils.text_preprocessing import TextCleaner
+from scanpro_lib.utils.text_preprocessing import TextCleaner
 from .base_classifier import DocumentClassifier, DocumentClassificationResult
+from scanpro_lib.models.classifier import TFIDFClassifierModel
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ class PreTrainedTFIDFClassifier(DocumentClassifier):
         self.model_name: str = ""
         self.model_path: str = ""
         self.vectorizer_path: str = ""
+        self.classifier_model: Optional[TFIDFClassifierModel] = None
         
         # Initialize text cleaner (uses same cleaning as training)
         self.text_cleaner = TextCleaner(track_metrics=False)
@@ -70,7 +72,7 @@ class PreTrainedTFIDFClassifier(DocumentClassifier):
             
             # Check cache for model
             logger.debug(f"Checking cache for model: {model_path}")
-            if os.path.exists(model_path) and self.validate_model_directory(model_path):
+            if os.path.exists(model_path):
                 self.model_path = model_path
             else:
                 logger.debug(f"Model not found in cache, downloading from Hugging Face: {model_name_or_path}")
@@ -120,89 +122,35 @@ class PreTrainedTFIDFClassifier(DocumentClassifier):
         """
         Internal method to load the model during construction.
         Sets is_initialized to True on success, False on failure.
-        Same pattern as finetune_classifier.
+        Uses TFIDFClassifierModel for validation and structure management.
         """
         try:
             model_dir = Path(self.model_path)
 
-            # Validate model directory
-            if not self.validate_model_directory(self.model_path):
-                from ...core.exceptions import InvalidModelDirectoryError
-                raise InvalidModelDirectoryError(
-                    f"Invalid TF-IDF classifier model directory: {self.model_path}. "
-                    f"Required files: document_classifier_nb*.joblib and tfidf_vectorizer*.joblib"
-                )
+            # Use TFIDFClassifierModel to validate and load model structure
+            # This handles all validation and file path resolution
+            logger.info(f"Validating and loading model structure from: {model_dir}")
+            self.classifier_model = TFIDFClassifierModel.from_directory(model_dir)
 
-            # Find model and vectorizer files (production names first, then debug)
-            model_file = None
-            vectorizer_file = None
-            
-            for filename in ["document_classifier_nb.joblib", "document_classifier_nb_debug.joblib"]:
-                candidate = model_dir / filename
-                if candidate.exists():
-                    model_file = candidate
-                    break
-            
-            for filename in ["tfidf_vectorizer.joblib", "tfidf_vectorizer_debug.joblib"]:
-                candidate = model_dir / filename
-                if candidate.exists():
-                    vectorizer_file = candidate
-                    break
-            
-            if not model_file or not vectorizer_file:
-                from ...core.exceptions import InvalidModelDirectoryError
-                raise InvalidModelDirectoryError(
-                    f"Could not find required model files in {self.model_path}. "
-                    f"Expected: document_classifier_nb*.joblib and tfidf_vectorizer*.joblib"
-                )
+            # Get file paths from the validated model instance
+            model_file = self.classifier_model.classifier_file
+            vectorizer_file = self.classifier_model.vectorizer_file
 
-            # Store vectorizer path for reference (model_path already contains directory)
+            # Store vectorizer path for reference
             self.vectorizer_path = str(vectorizer_file)
 
-            # Load model and vectorizer
+            # Load model and vectorizer using joblib
             logger.info(f"Loading model from: {model_file}")
             self.model = joblib.load(model_file)
 
             logger.info(f"Loading vectorizer from: {vectorizer_file}")
             self.vectorizer = joblib.load(vectorizer_file)
 
-            # Load class names from JSON file (preferred) or extract from model
-            class_names_file = model_dir / "class_names.json"
-            if class_names_file.exists():
-                import json
-                with open(class_names_file, 'r', encoding='utf-8') as f:
-                    class_names_data = json.load(f)
-                    self.class_names = class_names_data.get("class_names", [])
-                    # Create id2label and label2id mappings
-                    if "id2label" in class_names_data:
-                        self.id2label = {int(k): v for k, v in class_names_data["id2label"].items()}
-                    else:
-                        self.id2label = {i: name for i, name in enumerate(self.class_names)}
-                    if "label2id" in class_names_data:
-                        self.label2id = class_names_data["label2id"]
-                    else:
-                        self.label2id = {name: i for i, name in enumerate(self.class_names)}
-                logger.info(f"Loaded class names from {class_names_file}: {self.class_names}")
-            else:
-                # Fallback: extract from model (may be numeric indices)
-                logger.warning(f"Class names file not found at {class_names_file}, extracting from model")
-                if hasattr(self.model, 'classes_'):
-                    # Model classes_ may contain numeric indices, not names
-                    model_classes = [int(cls) if str(cls).isdigit() else str(cls) for cls in self.model.classes_]
-                    self.class_names = [str(cls) for cls in model_classes]
-                    # Create mappings assuming indices match
-                    self.id2label = {i: name for i, name in enumerate(self.class_names)}
-                    self.label2id = {name: i for i, name in enumerate(self.class_names)}
-                else:
-                    # Last resort: use generic names
-                    logger.warning("Could not extract class names from model. Using generic names.")
-                    if hasattr(self.model, 'n_features_in_'):
-                        num_classes = self.model.n_features_in_
-                        self.class_names = [f"class_{i}" for i in range(num_classes)]
-                    else:
-                        self.class_names = ["unknown"]
-                    self.id2label = {i: name for i, name in enumerate(self.class_names)}
-                    self.label2id = {name: i for i, name in enumerate(self.class_names)}
+            # Get class names from the model instance (already loaded by from_directory)
+            class_names_data = self.classifier_model.get_class_names()
+            self.class_names = class_names_data
+            self.id2label = self.classifier_model.get_id2label()
+            self.label2id = self.classifier_model.get_label2id()
 
             self.model_name = os.path.basename(self.model_path)
             self.is_initialized = True
@@ -215,42 +163,6 @@ class PreTrainedTFIDFClassifier(DocumentClassifier):
             self.is_initialized = False
             raise
 
-    @staticmethod
-    def validate_model_directory(model_path: str) -> bool:
-        """
-        Validate that a model directory contains required files for TF-IDF classifier.
-
-        Args:
-            model_path: Path to the model directory or file
-
-        Returns:
-            bool: True if valid, False otherwise
-        """
-        if os.path.isfile(model_path):
-            # Single file - check if it exists
-            return os.path.exists(model_path)
-        
-        model_dir = Path(model_path)
-        if not model_dir.exists():
-            return False
-
-        # Check for model files (production names first, then debug for backward compatibility)
-        model_files = [
-            "document_classifier_nb.joblib",
-            "document_classifier_nb_debug.joblib",
-        ]
-        vectorizer_files = [
-            "tfidf_vectorizer.joblib",
-            "tfidf_vectorizer_debug.joblib",
-        ]
-
-        has_model = any((model_dir / f).exists() for f in model_files)
-        has_vectorizer = any((model_dir / f).exists() for f in vectorizer_files)
-        
-        # class_names.json is optional (for backward compatibility with old models)
-        # but recommended for proper category name mapping
-
-        return has_model and has_vectorizer
 
     def _clean_text(self, text: str) -> str:
         """
@@ -558,15 +470,46 @@ class PreTrainedTFIDFClassifier(DocumentClassifier):
             logger.error(f"Error in TF-IDF classifier retraining: {e}")
             return False
 
+    def get_metadata(self) -> Dict[str, Any]:
+        """
+        Get metadata about the classifier model.
+        
+        Returns:
+            Dict[str, Any]: Dictionary containing model metadata including
+            training information, model parameters, performance metrics, etc.
+        """
+        if not self.classifier_model:
+            return {
+                "error": "Model not loaded",
+                "model_path": self.model_path,
+            }
+        
+        # Use model_dump to get all metadata, excluding None values and training objects
+        return self.classifier_model.model_dump(
+            mode='json'  # Convert Path objects to strings
+        )
+
     def get_classifier_info(self) -> dict:
-        """Get information about the loaded model."""
+        """
+        Get comprehensive information about the loaded model for frontend visualization.
+        
+        Returns:
+            Dictionary containing:
+            - Basic model info (name, type, class names)
+            - Full metadata (file paths, class mappings, training metadata)
+        """
         base_info = super().get_classifier_info()
+        
+        # Add model-specific info
         base_info.update({
             "model_name": self.model_name,
-            "model_path": self.model_path,
-            "vectorizer_path": self.vectorizer_path,
             "class_names": self.class_names,
+            "is_initialized": self.is_initialized,
         })
+        
+        # Note: training_metadata is already included in base_info["metadata"] 
+        # from get_metadata() -> classifier_model.model_dump(), so no need to add it again
+        
         return base_info
 
     def get_tokenizer(self) -> TfidfVectorizer:
