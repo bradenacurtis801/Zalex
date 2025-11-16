@@ -5,6 +5,7 @@ import {
   FeedbackApi,
   AuthApi,
   OcrApi,
+  TasksApi,
   Configuration,
   Middleware,
   ResponseContext,
@@ -61,6 +62,7 @@ export let categoryApi = new CategoryApi(sharedConfig);
 export let feedbackApi = new FeedbackApi(sharedConfig);
 export let authApi = new AuthApi(sharedConfig);
 export let ocrApi = new OcrApi(sharedConfig);
+export let taskApi = new TasksApi(sharedConfig);
 
 // Function to update the API Base URL dynamically
 export const setCurrentClientConfig = (url: string) => {
@@ -96,6 +98,7 @@ export const updateApiClients = () => {
   feedbackApi = new FeedbackApi(sharedConfig);
   authApi = new AuthApi(sharedConfig);
   ocrApi = new OcrApi(sharedConfig);
+  taskApi = new TasksApi(sharedConfig);
 };
 
 // WebSocket utilities

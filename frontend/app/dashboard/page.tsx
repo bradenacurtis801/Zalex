@@ -6,6 +6,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import Header from '@/components/layout/Header'
 import { categoryApi, queryApi } from '@/api'
 import { DocumentClassification } from '@/generated'
+import TaskStats from '@/components/features/tasks/TaskStats'
 
 interface DashboardStats {
   totalDocuments: number
@@ -113,6 +114,11 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Task Stats Section */}
+          <div className="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <TaskStats />
           </div>
 
           {/* Category Distribution */}
