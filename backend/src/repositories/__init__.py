@@ -6,7 +6,7 @@ from .metadata_repository import MetadataRepository
 from .ocr_data_repository import OCRDataRepository
 from .document_classification_repository import DocumentClassificationRepository
 from .document_feedback_repository import DocumentFeedbackRepository
-from .upload_session_file_repository import UploadSessionFileRepository
+from .task_repository import TaskRepository
 from .processing_task_repository import ProcessingTaskRepository
 
 __all__ = [
@@ -16,7 +16,7 @@ __all__ = [
     "OCRDataRepository",
     "DocumentClassificationRepository",
     "DocumentFeedbackRepository",
-    "UploadSessionFileRepository",
+    "TaskRepository",
     "ProcessingTaskRepository",
 ]
 

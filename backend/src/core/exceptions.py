@@ -50,6 +50,11 @@ class CategoryNotFoundError(FeedbackException):
     def __init__(self, message: str = "Category not found."):
         super().__init__(message)
 
+class TaskNotFoundException(ScanProException):
+    """Raised when a processing task is not found."""
+    def __init__(self, message: str = "Task not found or does not belong to user."):
+        super().__init__(message)
+
 
 class InvalidModelDirectoryError(ScanProException):
     """Raised when a model directory is invalid or missing required files."""
@@ -104,6 +109,7 @@ def map_to_http_exception(exc: Exception) -> HTTPException:
         FileProcessingException: (status.HTTP_500_INTERNAL_SERVER_ERROR, lambda exc: str(exc)),
         DocumentNotFoundError: (status.HTTP_404_NOT_FOUND, lambda exc: str(exc)),
         CategoryNotFoundError: (status.HTTP_404_NOT_FOUND, lambda exc: str(exc)),
+        TaskNotFoundException: (status.HTTP_404_NOT_FOUND, lambda exc: str(exc)),
         FeedbackException: (status.HTTP_400_BAD_REQUEST, lambda exc: str(exc)),
         ScanProException: (status.HTTP_500_INTERNAL_SERVER_ERROR, lambda exc: str(exc)),
         

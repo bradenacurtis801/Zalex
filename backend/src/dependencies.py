@@ -3,7 +3,8 @@
 import config
 import logging
 from app_state import get_app_state
-from fastapi import Depends, HTTPException, status
+
+from fastapi import Depends, File, HTTPException, status, UploadFile
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
 from typing import Generator, List, Optional, Annotated
@@ -16,11 +17,13 @@ from src.services.upload_service import UploadService
 from src.services.ocr_service import OCRService
 from src.services.document_processing_service import DocumentProcessingService
 from src.services.auth_service import AuthService
+from src.services.task_service import TaskService
 from src.websocket_manager import get_connection_manager
 from src.db.connection import get_session
 from src.event_bus import event_bus
 from src.models.shared import ProcessingTask
 from src.models.database import User, UserRole
+from src.core.exceptions import UnsupportedFileTypeError
 from src.repositories import (
     DocumentRepository,
     PDFCacheRepository,
@@ -28,7 +31,7 @@ from src.repositories import (
     OCRDataRepository,
     DocumentClassificationRepository,
     DocumentFeedbackRepository,
-    UploadSessionFileRepository,
+    TaskRepository,
 )
 
 # Security scheme
@@ -72,9 +75,9 @@ def get_document_feedback_repository(db: Session = Depends(get_session)) -> Docu
     """Dependency injection for DocumentFeedbackRepository."""
     return DocumentFeedbackRepository(db)
 
-def get_upload_session_file_repository(db: Session = Depends(get_session)) -> UploadSessionFileRepository:
-    """Dependency injection for UploadSessionFileRepository."""
-    return UploadSessionFileRepository(db)
+def get_task_repository(db: Session = Depends(get_session)) -> TaskRepository:
+    """Dependency injection for TaskRepository."""
+    return TaskRepository(db)
 
 # ========== Service Dependencies ==========
 
@@ -163,6 +166,12 @@ def get_ocr_service(
     """Get OCR service instance"""
     app_state = get_app_state()
     return OCRService(app_state.ocr_engine, ocr_data_repo)
+
+def get_task_service(
+    processing_task_repo: TaskRepository = Depends(get_task_repository),
+) -> TaskService:
+    """Dependency injection for TaskService."""
+    return TaskService(processing_task_repo)
 
 # Simple authentication - only session tokens
 async def get_current_user(

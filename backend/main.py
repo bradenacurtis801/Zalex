@@ -20,7 +20,7 @@ from src.services.auth_service import AuthService
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from src.routers import auth, category, feedback, query, upload, ocr
+from src.routers import auth, category, feedback, query, upload, ocr, task
 from src.websocket_manager import get_connection_manager
 from src.db.connection import get_session
 import json
@@ -111,21 +111,21 @@ async def lifespan(app: FastAPI):
             DocumentRepository,
             DocumentClassificationRepository,
             OCRDataRepository,
-            ProcessingTaskRepository,
+            TaskRepository,
         )
         
         # Create repositories for DocumentProcessingService
         document_repo = DocumentRepository(db)
         classification_repo = DocumentClassificationRepository(db)
         ocr_data_repo = OCRDataRepository(db)
-        processing_task_repo = ProcessingTaskRepository(db)
+        task_repo = TaskRepository(db)
         
         app_state.document_processing_service = DocumentProcessingService(
             ocr_engine=app_state.ocr_engine,
             document_classifier=app_state.document_classifier,
             document_repo=document_repo,
             classification_repo=classification_repo,
-            processing_task_repo=processing_task_repo,
+            task_repo=task_repo,
             ocr_data_repo=ocr_data_repo,
             ner_model=app_state.ner_model,
             event_bus=event_bus,
@@ -198,6 +198,7 @@ app.include_router(query.router, prefix="/api", tags=["query"])
 app.include_router(category.router, prefix="/api", tags=["category"])
 app.include_router(feedback.router, prefix="/api", tags=["feedback"])
 app.include_router(ocr.router, prefix="/api", tags=["ocr"])
+app.include_router(task.router, prefix="/api", tags=["tasks"])
 
 
 # WebSocket endpoint for progress updates
