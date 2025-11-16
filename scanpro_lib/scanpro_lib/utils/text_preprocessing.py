@@ -228,5 +228,5 @@ class TextCleaner:
         
         if should_track:
             return final_text, metrics
-        return final_text
+        return final_text, None
 

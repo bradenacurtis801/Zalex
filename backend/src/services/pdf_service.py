@@ -5,7 +5,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from src.models.database import Document
-from src.utils.pdf_helper import PDFHelper, PDFPage
+from scanpro_lib.utils.pdf_helper import PDFHelper, PDFPage
 from fastapi.responses import Response, JSONResponse
 from src.repositories.document_repository import DocumentRepository
 from src.repositories.document_classification_repository import DocumentClassificationRepository

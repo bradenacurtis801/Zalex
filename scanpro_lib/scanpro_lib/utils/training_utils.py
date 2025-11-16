@@ -14,16 +14,14 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from src.ocr.base import OCREngine
-import fitz  # PyMuPDF
+from scanpro_lib.ocr import OCREngine
 import joblib
 import pandas as pd
 from tqdm import tqdm
-from src.utils.pdf_helper import PDFHelper
-
-from src.ocr.factory import get_default_ocr_engine
-
-from .text_preprocessing import DocumentMetrics, TextCleaner
+from scanpro_lib.utils.pdf_helper import PDFHelper
+from scanpro_lib.ocr.factory import get_default_ocr_engine
+from scanpro_lib.models.classifier import Page, TrainingData
+from scanpro_lib.utils.text_preprocessing import DocumentMetrics
 
 
 class MetricsTracker:
@@ -199,140 +197,210 @@ def track_timing(func):
 
 class PDFProcessor:
     """
-    Builder Pattern: Builds the document processing pipeline with metrics tracking.
-    Used for training data preparation.
+    Lightweight PDF processor for extracting raw OCR text.
+    Used for training data preparation without text cleaning or metrics tracking.
     """
-    def __init__(self, ocr_engine: OCREngine, text_cleaner: TextCleaner, metrics_tracker: Optional[MetricsTracker] = None):
+    def __init__(self, ocr_engine: OCREngine):
         self.ocr_engine = ocr_engine
-        self.text_cleaner = text_cleaner
-        self.metrics_tracker = metrics_tracker
     
     def extract_text_with_tesseract(
         self, 
         pdf_path: str, 
-        filename: str, 
-        category: str, 
-        max_pages: int = 5
-    ) -> Tuple[str, str, DocumentMetrics]:
+        max_pages: Optional[int] = None
+    ) -> List[Page]:
         """
-        Extract text using OCR engine and clean it.
+        Extract text using OCR engine (raw, unfiltered).
+        
+        Args:
+            pdf_path: Path to PDF file
+            max_pages: Maximum number of pages to process (None = all pages)
         
         Returns:
-            Tuple of (original_text, cleaned_text, metrics)
+            List of Page objects with raw OCR text
         """
-        raw_text = ""
+        pages = []
         
         # Extract pages using PDFHelper (can accept path directly)
         for page_data in PDFHelper.extract_pages_as_bytes(pdf_path):
-            if page_data.page_number >= max_pages:
+            if max_pages is not None and page_data.page_number >= max_pages:
                 break
+
             # Use OCR engine to extract text from page bytes (already in PNG format)
             ocr_result = self.ocr_engine.extract_text_from_bytes(
                 page_data.image_bytes, 
                 image_format='png'
             )
-            raw_text += ocr_result.text + "\n"
+            
+            # Create Page with raw OCR text (unfiltered)
+            page = Page(
+                page_number=page_data.page_number,
+                text=ocr_result.text
+            )
+            pages.append(page)
         
-        # Clean text and get metrics
-        cleaned_text, metrics = self.text_cleaner.clean_text(
-            raw_text, filename, category, return_metrics=True
-        )
-        
-        # Record metrics if tracker is available
-        if self.metrics_tracker:
-            self.metrics_tracker.record_document(metrics)
-        
-        return raw_text, cleaned_text, metrics
+        return pages
     
     def extract_text_native(
         self, 
         pdf_path: str, 
-        filename: str, 
-        category: str, 
-        max_pages: int = 5
-    ) -> Tuple[str, str, DocumentMetrics]:
+        max_pages: Optional[int] = None
+    ) -> List[Page]:
         """
-        Extract text using native PDF text extraction.
+        Extract text using native PDF text extraction (raw, unfiltered).
+        
+        Args:
+            pdf_path: Path to PDF file
+            max_pages: Maximum number of pages to process (None = all pages)
         
         Returns:
-            Tuple of (original_text, cleaned_text, metrics)
+            List of Page objects with raw native text
         """
-        raw_text = ""
+        pages = []
         
         # Extract native text using PDFHelper (can accept path directly)
         # extract_pages_as_bytes now automatically extracts text from each page
         for page_data in PDFHelper.extract_pages_as_bytes(pdf_path):
-            if page_data.page_number >= max_pages:
+            if max_pages is not None and page_data.page_number >= max_pages:
                 break
-            raw_text += page_data.text + "\n"
+            
+            # Create Page with raw native text (unfiltered)
+            page = Page(
+                page_number=page_data.page_number,
+                text=page_data.text
+            )
+            pages.append(page)
         
-        # Clean text and get metrics
-        cleaned_text, metrics = self.text_cleaner.clean_text(
-            raw_text, filename, category, return_metrics=True
-        )
-        
-        if self.metrics_tracker:
-            self.metrics_tracker.record_document(metrics)
-        
-        return raw_text, cleaned_text, metrics
+        return pages
 
-
-def save_processed_data(
-    texts: List[str], 
-    labels: List[int], 
-    class_names: List[str], 
-    output_path: Path, 
-    original_texts: Optional[List[str]] = None
-):
+def load_training_data(input_path: Path, max_pages: int = None) -> TrainingData:
     """
-    Save processed training data to disk for later reuse.
-    This avoids reprocessing PDFs on subsequent training runs.
-    """
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    Load TrainingData from disk using Pydantic model_validate.
     
-    data = {
-        'texts': texts,  # Cleaned texts
-        'labels': labels,
-        'class_names': class_names,
-        'timestamp': datetime.now().isoformat(),
-        'num_documents': len(texts),
-        'num_categories': len(class_names),
-    }
-    
-    # Add original texts if provided
-    if original_texts is not None:
-        data['original_texts'] = original_texts
-        print(f"💾 Saving both original and cleaned texts")
-    
-    joblib.dump(data, output_path)
-    print(f"💾 Processed training data saved to: {output_path}")
-    print(f"   Documents: {len(texts)}, Categories: {len(class_names)}")
-
-
-def load_processed_data(
-    input_path: Path
-) -> Optional[Tuple[List[str], List[int], List[str], Optional[List[str]]]]:
-    """
-    Load previously processed training data from disk.
-    Returns None if file doesn't exist or is invalid.
+    Args:
+        input_path: Path to the JSON file containing TrainingData
     
     Returns:
-        Tuple of (texts, labels, class_names, original_texts) where original_texts may be None
+        TrainingData object or None if file doesn't exist
     """
-    if not input_path.exists():
-        return None
+    import json
     
-    try:
-        data = joblib.load(input_path)
-        print(f"📂 Loading cached training data from: {input_path}")
-        print(f"   Documents: {data['num_documents']}, Categories: {data['num_categories']}")
-        if 'timestamp' in data:
-            print(f"   Cached on: {data['timestamp']}")
-        original_texts = data.get('original_texts', None)
-        if original_texts:
-            print(f"   Includes original raw texts: Yes")
-        return data['texts'], data['labels'], data['class_names'], original_texts
-    except Exception as e:
-        print(f"⚠️  Error loading cached data: {e}")
-        return None
+    if not input_path.exists():
+        raise FileNotFoundError(f"Training data file not found: {input_path}")
+    
+    # Load JSON and validate using Pydantic model_validate
+    with open(input_path, 'r', encoding='utf-8') as f:
+        data_dict = json.load(f)
+    
+    # Use Pydantic model_validate to create and validate the TrainingData object
+    training_data = TrainingData.model_validate(data_dict).trim_pages(max_pages)
+    
+    return training_data
 
+def save_training_data(training_data: TrainingData, output_path: Path):
+    """
+    Save TrainingData to disk as JSON.
+    
+    Args:
+        training_data: TrainingData object to save
+        labels: List of integer labels (for backward compatibility)
+        output_path: Path to save the JSON file
+    """
+    import json
+    
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Convert TrainingData to dict and save as JSON
+    training_data_dict = training_data.model_dump()
+    
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(training_data_dict, f, indent=2, ensure_ascii=False)
+
+def generate_training_data(
+    data_dir: Path, 
+    pdf_processor: PDFProcessor,
+    use_tesseract: bool = True,
+    max_pages: Optional[int] = None
+) -> TrainingData:
+    """
+    Generate TrainingData from a directory of PDFs organized by category.
+    
+    Expected directory structure:
+    data_dir/
+        category1/
+            file1.pdf
+            file2.pdf
+        category2/
+            file1.pdf
+            ...
+    
+    Args:
+        data_dir: Path to the directory containing category subdirectories with PDFs
+        pdf_processor: PDFProcessor instance for extracting raw text from PDFs
+        use_tesseract: Whether to use Tesseract OCR (True) or native extraction (False)
+        max_pages: Maximum number of pages to process per document (None = all pages)
+    
+    Returns:
+        TrainingData object with all processed documents organized by category
+        (contains raw, unfiltered OCR text)
+    """
+    from scanpro_lib.models.classifier import DocumentData
+    from datetime import datetime, timezone
+    
+    category_data: Dict[str, List[DocumentData]] = {}
+    class_names = sorted([
+        d for d in os.listdir(data_dir) 
+        if os.path.isdir(os.path.join(data_dir, d))
+    ])
+    
+    # Initialize category_data for all categories
+    for cls in class_names:
+        category_data[cls] = []
+    
+    print(f"\n📚 Processing dataset from {data_dir}")
+    print(f"📁 Found {len(class_names)} categories: {class_names}\n")
+    
+    total_documents = 0
+    
+    for cls in tqdm(class_names, desc="Processing categories"):
+        folder = os.path.join(data_dir, cls)
+        pdf_files = [f for f in os.listdir(folder) if f.endswith(".pdf")]
+        
+        for filename in tqdm(pdf_files, desc=f"  {cls}", leave=False):
+            pdf_path = os.path.join(folder, filename)
+            
+            try:
+                # Extract raw pages using the PDF processor (no cleaning)
+                if use_tesseract:
+                    pages = pdf_processor.extract_text_with_tesseract(
+                        pdf_path, max_pages=max_pages
+                    )
+                else:
+                    pages = pdf_processor.extract_text_native(
+                        pdf_path, max_pages=max_pages
+                    )
+                
+                # Create DocumentData with raw OCR pages
+                doc_data = DocumentData(
+                    num_pages=len(pages),
+                    file_name=filename,
+                    pages=pages
+                )
+                
+                category_data[cls].append(doc_data)
+                total_documents += 1
+                
+            except Exception as e:
+                print(f"⚠️  Error processing {filename}: {e}")
+                continue
+    
+    print(f"\n✅ Processed {total_documents} documents")
+    
+    # Create TrainingData object
+    training_data = TrainingData(
+        categories=class_names,
+        category_data=category_data,
+        num_documents=total_documents,
+        timestamp=datetime.now(timezone.utc).isoformat()
+    )
+    
+    return training_data

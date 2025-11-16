@@ -34,6 +34,22 @@ def calculate_file_hash(file_path: str, algorithm: str = "sha256") -> Optional[s
         return None
 
 
+def calculate_file_hash_from_content(content: bytes, algorithm: str = "sha256") -> str:
+    """
+    Calculate the hash of file content from bytes.
+
+    Args:
+        content: File content as bytes
+        algorithm: Hash algorithm to use (default: sha256)
+
+    Returns:
+        Hexadecimal hash string
+    """
+    hash_obj = hashlib.new(algorithm)
+    hash_obj.update(content)
+    return hash_obj.hexdigest()
+
+
 def get_content_based_filename(original_filename: str, file_hash: str) -> str:
     """
     Generate a content-based filename using the file hash.

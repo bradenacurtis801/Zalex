@@ -19,7 +19,7 @@ from src.models.schemas.ocr import (
     DocumentTextSummary,
 )
 from src.core.exceptions import DocumentNotFoundError
-from src.ocr.tesseract_engine import TesseractEngine
+from scanpro_lib.ocr.tesseract_engine import TesseractEngine
 from src.repositories.ocr_data_repository import OCRDataRepository
 
 logger = logging.getLogger(__name__)

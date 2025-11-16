@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
+from scanpro_lib.models.classifier import TrainingMetadata
 
 
 class UserInfo(BaseModel):
@@ -54,3 +55,14 @@ class DocumentFeedbackRequest(BaseModel):
 class DocumentFeedbackResponse(BaseModel):
     message: str
     feedback_id: int
+
+
+class ClassifierInfoResponse(BaseModel):
+    """Response model for classifier information including training metadata."""
+    name: str
+    metadata: Dict[str, Any]
+    type: str
+    model_name: Optional[str] = None
+    class_names: Optional[List[str]] = None
+    is_initialized: Optional[bool] = None
+    training_metadata: Optional[TrainingMetadata] = None

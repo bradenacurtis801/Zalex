@@ -20,8 +20,7 @@ from src.models.database import (
     ProcessingTaskStatus
 )
 import config as config
-from src.ocr import OCREngine
-from src.ocr.base import OCRResult
+from scanpro_lib.ocr import OCREngine
 from src.ml.classification.base_classifier import DocumentClassifier
 from src.ml.faiss.embeddings import EmbeddingsIndex
 from src.ml.ner.base_ner import NERModel

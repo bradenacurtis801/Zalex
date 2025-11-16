@@ -15,11 +15,11 @@ import sys
 from sentence_transformers import SentenceTransformer
 # from src.ml.classification.finetune_classifier import PreTrainedFinetuneClassifier
 from src.ml.classification.tfidf_classifier import PreTrainedTFIDFClassifier
-from src.ocr.factory import get_default_ocr_engine
+from scanpro_lib.ocr.factory import get_default_ocr_engine
 from src.ml.faiss.embeddings import get_embeddings_index
 from src.services.document_processing_service import DocumentProcessingService
 from src.ml.faiss.embeddings import EmbeddingsIndex
-from src.ocr import OCREngine
+from scanpro_lib.ocr import OCREngine
 from src.ml.classification.base_classifier import DocumentClassifier
 from src.ml.ner.base_ner import NERModel
 

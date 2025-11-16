@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import hashlib
 from typing import List, Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor
 
@@ -18,14 +17,10 @@ from src.repositories.pdf_cache_repository import PDFCacheRepository
 from src.repositories.ocr_data_repository import OCRDataRepository
 from src.repositories.document_feedback_repository import DocumentFeedbackRepository
 from src.repositories.metadata_repository import MetadataRepository
+from scanpro_lib.utils.file_hasher import calculate_file_hash_from_content
 import config as config
 
 logger = logging.getLogger(__name__)
-
-
-def calculate_file_hash_from_content(content: bytes) -> str:
-    """Calculate SHA256 hash from file content."""
-    return hashlib.sha256(content).hexdigest()
 
 
 class UploadService:
