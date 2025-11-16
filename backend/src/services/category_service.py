@@ -174,7 +174,7 @@ class CategoryService:
         Create a new category and upload training documents for it.
 
         Args:
-            name: Category name
+            name: Category name (will be normalized to lowercase with underscores)
             description: Category description (optional)
             files: List of PDF files to use as training data
             user_id: User ID who created the category
@@ -182,20 +182,22 @@ class CategoryService:
         Returns:
             Dictionary with category info and uploaded document count
         """
-        logger.info(f"Creating category '{name}' with {len(files)} training document(s)")
+        # Normalize category name: lowercase and replace spaces with underscores
+        normalized_name = name.lower().replace(" ", "_")
+        logger.info(f"Creating category '{normalized_name}' (original: '{name}') with {len(files)} training document(s)")
 
         # Check if category already exists
-        existing_category = self.category_repo.get_by_name(name)
+        existing_category = self.category_repo.get_by_name(normalized_name)
         if existing_category:
-            raise CategoryAlreadyExistsError(f"Category '{name}' already exists")
+            raise CategoryAlreadyExistsError(f"Category '{normalized_name}' already exists")
 
         # Create the category
         category = self.category_repo.create(
-            name=name,
+            name=normalized_name,
             description=description,
             created_by=user_id,
         )
-        logger.info(f"Created category '{name}' with ID {category.id}")
+        logger.info(f"Created category '{normalized_name}' with ID {category.id}")
 
         # Upload and link training documents
         uploaded_count = 0
@@ -229,14 +231,14 @@ class CategoryService:
                     uploaded_by=user_id,
                 )
                 uploaded_count += 1
-                logger.debug(f"Added {file.filename} as training document for category '{name}'")
+                logger.debug(f"Added {file.filename} as training document for category '{normalized_name}'")
 
             except Exception as e:
                 logger.error(f"Error processing training document {file.filename}: {e}")
                 # Continue with other files even if one fails
                 continue
 
-        logger.info(f"Successfully created category '{name}' with {uploaded_count} training document(s)")
+        logger.info(f"Successfully created category '{normalized_name}' with {uploaded_count} training document(s)")
 
         return {
             "category_id": category.id,
