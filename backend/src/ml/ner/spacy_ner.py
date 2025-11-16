@@ -13,6 +13,10 @@ from .base_ner import NERModel, NERResult, Entity
 
 logger = logging.getLogger(__name__)
 
+"""
+To install the spaCy model, run the following command:
+pip install https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.7.0/es_core_news_sm-3.7.0-py3-none-any.whl 
+"""
 
 class SpacyNERModel(NERModel):
     """
@@ -45,9 +49,6 @@ class SpacyNERModel(NERModel):
         Returns:
             bool: True if initialization successful, False otherwise
         """
-        if spacy is None:
-            logger.error("spaCy is not installed. Please install it: pip install spacy")
-            return False
 
         logger.info(f"Loading spaCy model: {self.model_name_or_path}")
         
