@@ -6,4 +6,5 @@ export * from './DefaultApi';
 export * from './FeedbackApi';
 export * from './OcrApi';
 export * from './QueryApi';
+export * from './TasksApi';
 export * from './UploadApi';

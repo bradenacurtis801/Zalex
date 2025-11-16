@@ -17,6 +17,7 @@ import * as runtime from '../runtime';
 import type {
   CategoriesResponse,
   CategoryResponse,
+  ClassifierInfoResponse,
   HTTPValidationError,
 } from '../models/index';
 import {
@@ -24,9 +25,17 @@ import {
     CategoriesResponseToJSON,
     CategoryResponseFromJSON,
     CategoryResponseToJSON,
+    ClassifierInfoResponseFromJSON,
+    ClassifierInfoResponseToJSON,
     HTTPValidationErrorFromJSON,
     HTTPValidationErrorToJSON,
 } from '../models/index';
+
+export interface CreateCategoryApiCategoriesPostRequest {
+    name: string;
+    files: Array<Blob>;
+    description?: string;
+}
 
 export interface GetAllCategoriesApiCategoriesGetRequest {
     skip?: number;
@@ -46,6 +55,24 @@ export interface GetDocumentsByCategoryApiCategoriesCategoryGetRequest {
  * @interface CategoryApiInterface
  */
 export interface CategoryApiInterface {
+    /**
+     * Create a new category with training documents (admin only).  Args:     name: Category name     description: Category description (optional)     files: PDF files to use as training data for this category      Returns:     Dictionary with category info and uploaded document count
+     * @summary Create Category
+     * @param {string} name 
+     * @param {Array<Blob>} files 
+     * @param {string} [description] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof CategoryApiInterface
+     */
+    createCategoryApiCategoriesPostRaw(requestParameters: CreateCategoryApiCategoriesPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<{ [key: string]: any; }>>;
+
+    /**
+     * Create a new category with training documents (admin only).  Args:     name: Category name     description: Category description (optional)     files: PDF files to use as training data for this category      Returns:     Dictionary with category info and uploaded document count
+     * Create Category
+     */
+    createCategoryApiCategoriesPost(requestParameters: CreateCategoryApiCategoriesPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: any; }>;
+
     /**
      * Get all available categories and their documents.
      * @summary Get All Categories
@@ -96,12 +123,111 @@ export interface CategoryApiInterface {
      */
     getDocumentsByCategoryApiCategoriesCategoryGet(requestParameters: GetDocumentsByCategoryApiCategoriesCategoryGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<CategoryResponse>;
 
+    /**
+     * Get training metrics for all categories (admin only).  Returns:     ClassifierInfoResponse with classifier information and training metadata.     Includes TrainingMetadata model with performance metrics, data distribution,     model parameters, and feature extraction settings.
+     * @summary Get Training Metrics
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof CategoryApiInterface
+     */
+    getTrainingMetricsApiCategoriesTrainingMetricsGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ClassifierInfoResponse>>;
+
+    /**
+     * Get training metrics for all categories (admin only).  Returns:     ClassifierInfoResponse with classifier information and training metadata.     Includes TrainingMetadata model with performance metrics, data distribution,     model parameters, and feature extraction settings.
+     * Get Training Metrics
+     */
+    getTrainingMetricsApiCategoriesTrainingMetricsGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ClassifierInfoResponse>;
+
 }
 
 /**
  * 
  */
 export class CategoryApi extends runtime.BaseAPI implements CategoryApiInterface {
+
+    /**
+     * Create a new category with training documents (admin only).  Args:     name: Category name     description: Category description (optional)     files: PDF files to use as training data for this category      Returns:     Dictionary with category info and uploaded document count
+     * Create Category
+     */
+    async createCategoryApiCategoriesPostRaw(requestParameters: CreateCategoryApiCategoriesPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<{ [key: string]: any; }>> {
+        if (requestParameters['name'] == null) {
+            throw new runtime.RequiredError(
+                'name',
+                'Required parameter "name" was null or undefined when calling createCategoryApiCategoriesPost().'
+            );
+        }
+
+        if (requestParameters['files'] == null) {
+            throw new runtime.RequiredError(
+                'files',
+                'Required parameter "files" was null or undefined when calling createCategoryApiCategoriesPost().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("HTTPBearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+        const consumes: runtime.Consume[] = [
+            { contentType: 'multipart/form-data' },
+        ];
+        // @ts-ignore: canConsumeForm may be unused
+        const canConsumeForm = runtime.canConsumeForm(consumes);
+
+        let formParams: { append(param: string, value: any): any };
+        let useForm = false;
+        // use FormData to transmit files using content-type "multipart/form-data"
+        useForm = canConsumeForm;
+        if (useForm) {
+            formParams = new FormData();
+        } else {
+            formParams = new URLSearchParams();
+        }
+
+        if (requestParameters['name'] != null) {
+            formParams.append('name', requestParameters['name'] as any);
+        }
+
+        if (requestParameters['description'] != null) {
+            formParams.append('description', requestParameters['description'] as any);
+        }
+
+        if (requestParameters['files'] != null) {
+            requestParameters['files'].forEach((element) => {
+                formParams.append('files', element as any);
+            })
+        }
+
+
+        let urlPath = `/api/categories`;
+
+        const response = await this.request({
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: formParams,
+        }, initOverrides);
+
+        return new runtime.JSONApiResponse<any>(response);
+    }
+
+    /**
+     * Create a new category with training documents (admin only).  Args:     name: Category name     description: Category description (optional)     files: PDF files to use as training data for this category      Returns:     Dictionary with category info and uploaded document count
+     * Create Category
+     */
+    async createCategoryApiCategoriesPost(requestParameters: CreateCategoryApiCategoriesPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: any; }> {
+        const response = await this.createCategoryApiCategoriesPostRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
 
     /**
      * Get all available categories and their documents.
@@ -241,6 +367,45 @@ export class CategoryApi extends runtime.BaseAPI implements CategoryApiInterface
      */
     async getDocumentsByCategoryApiCategoriesCategoryGet(requestParameters: GetDocumentsByCategoryApiCategoriesCategoryGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<CategoryResponse> {
         const response = await this.getDocumentsByCategoryApiCategoriesCategoryGetRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Get training metrics for all categories (admin only).  Returns:     ClassifierInfoResponse with classifier information and training metadata.     Includes TrainingMetadata model with performance metrics, data distribution,     model parameters, and feature extraction settings.
+     * Get Training Metrics
+     */
+    async getTrainingMetricsApiCategoriesTrainingMetricsGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ClassifierInfoResponse>> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("HTTPBearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/categories/training-metrics`;
+
+        const response = await this.request({
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        }, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => ClassifierInfoResponseFromJSON(jsonValue));
+    }
+
+    /**
+     * Get training metrics for all categories (admin only).  Returns:     ClassifierInfoResponse with classifier information and training metadata.     Includes TrainingMetadata model with performance metrics, data distribution,     model parameters, and feature extraction settings.
+     * Get Training Metrics
+     */
+    async getTrainingMetricsApiCategoriesTrainingMetricsGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ClassifierInfoResponse> {
+        const response = await this.getTrainingMetricsApiCategoriesTrainingMetricsGetRaw(initOverrides);
         return await response.value();
     }
 

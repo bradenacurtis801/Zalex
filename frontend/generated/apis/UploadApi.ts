@@ -119,7 +119,7 @@ export interface UploadApiInterface {
     getPdfPagesApiDocumentsDocumentIdPagesGet(requestParameters: GetPdfPagesApiDocumentsDocumentIdPagesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any>;
 
     /**
-     * Handles the file upload and initiates the processing pipeline.
+     * Handles the file upload and initiates the processing pipeline.  Only PDF and image files (.pdf, .jpg, .jpeg, .png) are supported. Text files (.txt) are explicitly rejected.
      * @summary Upload Files
      * @param {Array<Blob>} files 
      * @param {*} [options] Override http request option.
@@ -129,7 +129,7 @@ export interface UploadApiInterface {
     uploadFilesApiUploadPostRaw(requestParameters: UploadFilesApiUploadPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<UploadResponse>>;
 
     /**
-     * Handles the file upload and initiates the processing pipeline.
+     * Handles the file upload and initiates the processing pipeline.  Only PDF and image files (.pdf, .jpg, .jpeg, .png) are supported. Text files (.txt) are explicitly rejected.
      * Upload Files
      */
     uploadFilesApiUploadPost(requestParameters: UploadFilesApiUploadPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<UploadResponse>;
@@ -350,7 +350,7 @@ export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
     }
 
     /**
-     * Handles the file upload and initiates the processing pipeline.
+     * Handles the file upload and initiates the processing pipeline.  Only PDF and image files (.pdf, .jpg, .jpeg, .png) are supported. Text files (.txt) are explicitly rejected.
      * Upload Files
      */
     async uploadFilesApiUploadPostRaw(requestParameters: UploadFilesApiUploadPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<UploadResponse>> {
@@ -410,7 +410,7 @@ export class UploadApi extends runtime.BaseAPI implements UploadApiInterface {
     }
 
     /**
-     * Handles the file upload and initiates the processing pipeline.
+     * Handles the file upload and initiates the processing pipeline.  Only PDF and image files (.pdf, .jpg, .jpeg, .png) are supported. Text files (.txt) are explicitly rejected.
      * Upload Files
      */
     async uploadFilesApiUploadPost(requestParameters: UploadFilesApiUploadPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<UploadResponse> {
