@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useRouter } from 'next/navigation'
 import UserProfile from '@/components/features/user/UserProfile'
 import UserManagement from '@/components/features/user/UserManagement'
 import DocumentManagement from '@/components/features/document/DocumentManagement'
@@ -14,6 +15,7 @@ interface HeaderProps {
 
 export default function Header({ title, showBackButton = false, onBackClick }: HeaderProps) {
   const { user, logout } = useAuth()
+  const router = useRouter()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showUserProfile, setShowUserProfile] = useState(false)
   const [showUserManagement, setShowUserManagement] = useState(false)
@@ -103,6 +105,15 @@ export default function Header({ title, showBackButton = false, onBackClick }: H
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
                       Manage Documents
+                    </button>
+                    <button
+                      onClick={() => {
+                        router.push('/training')
+                        setShowUserMenu(false)
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Classification Training
                     </button>
                   </>
                 )}
