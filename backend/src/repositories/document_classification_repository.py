@@ -6,6 +6,7 @@ from datetime import datetime
 
 from sqlmodel import Session, select
 from typing import Tuple, List as ListType
+from sqlalchemy.dialects.postgresql import insert
 
 from src.models.database import DocumentClassification, Document, User
 
@@ -19,7 +20,7 @@ class DocumentClassificationRepository:
         """Initialize the repository with a database session."""
         self._db = db
 
-    def create(
+    def create_or_update(
         self,
         document_id: str,
         category: str,
@@ -27,64 +28,61 @@ class DocumentClassificationRepository:
         user_id: Optional[int] = None,
     ) -> DocumentClassification:
         """
-        Create a new DocumentClassification record.
+        Create or update a DocumentClassification record using PostgreSQL UPSERT.
+        This is atomic and handles race conditions efficiently.
 
         Args:
             document_id: Document ID (SHA256 hash)
             category: Classification category
             confidence: Confidence score (0-1)
-            user_id: User ID who created the classification (optional)
+            user_id: User ID who created/updated the classification (optional)
 
         Returns:
-            Created DocumentClassification record
+            Created or updated DocumentClassification record
         """
-        classification = DocumentClassification(
+        # Build the insert statement
+        stmt = insert(DocumentClassification).values(
             document_id=document_id,
             category=category,
             confidence=confidence,
             user_id=user_id,
         )
-        self._db.add(classification)
+        
+        # Build update dictionary for ON CONFLICT
+        update_dict = {
+            'category': stmt.excluded.category,
+            'confidence': stmt.excluded.confidence,
+        }
+        if user_id is not None:
+            update_dict['user_id'] = stmt.excluded.user_id
+        
+        # Use PostgreSQL's ON CONFLICT DO UPDATE (UPSERT)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['document_id'],
+            set_=update_dict
+        )
+        
+        # Execute the upsert
+        self._db.execute(stmt)
         self._db.commit()
-        self._db.refresh(classification)
-        return classification
+        
+        # Fetch and return the updated/created record
+        return self.get_by_document_id(document_id)
 
     def get_by_document_id(
         self, document_id: str
-    ) -> List[DocumentClassification]:
-        """
-        Get all classifications for a document, ordered by creation date (newest first).
-
-        Args:
-            document_id: Document ID (SHA256 hash)
-
-        Returns:
-            List of DocumentClassification records
-        """
-        stmt = (
-            select(DocumentClassification)
-            .where(DocumentClassification.document_id == document_id)
-            .order_by(DocumentClassification.created_at.desc())
-        )
-        return list(self._db.exec(stmt).all())
-
-    def get_latest_by_document_id(
-        self, document_id: str
     ) -> Optional[DocumentClassification]:
         """
-        Get the latest classification for a document.
+        Get the classification for a document (one-to-one relationship).
 
         Args:
             document_id: Document ID (SHA256 hash)
 
         Returns:
-            Latest DocumentClassification record if found, None otherwise
+            DocumentClassification record if found, None otherwise
         """
-        stmt = (
-            select(DocumentClassification)
-            .where(DocumentClassification.document_id == document_id)
-            .order_by(DocumentClassification.created_at.desc())
-            .limit(1)
+        stmt = select(DocumentClassification).where(
+            DocumentClassification.document_id == document_id
         )
         return self._db.exec(stmt).first()
 
@@ -135,26 +133,22 @@ class DocumentClassificationRepository:
         self._db.refresh(classification)
         return classification
 
-    def delete_by_document_id(self, document_id: str) -> int:
+    def delete_by_document_id(self, document_id: str) -> bool:
         """
-        Delete all classifications for a document.
+        Delete the classification for a document (one-to-one relationship).
 
         Args:
             document_id: Document ID (SHA256 hash)
 
         Returns:
-            Number of records deleted
+            True if classification was deleted, False if not found
         """
-        stmt = select(DocumentClassification).where(
-            DocumentClassification.document_id == document_id
-        )
-        classifications = list(self._db.exec(stmt).all())
-
-        for classification in classifications:
+        classification = self.get_by_document_id(document_id)
+        if classification:
             self._db.delete(classification)
-
-        self._db.commit()
-        return len(classifications)
+            self._db.commit()
+            return True
+        return False
 
     def get_all_categories(self) -> List[str]:
         """

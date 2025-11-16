@@ -133,7 +133,7 @@ class DocumentProcessingService:
         
         try:
             # Check if document has been classified
-            existing_classification = self.classification_repo.get_latest_by_document_id(document_id)
+            existing_classification = self.classification_repo.get_by_document_id(document_id)
             
             if existing_classification:
                 # Document is already classified - publish event and return (no DB task needed)
@@ -322,7 +322,11 @@ class DocumentProcessingService:
                     # (process_document_task should have already called _mark_completed, but this is a safety check)
                     db_task = self.task_repo.get_by_id(task.db_task_id) if task.db_task_id else None
                     if db_task and db_task.status == ProcessingTaskStatus.PROCESSING:
-                        self._update_task_status(task, ProcessingTaskStatus.COMPLETED)
+                        # Ensure document is marked as completed
+                        document = self.document_repo.get_by_id(task.document_id)
+                        if document and document.status != DocumentStatus.COMPLETED:
+                            self.document_repo.update_status(document, DocumentStatus.COMPLETED)
+
                         # Mark task as completed
                         try:
                             self.task_repo.update_status(db_task, ProcessingTaskStatus.COMPLETED, None)
@@ -455,7 +459,7 @@ class DocumentProcessingService:
         """
         import os
         import json
-        from src.utils.pdf_helper import PDFHelper
+        from scanpro_lib.utils.pdf_helper import PDFHelper
 
         file_extension = os.path.splitext(filename)[1].lower()
         pages = []
@@ -561,8 +565,8 @@ class DocumentProcessingService:
             user_id: User ID
             entities: Extracted entities
         """
-        # Create classification record
-        self.classification_repo.create(
+        # Create or update classification record (one-to-one)
+        self.classification_repo.create_or_update(
             document_id=document_id,
             category=category,
             confidence=confidence,

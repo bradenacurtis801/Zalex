@@ -71,7 +71,7 @@ class PDFService:
             
             # Get document category (may have changed since cache was created)
             category = None
-            classification = self.classification_repo.get_latest_by_document_id(document_id)
+            classification = self.classification_repo.get_by_document_id(document_id)
             if classification:
                 category = classification.category
             cached_data["category"] = category
@@ -118,7 +118,7 @@ class PDFService:
 
             # Get document category (latest classification)
             category = None
-            classification = self.classification_repo.get_latest_by_document_id(document_id)
+            classification = self.classification_repo.get_by_document_id(document_id)
             if classification:
                 category = classification.category
 

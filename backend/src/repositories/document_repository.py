@@ -13,7 +13,6 @@ from src.models.database import (
     DocumentFeedback,
     PDFCache,
     OCRData,
-    UploadSessionFile,
     EmbeddingMetadata,
     Entity,
 )
@@ -206,16 +205,7 @@ class DocumentRepository:
                 self._db.delete(ocr_record)
             deletion_counts["ocr_data"] = len(ocr_records)
 
-            # 6. Delete UploadSessionFile
-            upload_file_stmt = select(UploadSessionFile).where(
-                UploadSessionFile.document_id == document_id
-            )
-            upload_files = list(self._db.exec(upload_file_stmt).all())
-            for upload_file in upload_files:
-                self._db.delete(upload_file)
-            deletion_counts["upload_session_files"] = len(upload_files)
-
-            # 7. Finally, delete the Document itself
+            # 6. Finally, delete the Document itself
             self._db.delete(document)
             deletion_counts["document"] = 1
 

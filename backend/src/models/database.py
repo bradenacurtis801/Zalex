@@ -47,13 +47,6 @@ class DocumentStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
 
-class UploadSessionStatus(str, Enum):
-    """Upload session status"""
-    ACTIVE = "active"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    EXPIRED = "expired"
-
 class DocumentBase(SQLModel):
     """Base document model with common fields"""
     filename: str = Field(max_length=500)  # Original filename without modification
@@ -71,7 +64,7 @@ class Document(DocumentBase, table=True):
     
     # Relationships
     user: Optional[User] = Relationship(back_populates="documents")
-    classifications: List["DocumentClassification"] = Relationship(back_populates="document")
+    classification: Optional["DocumentClassification"] = Relationship(back_populates="document")
     feedback: List["DocumentFeedback"] = Relationship(back_populates="document")
     pdf_cache: Optional["PDFCache"] = Relationship(back_populates="document")
     ocr_data: List["OCRData"] = Relationship(back_populates="document")
@@ -84,13 +77,13 @@ class DocumentClassificationBase(SQLModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class DocumentClassification(DocumentClassificationBase, table=True):
-    """Document classification table"""
+    """Document classification table - one-to-one relationship with Document"""
     id: Optional[int] = Field(default=None, primary_key=True)
-    document_id: str = Field(foreign_key="document.id")
+    document_id: str = Field(foreign_key="document.id", unique=True, index=True)
     user_id: Optional[int] = Field(foreign_key="user.id", nullable=True)
     
     # Relationships
-    document: Document = Relationship(back_populates="classifications")
+    document: Document = Relationship(back_populates="classification")
     user: Optional[User] = Relationship()
 
 class DocumentFeedbackBase(SQLModel):
@@ -109,48 +102,6 @@ class DocumentFeedback(DocumentFeedbackBase, table=True):
     # Relationships
     document: Document = Relationship(back_populates="feedback")
     user: Optional[User] = Relationship()
-
-class UploadSessionBase(SQLModel):
-    """Base upload session model"""
-    client_id: str = Field(max_length=100, unique=True, index=True)
-    status: UploadSessionStatus = Field(default=UploadSessionStatus.ACTIVE)
-    total_files: int = Field(ge=0)
-    processed_files: int = Field(ge=0, default=0)
-    current_file: Optional[str] = Field(max_length=500, nullable=True)
-    progress_percent: float = Field(ge=0.0, le=100.0, default=0.0)
-    error_message: Optional[str] = Field(max_length=1000, nullable=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    expires_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(hours=24), sa_type=sa_DateTime(timezone=True))
-
-class UploadSession(UploadSessionBase, table=True):
-    """Upload session table - tracks user upload progress"""
-    id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: Optional[int] = Field(foreign_key="user.id", nullable=True)
-    
-    # Relationships
-    user: Optional[User] = Relationship()
-    files: List["UploadSessionFile"] = Relationship(back_populates="session")
-
-class UploadSessionFileBase(SQLModel):
-    """Base upload session file model"""
-    filename: str = Field(max_length=500)
-    file_size: int = Field(ge=0)
-    mime_type: str = Field(max_length=100)
-    status: DocumentStatus = Field(default=DocumentStatus.UPLOADED)
-    error_message: Optional[str] = Field(max_length=1000, nullable=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-class UploadSessionFile(UploadSessionFileBase, table=True):
-    """Upload session file table - tracks individual files in upload session"""
-    id: Optional[int] = Field(default=None, primary_key=True)
-    session_id: int = Field(foreign_key="uploadsession.id")
-    file_hash: Optional[str] = Field(max_length=64, nullable=True)  # Set when file is processed
-    document_id: Optional[str] = Field(foreign_key="document.id", nullable=True)  # Link to final document
-    
-    # Relationships
-    session: UploadSession = Relationship(back_populates="files")
-    document: Optional[Document] = Relationship()
 
 class PDFCacheBase(SQLModel):
     """Base PDF cache model"""
