@@ -7,107 +7,47 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import List
+from typing import List, Dict, Optional, Tuple
+import json
 
-from config import DOCUMENT_RAW_DIR, TRAINING_RESULTS_DIR, DOCUMENT_DATASET_DIR
-
-# Add backend to path so we can import shared utilities
-backend_path = Path(__file__).parent.parent / "backend"
-sys.path.insert(0, str(backend_path))
+import scanpro_lib.constants as c
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 import joblib
 
 # Import shared utilities from backend
-from src.utils.text_preprocessing import TextCleaner, DocumentMetrics
-from src.utils.training_utils import (
+from scanpro_lib.utils.text_preprocessing import TextCleaner, DocumentMetrics
+from scanpro_lib.utils.training_utils import (
     MetricsTracker,
     PDFProcessor,
-    save_processed_data,
-    load_processed_data,
+    load_training_data,
+    save_training_data,
+)
+from scanpro_lib.ocr.factory import get_default_ocr_engine
+
+from scanpro_lib.utils.file_hasher import calculate_file_hash
+from scanpro_lib.models.classifier import (
+    Page, 
+    DocumentData, 
+    TrainingData, 
+    TFIDFClassifierModel,
+    TrainingMetadata
 )
 
-# Import config
-from config import ML_MODELS_DIR
-
 # ========== CONFIG ==========
-DATA_DIR = DOCUMENT_RAW_DIR
-PROCESSED_DATA_DIR = DOCUMENT_DATASET_DIR
-PROCESSED_DATA_FILE = PROCESSED_DATA_DIR / "processed_training_data.joblib"
+DATA_DIR = c.DOCUMENT_RAW_DIR
+PROCESSED_DATA_DIR = c.DOCUMENT_DATASET_DIR
+
 CLASSIFIER_MODEL_ID = "bradenacurtis/scanpro-classifier-tfidf"
-CLASSIFIER_MODEL_DIR = ML_MODELS_DIR / CLASSIFIER_MODEL_ID.replace("/", "-")
+CLASSIFIER_MODEL_DIR = c.ML_MODELS_DIR / CLASSIFIER_MODEL_ID.replace("/", "-")
 
-def load_dataset(data_dir: Path, pdf_processor: PDFProcessor, use_tesseract: bool = True, 
-                 use_cache: bool = True, force_reprocess: bool = False):
-    """
-    Load dataset with comprehensive metrics tracking and caching support.
+MAX_PAGE = 5
     
-    Args:
-        data_dir: Directory containing category subdirectories
-        pdf_processor: PDFProcessor instance with metrics tracking
-        use_tesseract: Whether to use Tesseract OCR or native extraction
-        use_cache: Whether to use cached processed data if available
-        force_reprocess: Force reprocessing even if cached data exists
-    
-    Returns:
-        Tuple of (texts, labels, class_names)
-    """
-    # Try to load from cache first
-    if use_cache and not force_reprocess:
-        cached_data = load_processed_data(PROCESSED_DATA_FILE)
-        if cached_data is not None:
-            texts, labels, class_names, _ = cached_data
-            return texts, labels, class_names
-    
-    # Process from raw PDFs
-    texts, labels = [], []
-    original_texts = []  # Store original raw texts
-    class_names = sorted([d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))])
-    class_to_idx = {c: i for i, c in enumerate(class_names)}
-
-    print(f"\n📚 Processing dataset from {data_dir}")
-    print(f"📁 Found {len(class_names)} categories: {class_names}\n")
-
-    for cls in tqdm(class_names, desc="Processing categories"):
-        folder = os.path.join(data_dir, cls)
-        pdf_files = [f for f in os.listdir(folder) if f.endswith(".pdf")]
-        
-        for filename in tqdm(pdf_files, desc=f"  {cls}", leave=False):
-            pdf_path = os.path.join(folder, filename)
-            
-            try:
-                if use_tesseract:
-                    original_text, cleaned_text, metrics = pdf_processor.extract_text_with_tesseract(
-                        pdf_path, filename, cls
-                    )
-                else:
-                    original_text, cleaned_text, metrics = pdf_processor.extract_text_native(
-                        pdf_path, filename, cls
-                    )
-                
-                texts.append(cleaned_text)
-                original_texts.append(original_text)
-                labels.append(class_to_idx[cls])
-                
-            except Exception as e:
-                print(f"⚠️  Error processing {filename}: {e}")
-                continue
-    
-    print(f"\n✅ Processed {len(texts)} documents")
-    
-    # Save processed data for future use (including original texts)
-    if use_cache:
-        save_processed_data(texts, labels, class_names, PROCESSED_DATA_FILE, original_texts)
-    
-    return texts, labels, class_names
-
-# ========== MAIN TRAINING PIPELINE ==========
-
 def main():
     """Main training pipeline with comprehensive metrics tracking"""
     
@@ -115,38 +55,45 @@ def main():
     CLASSIFIER_MODEL_DIR.mkdir(parents=True, exist_ok=True)
     metrics_tracker = MetricsTracker(CLASSIFIER_MODEL_DIR)
     
-    # Initialize components with metrics tracking
-    # TextCleaner will track metrics when return_metrics=True is passed
+    # Initialize OCR engine
+    ocr_engine = get_default_ocr_engine()
+    ocr_engine.initialize()
+    
+    # Initialize text cleaner for cleaning text during training
     text_cleaner = TextCleaner(track_metrics=True)
-    pdf_processor = PDFProcessor(text_cleaner, metrics_tracker=metrics_tracker)
     
     print("="*60)
     print("🚀 Starting Training Pipeline with Metrics Tracking")
     print("="*60)
     
-    # ========== LOAD DATA ==========
-    # Check if we should use cached data or reprocess
-    use_cache = True  # Set to False to always reprocess
-    force_reprocess = False  # Set to True to force reprocessing even if cache exists
+    training_data = load_training_data(c.TRAINING_DATA_PATH, max_pages=MAX_PAGE)
     
-    start_time = time.time()
-    texts, labels, class_names = load_dataset(
-        DATA_DIR, 
-        pdf_processor, 
-        use_tesseract=True,
-        use_cache=use_cache,
-        force_reprocess=force_reprocess
-    )
-    load_time = time.time() - start_time
-    metrics_tracker.record_timing("dataset_loading", load_time)
+    # Extract texts and labels from TrainingData
+    raw_texts = training_data.extract_texts()
+    labels = training_data.extract_labels()
+    class_names = training_data.categories
+    
+    # Clean texts for training (lightweight function when needed)
+    print("\n🧹 Cleaning texts for training...")
+    texts = []
+    for raw_text in tqdm(raw_texts, desc="Cleaning texts"):
+        cleaned_text, metrics = text_cleaner.clean_text(raw_text, return_metrics=True)
+        texts.append(cleaned_text)
+    
+    # Extract file hashes (in same order as texts)
+    file_hashes = training_data.extract_file_hashes()
     
     # ========== TRAIN/TEST SPLIT ==========
     start_time = time.time()
-    X_train, X_test, y_train, y_test = train_test_split(
-        texts, labels, test_size=0.2, stratify=labels, random_state=42
+    # Split texts, labels, and hashes together
+    X_train, X_test, y_train, y_test, train_hashes, test_hashes = train_test_split(
+        texts, labels, file_hashes, test_size=0.2, stratify=labels, random_state=42
     )
     split_time = time.time() - start_time
     metrics_tracker.record_timing("train_test_split", split_time)
+    
+    # Store training data hashes
+    train_data_hashes = train_hashes
     
     print(f"\n📊 Dataset split: {len(X_train)} train, {len(X_test)} test")
     
@@ -307,49 +254,47 @@ def main():
     print(classification_report(y_test, y_pred, target_names=class_names))
     
     # ========== SAVE MODEL ==========
-    # Save to a dedicated folder for this classifier
-    CLASSIFIER_MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    
-    model_path = CLASSIFIER_MODEL_DIR / "document_classifier_nb.joblib"
-    vectorizer_path = CLASSIFIER_MODEL_DIR / "tfidf_vectorizer.joblib"
-    class_names_path = CLASSIFIER_MODEL_DIR / "class_names.json"
-    
-    joblib.dump(clf, model_path)
-    joblib.dump(vectorizer, vectorizer_path)
-    
-    # Save class names mapping (important for proper category names)
-    import json
-    class_names_data = {
+    # Prepare parameters for TrainingMetadata (using keyword arguments for clarity)
+    training_params = {
+        "model_id": CLASSIFIER_MODEL_ID,
+        "model_type": model_type,
+        "vectorizer": vectorizer,
+        "classifier": clf,
         "class_names": class_names,
-        "id2label": {i: name for i, name in enumerate(class_names)},
-        "label2id": {name: i for i, name in enumerate(class_names)}
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+        "train_acc": train_acc,
+        "test_acc": acc,
+        "train_confidences": train_confidences,
+        "test_confidences": test_confidences,
+        "test_split_percentage": 20.0,
+        "train_data_hashes": train_data_hashes,
     }
-    with open(class_names_path, 'w', encoding='utf-8') as f:
-        json.dump(class_names_data, f, indent=2, ensure_ascii=False)
     
-    print(f"\n✅ Model saved to: {model_path}")
-    print(f"✅ Vectorizer saved to: {vectorizer_path}")
-    print(f"✅ Class names saved to: {class_names_path}")
+    # Create TFIDFClassifierModel instance and save all files
+    classifier_model = TFIDFClassifierModel(
+        model_dir=CLASSIFIER_MODEL_DIR,
+        classifier_file=CLASSIFIER_MODEL_DIR / "document_classifier_nb.joblib",
+        vectorizer_file=CLASSIFIER_MODEL_DIR / "tfidf_vectorizer.joblib",
+        class_names_file=CLASSIFIER_MODEL_DIR / "class_names.json",
+        training_metadata_file=CLASSIFIER_MODEL_DIR / "training_metadata.json",
+        classifier=clf,
+        vectorizer=vectorizer,
+        training_params=training_params
+    )
+    classifier_model.save()
+    
+    print(f"\n✅ Model saved to: {classifier_model.classifier_file}")
+    print(f"✅ Vectorizer saved to: {classifier_model.vectorizer_file}")
+    print(f"✅ Class names saved to: {classifier_model.class_names_file}")
+    print(f"✅ Training metadata saved to: {classifier_model.training_metadata_file}")
     print(f"📁 Model folder: {CLASSIFIER_MODEL_DIR}")
     
     # ========== EXPORT METRICS ==========
     metrics_tracker.print_summary()
-    json_path, csv_path = metrics_tracker.export_metrics()
-    
-    print("\n" + "="*60)
-    print("✅ Training Pipeline Complete!")
-    print("="*60)
-    print(f"\n📊 Metrics exported:")
-    print(f"   Summary: {json_path}")
-    if csv_path:
-        print(f"   Documents: {csv_path}")
-    print("\n💡 Use these metrics to analyze:")
-    print("   - Cleaning effectiveness per category")
-    print("   - Processing time bottlenecks")
-    print("   - Text reduction patterns")
-    print("   - OCR error frequency")
-    print("="*60 + "\n")
-
+    # json_path, csv_path = metrics_tracker.export_metrics()
 
 if __name__ == "__main__":
     main()
