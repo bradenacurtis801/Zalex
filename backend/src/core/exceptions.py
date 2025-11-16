@@ -33,6 +33,12 @@ class FileProcessingException(ScanProException):
         super().__init__(message)
 
 
+class UnsupportedFileTypeError(FileProcessingException):
+    """Raised when an unsupported file type is uploaded."""
+    def __init__(self, message: str = "Unsupported file type. Only PDF and image files are allowed."):
+        super().__init__(message)
+
+
 class FeedbackException(ScanProException):
     """Raised when feedback operations fail."""
     def __init__(self, message: str = "Feedback operation failed. Please try again."):
@@ -49,6 +55,13 @@ class CategoryNotFoundError(FeedbackException):
     """Raised when a category is not found."""
     def __init__(self, message: str = "Category not found."):
         super().__init__(message)
+
+
+class CategoryAlreadyExistsError(ScanProException):
+    """Raised when trying to create a category that already exists."""
+    def __init__(self, message: str = "Category already exists."):
+        super().__init__(message)
+
 
 class TaskNotFoundException(ScanProException):
     """Raised when a processing task is not found."""
@@ -107,8 +120,10 @@ def map_to_http_exception(exc: Exception) -> HTTPException:
         ClassifierNotAvailableException: (status.HTTP_503_SERVICE_UNAVAILABLE, lambda exc: str(exc)),
         DocumentProcessingException: (status.HTTP_500_INTERNAL_SERVER_ERROR, lambda exc: str(exc)),
         FileProcessingException: (status.HTTP_500_INTERNAL_SERVER_ERROR, lambda exc: str(exc)),
+        UnsupportedFileTypeError: (status.HTTP_400_BAD_REQUEST, lambda exc: str(exc)),
         DocumentNotFoundError: (status.HTTP_404_NOT_FOUND, lambda exc: str(exc)),
         CategoryNotFoundError: (status.HTTP_404_NOT_FOUND, lambda exc: str(exc)),
+        CategoryAlreadyExistsError: (status.HTTP_400_BAD_REQUEST, lambda exc: str(exc)),
         TaskNotFoundException: (status.HTTP_404_NOT_FOUND, lambda exc: str(exc)),
         FeedbackException: (status.HTTP_400_BAD_REQUEST, lambda exc: str(exc)),
         ScanProException: (status.HTTP_500_INTERNAL_SERVER_ERROR, lambda exc: str(exc)),

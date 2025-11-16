@@ -3,6 +3,8 @@
 import logging
 from typing import Any, Dict, List, Optional
 
+from fastapi import UploadFile
+
 from src.ml.classification.base_classifier import DocumentClassifier
 from src.models.schemas.category import CategoriesResponse, CategoryResponse, DocumentEntry, CategoryDocument, UserInfo
 from src.repositories.document_classification_repository import DocumentClassificationRepository
@@ -10,7 +12,6 @@ from src.repositories.category_repository import CategoryRepository
 from src.repositories.document_repository import DocumentRepository
 from src.models.database import DocumentStatus
 from src.core.exceptions import CategoryAlreadyExistsError
-
 from scanpro_lib.utils.file_hasher import calculate_file_hash_from_content
 
 logger = logging.getLogger(__name__)
@@ -23,9 +24,13 @@ class CategoryService:
         self,
         document_classifier: DocumentClassifier,
         classification_repo: Optional[DocumentClassificationRepository],
+        category_repo: CategoryRepository,
+        document_repo: DocumentRepository,
     ):
         self.document_classifier = document_classifier
         self.classification_repo = classification_repo
+        self.category_repo = category_repo
+        self.document_repo = document_repo
 
     def get_documents_by_category(self, category: str, skip: int = 0, limit: int = 100) -> CategoryResponse:
         """
@@ -147,3 +152,96 @@ class CategoryService:
 
         logger.info(f"Categories summary: {summary}")
         return summary
+
+    def get_training_metrics(self) -> Dict[str, Any]:
+        """
+        Get training metrics from the document classifier.
+
+        Returns:
+            Dictionary with classifier information and training metadata.
+        """
+        logger.info("Retrieving training metrics from classifier")
+        return self.document_classifier.get_classifier_info()
+
+    async def create_category_with_training_documents(
+        self,
+        name: str,
+        description: Optional[str],
+        files: List[UploadFile],
+        user_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create a new category and upload training documents for it.
+
+        Args:
+            name: Category name
+            description: Category description (optional)
+            files: List of PDF files to use as training data
+            user_id: User ID who created the category
+
+        Returns:
+            Dictionary with category info and uploaded document count
+        """
+        logger.info(f"Creating category '{name}' with {len(files)} training document(s)")
+
+        # Check if category already exists
+        existing_category = self.category_repo.get_by_name(name)
+        if existing_category:
+            raise CategoryAlreadyExistsError(f"Category '{name}' already exists")
+
+        # Create the category
+        category = self.category_repo.create(
+            name=name,
+            description=description,
+            created_by=user_id,
+        )
+        logger.info(f"Created category '{name}' with ID {category.id}")
+
+        # Upload and link training documents
+        uploaded_count = 0
+        for file in files:
+            try:
+                file_content = await file.read()
+                file_hash = calculate_file_hash_from_content(file_content)
+                
+                # Check if document already exists
+                existing_document = self.document_repo.get_by_id(file_hash)
+                if not existing_document:
+                    # Create new document
+                    file_size = len(file_content)
+                    mime_type = file.content_type or "application/pdf"
+                    
+                    self.document_repo.create(
+                        document_id=file_hash,
+                        filename=file.filename or "unknown.pdf",
+                        file_content=file_content,
+                        file_size=file_size,
+                        mime_type=mime_type,
+                        user_id=user_id,
+                        status=DocumentStatus.UPLOADED,  # Don't process these automatically
+                    )
+                    logger.debug(f"Created document record for {file.filename}")
+
+                # Link document to category as training data
+                self.category_repo.add_training_document(
+                    category_id=category.id,
+                    document_id=file_hash,
+                    uploaded_by=user_id,
+                )
+                uploaded_count += 1
+                logger.debug(f"Added {file.filename} as training document for category '{name}'")
+
+            except Exception as e:
+                logger.error(f"Error processing training document {file.filename}: {e}")
+                # Continue with other files even if one fails
+                continue
+
+        logger.info(f"Successfully created category '{name}' with {uploaded_count} training document(s)")
+
+        return {
+            "category_id": category.id,
+            "category_name": category.name,
+            "description": category.description,
+            "training_documents_count": uploaded_count,
+            "total_files": len(files),
+        }

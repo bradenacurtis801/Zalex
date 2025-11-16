@@ -205,4 +205,41 @@ class EmbeddingMetadata(EmbeddingMetadataBase, table=True):
     document: Document = Relationship()
     entities: List["Entity"] = Relationship(back_populates="embedding_metadata")
 
+
+class CategoryBase(SQLModel):
+    """Base category model"""
+    name: str = Field(unique=True, index=True, max_length=100)
+    description: Optional[str] = Field(max_length=500, nullable=True)
+    created_by: Optional[int] = Field(foreign_key="user.id", nullable=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    is_active: bool = Field(default=True)
+
+
+class Category(CategoryBase, table=True):
+    """Category table - stores document categories for classification"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # Relationships
+    creator: Optional[User] = Relationship()
+    training_documents: List["CategoryTrainingDocument"] = Relationship(back_populates="category")
+
+
+class CategoryTrainingDocumentBase(SQLModel):
+    """Base category training document model"""
+    category_id: int = Field(foreign_key="category.id", index=True)
+    document_id: str = Field(foreign_key="document.id", index=True)
+    uploaded_by: Optional[int] = Field(foreign_key="user.id", nullable=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class CategoryTrainingDocument(CategoryTrainingDocumentBase, table=True):
+    """Category training document table - links documents to categories for training"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # Relationships
+    category: Category = Relationship(back_populates="training_documents")
+    document: Document = Relationship()
+    uploader: Optional[User] = Relationship()
+
 # Relationships are now defined directly in the User class

@@ -6,7 +6,13 @@ from typing import Optional
 import config
 from fastapi import APIRouter, Depends, File, Query, UploadFile
 from fastapi.responses import FileResponse, Response
-from src.dependencies import get_pdf_service, get_upload_service, get_current_user, require_admin
+from src.dependencies import (
+    get_pdf_service, 
+    get_upload_service, 
+    get_current_user, 
+    require_admin,
+    validate_uploaded_files
+)
 from src.models.database import User
 from src.models.schemas.upload import UploadResponse
 from src.services.pdf_service import PDFService
@@ -18,14 +24,20 @@ router = APIRouter()
 
 @router.post("/upload", response_model=UploadResponse)
 async def upload_files(
-    files: list[UploadFile] = File(...),
+    validated_files: list[UploadFile] = Depends(validate_uploaded_files),
     upload_service: UploadService = Depends(get_upload_service),
     current_user: User = Depends(get_current_user),
 ) -> UploadResponse:
-    """Handles the file upload and initiates the processing pipeline."""
-    logger.info(f"Received upload request with {len(files)} file(s) from user {current_user.id}")
+    """
+    Handles the file upload and initiates the processing pipeline.
     
-    return await upload_service.process_upload(files, current_user.id)
+    Only PDF and image files (.pdf, .jpg, .jpeg, .png) are supported.
+    Text files (.txt) are explicitly rejected.
+    """
+    logger.info(f"Received upload request with {len(validated_files)} file(s) from user {current_user.id}")
+    
+    # Files are already validated by the dependency
+    return await upload_service.process_upload(validated_files, current_user.id)
 
 
 @router.get("/documents/{document_id}/content")

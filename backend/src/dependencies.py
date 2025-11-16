@@ -32,14 +32,116 @@ from src.repositories import (
     DocumentClassificationRepository,
     DocumentFeedbackRepository,
     TaskRepository,
+    CategoryRepository,
 )
 
 # Security scheme
 security = HTTPBearer(auto_error=False)  # ← Don't raise error if missing
 
+logger = logging.getLogger(__name__)
+
 def get_db() -> Session:
     """Database dependency"""
     return next(get_session())
+
+
+# ========== File Validation Dependencies ==========
+
+def validate_file_type(file: UploadFile) -> UploadFile:
+    """
+    Validate that uploaded file is a supported type (PDF or image).
+    
+    Supported types:
+    - PDF: .pdf (application/pdf)
+    - Images: .jpg, .jpeg, .png (image/jpeg, image/png)
+    
+    Args:
+        file: Uploaded file to validate
+        
+    Returns:
+        The file if valid
+        
+    Raises:
+        UnsupportedFileTypeError: If file type is not supported
+    """
+    from fastapi import UploadFile
+    
+    if not file.filename:
+        raise UnsupportedFileTypeError("File must have a filename")
+    
+    # Get file extension
+    filename_lower = file.filename.lower()
+    file_extension = None
+    if '.' in filename_lower:
+        file_extension = '.' + filename_lower.rsplit('.', 1)[1]
+    
+    # Get MIME type from content_type
+    content_type = (file.content_type or "").lower()
+    
+    # Define allowed file types
+    ALLOWED_EXTENSIONS = {'.pdf', '.jpg', '.jpeg', '.png'}
+    ALLOWED_MIME_TYPES = {
+        'application/pdf',
+        'image/jpeg',
+        'image/jpg',  # Some servers use this
+        'image/png',
+    }
+    
+    # Check extension
+    if file_extension not in ALLOWED_EXTENSIONS:
+        raise UnsupportedFileTypeError(
+            f"Unsupported file type: {file_extension or 'unknown'}. "
+            f"Only PDF and image files (.pdf, .jpg, .jpeg, .png) are allowed."
+        )
+    
+    # Check MIME type (if provided)
+    if content_type and content_type not in ALLOWED_MIME_TYPES:
+        # Allow if extension is valid but MIME type is missing/unknown
+        # (some clients don't send proper MIME types)
+        if file_extension in ALLOWED_EXTENSIONS:
+            logger.warning(
+                f"File {file.filename} has unsupported MIME type '{content_type}' "
+                f"but valid extension '{file_extension}'. Allowing based on extension."
+            )
+        else:
+            raise UnsupportedFileTypeError(
+                f"Unsupported file type: {content_type}. "
+                f"Only PDF and image files are allowed."
+            )
+    
+    # Explicitly reject .txt files
+    if file_extension == '.txt':
+        raise UnsupportedFileTypeError(
+            "Text files (.txt) are not supported. Only PDF and image files are allowed."
+        )
+    
+    return file
+
+
+def validate_uploaded_files(files: List[UploadFile] = File(...)) -> List[UploadFile]:
+    """
+    FastAPI dependency to validate a list of uploaded files.
+    
+    This dependency validates file types before the route handler is called.
+    Only PDF and image files are allowed. Text files are explicitly rejected.
+    
+    Args:
+        files: List of uploaded files to validate (injected by FastAPI)
+        
+    Returns:
+        List of validated files
+        
+    Raises:
+        UnsupportedFileTypeError: If any file type is not supported
+    """
+    if not files:
+        raise ValueError("No files provided")
+    
+    validated_files = []
+    for file in files:
+        validated_files.append(validate_file_type(file))
+    
+    return validated_files
 
 
 # ========== Repository Dependencies ==========
@@ -78,6 +180,10 @@ def get_document_feedback_repository(db: Session = Depends(get_session)) -> Docu
 def get_task_repository(db: Session = Depends(get_session)) -> TaskRepository:
     """Dependency injection for TaskRepository."""
     return TaskRepository(db)
+
+def get_category_repository(db: Session = Depends(get_session)) -> CategoryRepository:
+    """Dependency injection for CategoryRepository."""
+    return CategoryRepository(db)
 
 # ========== Service Dependencies ==========
 
@@ -140,9 +246,16 @@ def get_document_classifier():
 def get_category_service(
     document_classifier=Depends(get_document_classifier),
     classification_repo: DocumentClassificationRepository = Depends(get_document_classification_repository),
+    category_repo: CategoryRepository = Depends(get_category_repository),
+    document_repo: DocumentRepository = Depends(get_document_repository),
 ) -> CategoryService:
     """Dependency injection for CategoryService."""
-    return CategoryService(document_classifier, classification_repo)
+    return CategoryService(
+        document_classifier=document_classifier,
+        classification_repo=classification_repo,
+        category_repo=category_repo,
+        document_repo=document_repo,
+    )
 
 
 def get_feedback_service(
