@@ -12,13 +12,8 @@ PY_MODULE_NAME = "scanpro_lib"
 setup(
     name=PY_MODULE_NAME,
     version="0.0.0",
-    packages=find_packages(where="."),  # Find all packages recursively
-    package_dir={PY_MODULE_NAME: PY_MODULE_NAME},  # All packages are in the current directory
-    package_data={
-        PY_MODULE_NAME: [
-            "*.py",  # Include all Python files
-        ],
-    },
+    packages=find_packages(),  # Find all packages in current directory
+    package_dir={"": "."},  # Packages are in the current directory
     include_package_data=True,  # Include package data files
     description="ScanPro Library",
 )

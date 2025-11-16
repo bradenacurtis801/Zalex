@@ -22,6 +22,7 @@ from scanpro_lib.utils.pdf_helper import PDFHelper
 from scanpro_lib.ocr.factory import get_default_ocr_engine
 from scanpro_lib.models.classifier import Page, TrainingData
 from scanpro_lib.utils.text_preprocessing import DocumentMetrics
+from scanpro_lib.utils.file_hasher import calculate_file_hash
 
 
 class MetricsTracker:
@@ -369,6 +370,11 @@ def generate_training_data(
             pdf_path = os.path.join(folder, filename)
             
             try:
+                # Calculate file hash
+                file_hash = calculate_file_hash(pdf_path)
+                if not file_hash:
+                    raise ValueError(f"Could not calculate hash for {filename}")
+                
                 # Extract raw pages using the PDF processor (no cleaning)
                 if use_tesseract:
                     pages = pdf_processor.extract_text_with_tesseract(
@@ -383,6 +389,7 @@ def generate_training_data(
                 doc_data = DocumentData(
                     num_pages=len(pages),
                     file_name=filename,
+                    file_hash=file_hash,
                     pages=pages
                 )
                 
