@@ -3,6 +3,7 @@ from typing import List, Optional
 
 class QueryRequest(BaseModel):
     query: str
+    limit: Optional[int] = None  # Optional limit on number of results (defaults to service default)
 
 class Entity(BaseModel):
     """Named entity extracted from document text."""

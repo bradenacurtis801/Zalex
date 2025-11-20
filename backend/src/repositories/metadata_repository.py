@@ -7,6 +7,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from src.models.database import EmbeddingMetadata as DBEmbeddingMetadata, Entity as DBEntity
@@ -99,29 +100,26 @@ class MetadataRepository:
     def get_by_faiss_indices(self, faiss_indices: List[int]) -> List[DBEmbeddingMetadata]:
         """
         Get metadata by multiple FAISS index positions.
-        Also loads associated Entity records.
+        Also loads associated Entity records using eager loading.
         
         Args:
             faiss_indices: List of FAISS index positions
             
         Returns:
-            List of DBEmbeddingMetadata records with entities loaded
+            List of DBEmbeddingMetadata records with entities loaded via relationship
         """
         if not faiss_indices:
             return []
         
-        stmt = select(DBEmbeddingMetadata).where(
-            DBEmbeddingMetadata.faiss_index.in_(faiss_indices)
+        # Use selectinload to eagerly load entities in one query instead of N+1 queries
+        stmt = (
+            select(DBEmbeddingMetadata)
+            .where(DBEmbeddingMetadata.faiss_index.in_(faiss_indices))
+            .options(selectinload(DBEmbeddingMetadata.entities))
         )
         metadata_list = list(self._db.exec(stmt).all())
         
-        # Load entities for each metadata record
-        for metadata in metadata_list:
-            entity_stmt = select(DBEntity).where(
-                DBEntity.embedding_metadata_id == metadata.id
-            )
-            metadata.entities = list(self._db.exec(entity_stmt).all())
-        
+        # Entities are now loaded via the relationship, accessible as metadata.entities
         return metadata_list
 
     def get_entities(self, metadata: DBEmbeddingMetadata) -> List[Dict[str, Any]]:

@@ -22,13 +22,13 @@ class QueryService:
         self.embeddings_index = embeddings_index
         self.metadata_repo = metadata_repo
 
-    def search_documents(self, query_text: str, k: int = 5000) -> QueryResponse:
+    def search_documents(self, query_text: str, k: int = 100) -> QueryResponse:
         """
         Search for documents based on query text.
 
         Args:
             query_text: The search query
-            k: Number of results to retrieve
+            k: Number of results to retrieve (default: 100, capped at index size)
 
         Returns:
             QueryResponse with search results
@@ -47,6 +47,12 @@ class QueryService:
         if index_size == 0:
             logger.warning("FAISS index is empty - no documents have been indexed yet")
             return QueryResponse(results=[])
+
+        # Cap k to not exceed the index size
+        original_k = k
+        k = min(k, index_size)
+        if original_k > index_size:
+            logger.debug(f"Capped k from {original_k} to {k} (index size: {index_size})")
 
         # Search the index using EmbeddingsIndex (embeddings only)
         # Get FAISS indices and distances
@@ -90,7 +96,19 @@ class QueryService:
         
         # Convert numpy arrays to Python lists with native types for database compatibility
         distances_list = distances[0].tolist() if hasattr(distances[0], 'tolist') else list(distances[0])
-        indices_list = [int(idx) for idx in indices[0]]  # Convert numpy.int64 to Python int
+        indices_array = indices[0]
+        
+        # Filter out invalid indices (-1 values indicate no match found)
+        # This happens when k is larger than the number of vectors in the index
+        valid_mask = indices_array != -1
+        valid_indices = indices_array[valid_mask]
+        valid_distances = distances[0][valid_mask]
+        
+        # Convert to Python lists
+        indices_list = [int(idx) for idx in valid_indices]
+        distances_list = valid_distances.tolist() if hasattr(valid_distances, 'tolist') else list(valid_distances)
+        
+        logger.debug(f"FAISS search: requested k={k}, found {len(indices_list)} valid results (filtered {len(indices_array) - len(indices_list)} invalid -1 indices)")
         
         return distances_list, indices_list
     

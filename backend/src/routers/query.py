@@ -18,4 +18,5 @@ def query_index(
 ) -> QueryResponse:
     """Handles user queries, searches the index, and returns relevant results."""
     logger.info(f"Received query: '{request.query}'")
-    return query_service.search_documents(request.query)
+    k = request.limit if request.limit is not None else 100
+    return query_service.search_documents(request.query, k=k)
