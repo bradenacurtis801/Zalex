@@ -27,43 +27,48 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # Environment (maps NODE_ENV to internal values)
-    node_env: Literal["dev", "prod", "development", "production"] = Field(default="dev")
+    node_env: Literal["dev", "prod", "development", "production"] = Field(default="prod")
 
     # Database
-    database_url: str = Field(
-        default="",
-        description="Database connection URL (auto-constructed if empty)"
+    # Either database_url OR all postgres credentials must be provided
+    database_url: str | None = Field(
+        default=None,
+        description="Database connection URL (required if postgres credentials not provided)"
     )
     
     # PostgreSQL Settings
-    postgres_username: str = Field(
-        default="postgres",
-        description="PostgreSQL username"
+    # Required if database_url is not provided
+    postgres_username: str | None = Field(
+        default=None,
+        description="PostgreSQL username (required if database_url not provided)"
     )
-    postgres_password: str = Field(
-        default="password",
-        description="PostgreSQL password"
+    postgres_password: str | None = Field(
+        default=None,
+        description="PostgreSQL password (required if database_url not provided)"
     )
-    postgres_db_name: str = Field(
-        default="scanpro_db",
-        description="PostgreSQL database name"
+    postgres_db_name: str | None = Field(
+        default=None,
+        description="PostgreSQL database name (required if database_url not provided)"
     )
-    postgres_host: str = Field(
-        default="localhost",
-        description="PostgreSQL host"
+    postgres_host: str | None = Field(
+        default=None,
+        description="PostgreSQL host (required if database_url not provided)"
     )
-    postgres_port: str = Field(
-        default="5432",
-        description="PostgreSQL port"
+    postgres_port: str | None = Field(
+        default=None,
+        description="PostgreSQL port (required if database_url not provided)"
     )
 
     # Server configuration
-    backend_host: str = Field(default="127.0.0.1")
+    backend_host: str | None = Field(
+        default="localhost",
+        description="Backend server host"
+    )
 
     # Debug mode
     debug: int = Field(default=0, env="DEBUG")
 
-    log_level: str | None = Field(default=None)
+    log_level: str = Field(default="INFO")
 
     # CORS settings
     cors_origins: List[str] = Field(
@@ -73,7 +78,7 @@ class Settings(BaseSettings):
 
     # Model configuration
     # Hugging Face token for private models
-    scanpro_hf_token: str = Field(default="")
+    hf_token: str = Field(default="")
 
     class Config:
         case_sensitive = False
@@ -93,10 +98,30 @@ class Settings(BaseSettings):
         return "dev"
 
     @model_validator(mode='after')
-    def construct_database_url(self):
-        """Construct database URL if not provided"""
-        if not self.database_url or self.database_url.strip() == "":           
-            # Use PostgreSQL with environment settings
+    def validate_database_config(self):
+        """Validate that either database_url OR all postgres credentials are provided"""
+        has_database_url = self.database_url and self.database_url.strip() != ""
+        has_postgres_creds = all([
+            self.postgres_username,
+            self.postgres_db_name,
+            self.postgres_host,
+            self.postgres_port
+        ])
+        
+        if not has_database_url and not has_postgres_creds:
+            raise ValueError(
+                "Either DATABASE_URL or all PostgreSQL credentials (POSTGRES_USERNAME, "
+                "POSTGRES_PASSWORD, POSTGRES_DB_NAME, POSTGRES_HOST, POSTGRES_PORT) must be provided"
+            )
+        
+        if has_database_url and has_postgres_creds:
+            logger.warning(
+                "Both DATABASE_URL and PostgreSQL credentials provided. "
+                "Using DATABASE_URL and ignoring PostgreSQL credentials."
+            )
+        
+        # Construct database URL from postgres credentials if database_url not provided
+        if not has_database_url and has_postgres_creds:
             if self.postgres_password:
                 self.database_url = (
                     f"postgresql://{quote_plus(self.postgres_username)}:{quote_plus(self.postgres_password)}"
@@ -107,13 +132,13 @@ class Settings(BaseSettings):
                     f"postgresql://{quote_plus(self.postgres_username)}"
                     f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db_name}"
                 )
-            logger.info(f"Using environment PostgreSQL: {self.database_url}")
+            logger.info(f"Constructed database URL from PostgreSQL credentials: {self.database_url}")
         
         return self
 
 
 # Application name (hardcoded)
-APP_NAME = "ScanPro"
+APP_NAME = "SabioDocs"
 
 # Fixed ports inside container
 BACKEND_PORT = 5000
@@ -139,8 +164,7 @@ DB_DIR = APP_DIR / "db" / "postgres_data"
 # ML model paths (for inference only)
 ML_MODELS_DIR = APP_DIR / "ml_models"
 # CLASSIFIER_MODEL_PATH = ML_MODELS_DIR / "classifier_model"
-CLASSIFIER_MODEL_ID = "bradenacurtis/scanpro-classifier-v1-finetune"
-TFIDF_CLASSIFIER_MODEL_ID = "bradenacurtis/scanpro-classifier-tfidf"
+TFIDF_CLASSIFIER_MODEL_ID = "bradenacurtis/tfid-classifier"
 FAISS_INDEX_PATH = APP_DIR / "document_index.faiss"
 CLASSIFIER_CONFIDENCE_THRESHOLD = 0.8  # Minimum confidence threshold for classification acceptance
 CLASSIFIER_UNCERTAINTY_MARGIN = 0.2

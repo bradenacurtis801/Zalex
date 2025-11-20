@@ -1,5 +1,5 @@
 """
-Test data and sample content for ScanPro backend tests.
+Test data and sample content for backend tests.
 
 This module provides sample data, documents, and expected outputs
 for use across the test suite.

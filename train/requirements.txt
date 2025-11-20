@@ -1,4 +1,4 @@
-# Training requirements for ScanPro document classifier
+# Training requirements for document classifier
 sentence-transformers>=2.2.0
 faiss-cpu>=1.7.4
 numpy>=1.21.0

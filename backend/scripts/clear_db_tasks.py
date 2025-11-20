@@ -94,7 +94,7 @@ def clear_processing_tasks():
 
 def main():
     """Main function."""
-    print("🗑️  ScanPro Processing Task Cleanup Script")
+    print("🗑️  Backend Processing Task Cleanup Script")
     print("=" * 50)
     print(f"Database: {config.settings.database_url}")
     print(f"Environment: {config.settings.node_env_value}")

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test runner script for ScanPro backend tests.
+Test runner script for backend tests.
 
 This script provides convenient commands for running different types of tests
 and generating reports. It's designed to be used by team members who want
@@ -186,7 +186,7 @@ def run_specific_test(test_path, verbose=False):
 def main():
     """Main entry point for the test runner."""
     parser = argparse.ArgumentParser(
-        description="ScanPro Backend Test Runner",
+        description="Backend Test Runner",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__
     )

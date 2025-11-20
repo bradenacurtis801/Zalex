@@ -188,10 +188,6 @@ def adaptive_preprocessing_module(image_path):
 
 if __name__ == '__main__':
     # --- Replace this with the path to your document image ---
-    # INPUT_IMAGE_PATH = './documents/179e55030d77f06414bc4229c767d6e4.jpg'
-    # INPUT_IMAGE_PATH = 'C:/Users/brade/Downloads/ScanPro/ScanPro/test_data/rotated/rotated_115_page_11.png'
-    # INPUT_IMAGE_PATH = './page_11_white_text_black_background_rotated_140.png'
-    # INPUT_IMAGE_PATH = './page_11_black_text_white_background_rotated_140.png'
     INPUT_IMAGE_PATH = './page_2_black_text_white_background_rotated_140.png'
 
     processed_image, original_image = adaptive_preprocessing_module(INPUT_IMAGE_PATH)

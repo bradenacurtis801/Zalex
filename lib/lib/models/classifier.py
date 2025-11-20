@@ -9,7 +9,7 @@ import json
 
 if TYPE_CHECKING:
     from sklearn.feature_extraction.text import TfidfVectorizer
-    from scanpro_lib.utils.training_utils import MetricsTracker
+    from lib.utils.training_utils import MetricsTracker
 
 
 class Page(BaseModel):

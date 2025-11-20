@@ -208,7 +208,7 @@ def execute_sql(session: Session, query: str):
 def main():
     """Main interactive console loop."""
     print("=" * 70)
-    print("ScanPro Database Console")
+    print("Backend Database Console")
     print("=" * 70)
     print(f"Database: {config.settings.database_url}")
     print(f"Environment: {config.settings.node_env_value}")

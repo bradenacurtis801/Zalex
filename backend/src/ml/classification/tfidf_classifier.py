@@ -17,9 +17,9 @@ from sklearn.naive_bayes import MultinomialNB
 if TYPE_CHECKING:
     from src.models.schemas.feedback import CorrectionData
 
-from scanpro_lib.utils.text_preprocessing import TextCleaner
+from lib.utils.text_preprocessing import TextCleaner
 from .base_classifier import DocumentClassifier, DocumentClassificationResult
-from scanpro_lib.models.classifier import TFIDFClassifierModel
+from lib.models.classifier import TFIDFClassifierModel
 
 logger = logging.getLogger(__name__)
 

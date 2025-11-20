@@ -1,6 +1,6 @@
-# ScanPro Training Module
+# Training Module
 
-This directory contains all the machine learning training code for ScanPro. It's separate from the main backend to keep the FastAPI server lightweight and focused on serving requests.
+This directory contains all the machine learning training code. It's separate from the main backend to keep the FastAPI server lightweight and focused on serving requests.
 
 ## 📁 Structure
 

@@ -1,5 +1,5 @@
 """
-Unit tests for ScanPro backend.
+Unit tests for backend.
 
 Unit tests focus on testing individual components in isolation,
 with mocked dependencies where appropriate.

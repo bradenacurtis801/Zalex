@@ -1,6 +1,6 @@
-# ScanPro Documentation
+# Documentation
 
-This directory contains comprehensive documentation for the ScanPro AI Document Agent system.
+This directory contains comprehensive documentation for the AI Document Agent system.
 
 ## Documentation Index
 
@@ -25,7 +25,7 @@ This directory contains comprehensive documentation for the ScanPro AI Document 
 
 ## Document Classification
 
-The core of ScanPro is its document classification system. Key concepts:
+The core of is its document classification system. Key concepts:
 
 - **Similarity-based Classification**: Uses SentenceTransformer embeddings and cosine similarity
 - **768-dimensional Vectors**: Each document is converted to a 768-number vector

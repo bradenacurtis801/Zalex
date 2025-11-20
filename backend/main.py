@@ -1,7 +1,6 @@
 # ScriptNinja AI Document Agent
 # A self-contained FastAPI application for document ingestion, OCR, indexing, and retrieval.
 # To run:
-# 1. Make sure you are in the directory '/Users/casamaio/ScanPro'
 # 2. Install dependencies: pip install fastapi uvicorn easyocr torch torchvision faiss-cpu sentence-transformers PyMuPDF numpy Pillow python-multipart
 # 3. Run the script: uvicorn main:app --reload --host 127.0.0.1 --port 8000
 # 4. Open your web browser to http://127.0.0.1:8000
@@ -61,7 +60,7 @@ def create_default_admin_user():
             # Create admin user directly
             admin_user = User(
                 username="admin",
-                email="admin@scanpro.local",
+                email="admin@example.local",
                 full_name="Administrator",
                 password_hash=hashed_password,
                 user_role=UserRole.ADMIN,
@@ -74,7 +73,7 @@ def create_default_admin_user():
             
             logger.info(f"\033[92m[SUCCESS] Created default admin user: {admin_user.username}\033[0m")
             logger.info("\033[93m[INFO] Default credentials: admin / admin123\033[0m")
-            logger.info("\033[96m[READY] ScanPro is ready! Visit http://localhost:3000 to get started\033[0m")
+            logger.info("\033[96m[READY] Backend API is ready! Visit http://localhost:3000 to get started\033[0m")
             
     except Exception as e:
         logger.error(f"Failed to create default admin user: {e}")
@@ -212,7 +211,7 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.get("/health")
 async def health_check():
     """Health check endpoint for Docker and load balancers."""
-    return {"status": "healthy", "service": "ScanPro API"}
+    return {"status": "healthy", "service": "Backend API"}
 
 
 # Development redirect
@@ -222,7 +221,7 @@ async def root():
     if config.is_development:
         return RedirectResponse(url="/docs")
     else:
-        return {"message": "ScanPro API is running"}
+        return {"message": "API is running"}
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-# ScanPro
+# App
 
 A comprehensive document processing and search system that combines OCR, AI-powered document classification, and semantic search capabilities.
 
@@ -36,7 +36,7 @@ A comprehensive document processing and search system that combines OCR, AI-powe
 
 ## 🚀 Overview
 
-ScanPro is a full-stack document management application with user authentication, role-based access control, and intelligent document processing. Users can upload documents, automatically classify them by type, and perform semantic searches across their document collection. The system is designed to handle Spanish legal documents including birth certificates, marriage certificates, and property deeds.
+This app is a full-stack document management application with user authentication, role-based access control, and intelligent document processing. Users can upload documents, automatically classify them by type, and perform semantic searches across their document collection. The system is designed to handle Spanish legal documents including birth certificates, marriage certificates, and property deeds.
 
 ### 🔐 Authentication & User Management
 - **User Authentication**: Secure login/logout with session management
@@ -114,9 +114,9 @@ See individual component READMEs for detailed setup instructions.
 
 ### Hugging Face Authentication
 
-**IMPORTANT**: A Hugging Face token (`SCANPRO_HF_TOKEN`) is **required** for downloading models.
+**IMPORTANT**: A Hugging Face token (`HF_TOKEN`) is **required** for downloading models.
 
-- **With Token**: Backend automatically downloads models from `bradenacurtis/scanpro-classifier-v1-finetune`
+- **With Token**: Backend automatically downloads models from `bradenacurtis/tfid-classifier`
 - **Without Token + Cached Models**: Program runs successfully using locally cached models in `APP_DATA/ml_models/`
 - **Without Token + No Cache**: Authentication error from HuggingFace API - backend will fail to start
 
@@ -127,14 +127,14 @@ See individual component READMEs for detailed setup instructions.
 4. **Subsequent Runs**: Uses cached models (no token required if already cached)
 
 ### Setting Up the Token
-Set the `SCANPRO_HF_TOKEN` environment variable with your HuggingFace token:
+Set the `HF_TOKEN` environment variable with your HuggingFace token:
 ```bash
-export SCANPRO_HF_TOKEN="hf_xxxxx"
+export HF_TOKEN="hf_xxxxx"
 ```
 
 ## 📚 Documentation
 
-ScanPro includes comprehensive documentation for setup, development, and deployment:
+This App includes comprehensive documentation for setup, development, and deployment:
 
 ### Setup & Development
 - **[Development Setup Guide](docs/DEV-SETUP.md)** - Complete guide for setting up local development environment

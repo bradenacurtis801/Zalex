@@ -1,6 +1,6 @@
-# 🐳 ScanPro Docker Setup
+# 🐳 Docker Setup
 
-This document explains how to build and run ScanPro using Docker.
+This document explains how to build and run using Docker.
 
 ## 📋 Prerequisites
 
@@ -42,19 +42,13 @@ We provide convenient helper scripts in `scripts/docker/`:
 ### Manual Docker Commands
 
 ```bash
-# Build for your current architecture
-docker build -t bradenacurtis801/scanpro:latest .
-
-# Basic run command
-docker run -p 3000:3000 -p 5000:5000 bradenacurtis801/scanpro:latest
-
 # With data persistence
-docker run -it --name scanpro \
+docker run -it --name <container-name> \
   -p 3000:3000 \
   -p 5000:5000 \
-  -v scanpro_data:/app/backend/APP_DATA \
+  -v <volume name or path>:/app/backend/APP_DATA \
   --rm \
-  bradenacurtis801/scanpro:latest
+  <image name>
 ```
 
 ## 🎯 Complete Run Command
@@ -64,18 +58,18 @@ docker run -it --name scanpro \
 docker run -it --rm `
   -p 3000:3000 `
   -p 5000:5000 `
-  -v "C:\Users\brade\Downloads\ScanPro\ScanPro\APP_DATA:/app/APP_DATA" `
+  -v "<path-to-APP_DATA>:/app/APP_DATA" `
   -e NODE_ENV=development `
   -e DEBUG=0 `
   -e BACKEND_PORT=5000 `
   -e BACKEND_HOST=0.0.0.0 `
   -e POSTGRES_USERNAME=postgres `
   -e POSTGRES_PASSWORD=postgres123 `
-  -e POSTGRES_DB_NAME=scanpro_db `
+  -e POSTGRES_DB_NAME=<database-name> `
   -e POSTGRES_HOST=0.0.0.0 `
   -e POSTGRES_PORT=5432 `
   -e CORS_ORIGINS='["http://127.0.0.1:3000"]' `
-  bradenacurtis801/scanpro:v2.0.0-dev
+  <docker image name>
 ```
 
 ### macOS/Linux
@@ -90,11 +84,11 @@ docker run -it --rm \
   -e BACKEND_HOST=0.0.0.0 \
   -e POSTGRES_USERNAME=postgres \
   -e POSTGRES_PASSWORD=postgres123 \
-  -e POSTGRES_DB_NAME=scanpro_db \
+  -e POSTGRES_DB_NAME=<database-name> \
   -e POSTGRES_HOST=0.0.0.0 \
   -e POSTGRES_PORT=5432 \
   -e CORS_ORIGINS='["http://127.0.0.1:3000"]' \
-  bradenacurtis801/scanpro:v2.0.0-dev
+  <docker image name>
 ```
 
 ### Windows Command Prompt
@@ -102,18 +96,18 @@ docker run -it --rm \
 docker run -it --rm ^
   -p 3000:3000 ^
   -p 5000:5000 ^
-  -v "C:\Users\brade\Downloads\ScanPro\ScanPro\APP_DATA:/app/APP_DATA" ^
+  -v "<path-to-APP_DATA>:/app/APP_DATA" ^
   -e NODE_ENV=development ^
   -e DEBUG=0 ^
   -e BACKEND_PORT=5000 ^
   -e BACKEND_HOST=0.0.0.0 ^
   -e POSTGRES_USERNAME=postgres ^
   -e POSTGRES_PASSWORD=postgres123 ^
-  -e POSTGRES_DB_NAME=scanpro_db ^
+  -e POSTGRES_DB_NAME=<database-name> ^
   -e POSTGRES_HOST=0.0.0.0 ^
   -e POSTGRES_PORT=5432 ^
   -e CORS_ORIGINS='["http://127.0.0.1:3000"]' ^
-  bradenacurtis801/scanpro:v2.0.0-dev
+  <docker image name>
 ```
 
 ## 🏗️ Multi-Architecture Build
@@ -163,7 +157,7 @@ Once running, you can access:
 
 ### Basic Syntax
 ```bash
-docker run [OPTIONS] bradenacurtis801/scanpro:latest
+docker run [OPTIONS] <docker image name>
 ```
 
 ### Port Mapping
@@ -185,7 +179,7 @@ docker run [OPTIONS] bradenacurtis801/scanpro:latest
 
 #### Container Management
 ```bash
---name scanpro          # Name the container
+--name <container-name>          # Name the container
 --rm                    # Remove container when it stops
 -it                     # Interactive mode with TTY
 -d                      # Run in background (detached)
@@ -194,7 +188,7 @@ docker run [OPTIONS] bradenacurtis801/scanpro:latest
 #### Data Persistence
 ```bash
 # Mount volume for data persistence
--v scanpro_data:/app/backend/APP_DATA
+-v <volume-name>:/app/backend/APP_DATA
 
 # Mount local directory (development)
 -v $(pwd)/data:/app/backend/APP_DATA
@@ -242,12 +236,12 @@ This setup:
 
 ### Summary
 
-**Two ways to run ScanPro:**
+**Two ways to run the application:**
 
 1. **All-in-One Container** (Production/Testing):
    - Everything in one container (PostgreSQL, Backend, Frontend)
    - See "Quick Start" section above
-   - `docker run ... bradenacurtis801/scanpro:latest`
+   - `docker run ... <docker image name>`
 
 2. **PostgreSQL in Container + Backend on Host** (Local Development):
    - PostgreSQL in Docker, Backend runs locally for easier debugging
@@ -265,15 +259,15 @@ This setup:
 **If started manually with docker run:**
 ```bash
 # Stop the PostgreSQL container
-docker stop scanpro-postgres
+docker stop <container-name>-postgres
 
 # Remove the container (if started without --rm)
-docker rm scanpro-postgres
+docker rm <container-name>-postgres
 ```
 
 **Using Docker Desktop:**
 - Go to Containers tab
-- Find `scanpro-postgres`
+- Find `<container-name>-postgres`
 - Click Stop or Delete
 
 ### Debug Mode Levels
@@ -288,27 +282,27 @@ docker rm scanpro-postgres
 
 #### Production Mode
 ```bash
-docker run -it --name scanpro \
+docker run -it --name <container-name> \
   -p 3000:3000 \
   -p 5000:5000 \
-  -v scanpro_data:/app/backend/APP_DATA \
+  -v <volume-name>:/app/backend/APP_DATA \
   -e NODE_ENV=production \
   -e DEBUG=0 \
   --rm \
-  bradenacurtis801/scanpro:latest
+  <docker image name>
 ```
 
 #### Debug Mode 1 (Wait for Debugger)
 ```bash
-docker run -it --name scanpro-debug \
+docker run -it --name <container-name>-debug \
   -p 3000:3000 \
   -p 5000:5000 \
   -p 5678:5678 \
-  -v scanpro_data:/app/backend/APP_DATA \
+  -v <volume-name>:/app/backend/APP_DATA \
   -e NODE_ENV=production \
   -e DEBUG=1 \
   --rm \
-  bradenacurtis801/scanpro:latest
+  <docker image name>
 ```
 - **Use case**: Debug startup issues
 - **Behavior**: Waits for VS Code debugger to connect before starting
@@ -316,15 +310,15 @@ docker run -it --name scanpro-debug \
 
 #### Debug Mode 2 (No Wait)
 ```bash
-docker run -it --name scanpro-debug \
+docker run -it --name <container-name>-debug \
   -p 3000:3000 \
   -p 5000:5000 \
   -p 5678:5678 \
-  -v scanpro_data:/app/backend/APP_DATA \
+  -v <volume-name>:/app/backend/APP_DATA \
   -e NODE_ENV=production \
   -e DEBUG=2 \
   --rm \
-  bradenacurtis801/scanpro:latest
+  <docker image name>
 ```
 - **Use case**: Debug runtime issues (like segfaults)
 - **Behavior**: Starts normally, debugger can connect anytime
@@ -362,7 +356,7 @@ Debug the backend inside the container to match production runtime:
 docker run -it --rm \
   -p 3000:3000 -p 5000:5000 -p 5678:5678 \
   -e DEBUG=1 \
-  bradenacurtis801/scanpro:latest
+  <docker image name>
 ```
 
 ### VS Code Configuration for Container Debugging
@@ -415,7 +409,7 @@ You can customize the following environment variables:
 | `BACKEND_HOST` | `0.0.0.0` | Backend server host |
 | `POSTGRES_USERNAME` | `postgres` | PostgreSQL username |
 | `POSTGRES_PASSWORD` | `postgres123` | PostgreSQL password |
-| `POSTGRES_DB_NAME` | `scanpro_db` | PostgreSQL database name |
+| `POSTGRES_DB_NAME` | `<database-name>` | PostgreSQL database name |
 | `POSTGRES_HOST` | `0.0.0.0` | PostgreSQL server host |
 | `POSTGRES_PORT` | `5432` | PostgreSQL server port |
 | `CORS_ORIGINS` | `["http://127.0.0.1:3000"]` | Allowed CORS origins (JSON array) |
@@ -425,26 +419,26 @@ You can customize the following environment variables:
 You can set environment variables directly in the docker run command:
 
 ```bash
-docker run -it --name scanpro \
+docker run -it --name <container-name> \
   -p 3000:3000 \
   -p 5000:5000 \
-  -v scanpro_data:/app/backend/APP_DATA \
+  -v <volume-name>:/app/backend/APP_DATA \
   -e NODE_ENV=production \
   -e DEBUG=0 \
   -e BACKEND_PORT=5000 \
   -e CORS_ORIGINS="http://localhost:3000,http://127.0.0.1:3000" \
   --rm \
-  bradenacurtis801/scanpro:latest
+  <docker image name>
 ```
 
 ## 📁 Data Persistence
 
-The application data is stored in a Docker volume named `scanpro_data`. This ensures your data persists between container restarts.
+The application data is stored in a Docker volume named `<volume-name>`. This ensures your data persists between container restarts.
 
 To view the volume:
 ```bash
 docker volume ls
-docker volume inspect scanpro_data
+docker volume inspect <volume-name>
 ```
 
 ## 🔧 Development
@@ -474,13 +468,13 @@ Using helper script (recommended):
 Or manually:
 ```bash
 # Build with development settings
-docker build --build-arg NODE_ENV=development -t bradenacurtis801/scanpro:dev .
+docker build --build-arg NODE_ENV=development -t <docker image name> .
 
 # Run with development settings
 docker run -p 3000:3000 -p 5000:5000 \
   -e NODE_ENV=development \
   -e DEBUG=true \
-  bradenacurtis801/scanpro:dev
+  <docker image name>
 ```
 
 ### Viewing Logs
@@ -490,7 +484,7 @@ docker run -p 3000:3000 -p 5000:5000 \
 docker logs -f <container_id>
 
 # Or if you named the container
-docker logs -f scanpro
+docker logs -f <container-name>
 
 # View specific log files inside the container
 docker exec <container_id> cat /app/APP_DATA/logs/app.log
@@ -519,7 +513,7 @@ If ports 3000 or 5000 are already in use:
 
 ```bash
 # Use different ports
-docker run -p 3001:3000 -p 5001:5000 scanpro:latest
+docker run -p 3001:3000 -p 5001:5000 <docker image name>
 ```
 
 ### Frontend Can't Reach Backend
@@ -537,21 +531,21 @@ The health check might fail if the backend takes time to start. You can disable 
 ```bash
 docker run -p 3000:3000 -p 5000:5000 \
   --health-cmd="echo 'Health check disabled'" \
-  scanpro:latest
+  <docker image name>
 ```
 
 ## 🧹 Cleanup
 
 ```bash
 # Stop and remove container
-docker stop scanpro
-docker rm scanpro
+docker stop <container-name>
+docker rm <container-name>
 
 # Remove the image
-docker rmi bradenacurtis801/scanpro:latest
+docker rmi <docker image name>
 
 # Remove volumes (WARNING: This will delete all data)
-docker volume rm scanpro_data
+docker volume rm <volume-name>
 
 # Remove all unused images
 docker image prune -a

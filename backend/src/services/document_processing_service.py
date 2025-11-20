@@ -20,7 +20,7 @@ from src.models.database import (
     ProcessingTaskStatus
 )
 import config as config
-from scanpro_lib.ocr import OCREngine
+from lib.ocr import OCREngine
 from src.ml.classification.base_classifier import DocumentClassifier
 from src.ml.faiss.embeddings import EmbeddingsIndex
 from src.ml.ner.base_ner import NERModel
@@ -459,7 +459,7 @@ class DocumentProcessingService:
         """
         import os
         import json
-        from scanpro_lib.utils.pdf_helper import PDFHelper
+        from lib.utils.pdf_helper import PDFHelper
 
         file_extension = os.path.splitext(filename)[1].lower()
         pages = []

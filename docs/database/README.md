@@ -1,6 +1,6 @@
-# ScanPro Database Schema
+# Database Schema
 
-This directory contains the database schema documentation and diagrams for the ScanPro application.
+This directory contains the database schema documentation and diagrams for the application.
 
 ## 📊 Database Diagram
 
@@ -186,7 +186,7 @@ To regenerate the ERD diagram:
 3. **Using command line:**
    ```bash
    # Export schema
-   pg_dump --schema-only --no-owner --no-privileges -h localhost -U postgres scanpro_db > schema.sql
+   pg_dump --schema-only --no-owner --no-privileges -h localhost -U postgres app_db > schema.sql
    ```
 
 ## 📝 Schema Updates

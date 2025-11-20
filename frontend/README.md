@@ -1,6 +1,6 @@
-# ScanPro Frontend
+# SabioDocs Frontend
 
-A modern React/Next.js frontend for the ScanPro AI Document Agent.
+A modern React/Next.js frontend for the SabioDocs AI Document Agent.
 
 > 📸 **Demo**: See the main project [README](../README.md) for visual demonstrations of the application.
 

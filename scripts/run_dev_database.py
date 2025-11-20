@@ -39,7 +39,7 @@ def run_postgres_container():
     # Docker run command with config file mounts (interactive mode)
     docker_cmd = [
         "docker", "run", "-it", "--rm",
-        "--name", "scanpro-postgres",
+        "--name", "classifier-postgres",
         "-p", f"{postgres_port}:5432",
         "-v", f"{db_dir}:/var/lib/postgresql/data",
         "-v", f"{dev_config_dir}/postgresql.conf:/etc/postgresql/postgresql.conf",

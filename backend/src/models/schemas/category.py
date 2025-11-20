@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
-from scanpro_lib.models.classifier import TrainingMetadata
+from lib.models.classifier import TrainingMetadata
 
 
 class UserInfo(BaseModel):

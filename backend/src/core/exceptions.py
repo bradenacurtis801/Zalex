@@ -3,13 +3,13 @@
 from fastapi import HTTPException, status
 
 
-class ScanProException(Exception):
-    """Base exception for ScanPro application."""
-    def __init__(self, message: str = "An error occurred in the ScanPro application"):
+class DomainBaseException(Exception):
+    """Base exception for Domain application."""
+    def __init__(self, message: str = "An error occurred in the Domain application"):
         super().__init__(message)
 
 
-class DocumentProcessingException(ScanProException):
+class DocumentProcessingException(DomainBaseException):
     """Raised when document processing fails."""
     def __init__(self, message: str = "Document processing failed. Please try again."):
         super().__init__(message)
@@ -27,7 +27,7 @@ class ClassifierNotAvailableException(DocumentProcessingException):
         super().__init__(message)
 
 
-class FileProcessingException(ScanProException):
+class FileProcessingException(DomainBaseException):
     """Raised when file processing fails."""
     def __init__(self, message: str = "File processing failed. Please try again."):
         super().__init__(message)
@@ -39,7 +39,7 @@ class UnsupportedFileTypeError(FileProcessingException):
         super().__init__(message)
 
 
-class FeedbackException(ScanProException):
+class FeedbackException(DomainBaseException):
     """Raised when feedback operations fail."""
     def __init__(self, message: str = "Feedback operation failed. Please try again."):
         super().__init__(message)
@@ -57,25 +57,25 @@ class CategoryNotFoundError(FeedbackException):
         super().__init__(message)
 
 
-class CategoryAlreadyExistsError(ScanProException):
+class CategoryAlreadyExistsError(DomainBaseException):
     """Raised when trying to create a category that already exists."""
     def __init__(self, message: str = "Category already exists."):
         super().__init__(message)
 
 
-class TaskNotFoundException(ScanProException):
+class TaskNotFoundException(DomainBaseException):
     """Raised when a processing task is not found."""
     def __init__(self, message: str = "Task not found or does not belong to user."):
         super().__init__(message)
 
 
-class InvalidModelDirectoryError(ScanProException):
+class InvalidModelDirectoryError(DomainBaseException):
     """Raised when a model directory is invalid or missing required files."""
     def __init__(self, message: str = "Invalid model directory. Required files are missing."):
         super().__init__(message)
 
 
-class InvalidModelMetadataError(ScanProException):
+class InvalidModelMetadataError(DomainBaseException):
     """Raised when model metadata is invalid or missing required fields."""
     def __init__(self, message: str = "Invalid model metadata. Required fields are missing."):
         super().__init__(message)
@@ -115,7 +115,7 @@ class UserAlreadyExistsException(AuthenticationException):
 def map_to_http_exception(exc: Exception) -> HTTPException:
     """Map custom exceptions to HTTP exceptions."""
     mapping = {
-        # ScanPro application exceptions
+        # Domain application exceptions
         OCRNotAvailableException: (status.HTTP_503_SERVICE_UNAVAILABLE, lambda exc: str(exc)),
         ClassifierNotAvailableException: (status.HTTP_503_SERVICE_UNAVAILABLE, lambda exc: str(exc)),
         DocumentProcessingException: (status.HTTP_500_INTERNAL_SERVER_ERROR, lambda exc: str(exc)),
@@ -126,7 +126,7 @@ def map_to_http_exception(exc: Exception) -> HTTPException:
         CategoryAlreadyExistsError: (status.HTTP_400_BAD_REQUEST, lambda exc: str(exc)),
         TaskNotFoundException: (status.HTTP_404_NOT_FOUND, lambda exc: str(exc)),
         FeedbackException: (status.HTTP_400_BAD_REQUEST, lambda exc: str(exc)),
-        ScanProException: (status.HTTP_500_INTERNAL_SERVER_ERROR, lambda exc: str(exc)),
+        DomainBaseException: (status.HTTP_500_INTERNAL_SERVER_ERROR, lambda exc: str(exc)),
         
         # File validation exceptions
         ValueError: (status.HTTP_400_BAD_REQUEST, lambda exc: str(exc)),

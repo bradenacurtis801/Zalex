@@ -8,7 +8,7 @@ not database models or API schemas.
 from dataclasses import dataclass
 from typing import Optional
 
-from scanpro_lib.ocr.base import OCRResult
+from lib.ocr.base import OCRResult
 
 
 @dataclass

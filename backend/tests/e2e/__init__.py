@@ -1,5 +1,5 @@
 """
-End-to-end tests for ScanPro backend.
+End-to-end tests for backend.
 
 E2E tests verify complete user workflows from start to finish,
 using the full application stack with minimal mocking.

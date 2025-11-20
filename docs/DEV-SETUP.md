@@ -1,6 +1,6 @@
 # Development Environment Setup
 
-This guide will help you set up the ScanPro development environment from scratch.
+This guide will help you set up the development environment from scratch.
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ This script will:
 The database will be available at:
 - **Host:** `localhost`
 - **Port:** `5432`
-- **Database:** `scanpro_db`
+- **Database:** `app_db`
 - **Username:** `postgres`
 - **Password:** `password`
 
@@ -50,8 +50,7 @@ pip install -r requirements.txt
 Create a `.env` file in the **root directory** (not in backend/):
 
 ```bash
-# In the root directory (ScanPro/)
-echo "SCANPRO_HF_TOKEN=your_huggingface_token_here" > .env
+echo "HF_TOKEN=your_huggingface_token_here" > .env
 ```
 
 **Important:** You need a Hugging Face token to download the ML models.
@@ -94,7 +93,7 @@ Visit `http://localhost:5000/docs` to see the API documentation and verify the b
 
 ### 4.2 Check Frontend
 
-Visit `http://localhost:3000` to access the ScanPro web interface.
+Visit `http://localhost:3000` to access the web interface.
 
 ### 4.3 Test Database Connection
 
@@ -153,7 +152,7 @@ The backend will automatically create database tables on startup. Check the logs
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `SCANPRO_HF_TOKEN` | Hugging Face token for model access | `hf_xxxxxxxxxxxxxxxxxxxx` |
+| `HF_TOKEN` | Hugging Face token for model access | `hf_xxxxxxxxxxxxxxxxxxxx` |
 
 ### Optional Variables
 
@@ -161,14 +160,14 @@ The backend will use default values for database connection if not specified in 
 
 - `POSTGRES_USERNAME` (default: `postgres`)
 - `POSTGRES_PASSWORD` (default: `password`)
-- `POSTGRES_DB_NAME` (default: `scanpro_db`)
+- `POSTGRES_DB_NAME` (default: `app_db`)
 - `POSTGRES_HOST` (default: `localhost`)
 - `POSTGRES_PORT` (default: `5432`)
 
 ## File Structure
 
 ```
-ScanPro/
+Root/
 ├── .env                          # Environment variables (create this)
 ├── backend/
 │   ├── requirements.txt          # Python dependencies

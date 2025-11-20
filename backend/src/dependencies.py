@@ -316,7 +316,7 @@ async def get_current_user(
             return User(
                 id=1,
                 username="dev_user",
-                email="dev@scanpro.local",
+                email="dev@example.local",
                 full_name="Development User",
                 user_role=UserRole.ADMIN,
                 is_active=True,

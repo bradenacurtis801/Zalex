@@ -1,0 +1,109 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36" version="28.2.9">
+  <diagram name="Page-1" id="OxdGFf0FkMLnoXPYc30S">
+    <mxGraphModel dx="1749" dy="1386" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="extwFeU6hH8iW2knmYC_-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="extwFeU6hH8iW2knmYC_-1" target="extwFeU6hH8iW2knmYC_-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-1" value="User Input&lt;div&gt;Category Name + Training Documents&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0050ef;fontColor=#ffffff;strokeColor=#001DBC;" vertex="1" parent="1">
+          <mxGeometry x="170" y="380" width="150" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="extwFeU6hH8iW2knmYC_-2" target="extwFeU6hH8iW2knmYC_-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-2" value="Create Category" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" vertex="1" parent="1">
+          <mxGeometry x="185" y="530" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="extwFeU6hH8iW2knmYC_-3" target="extwFeU6hH8iW2knmYC_-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-3" value="&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(237, 237, 237));&quot;&gt;Create Document record in DB&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0a30a;fontColor=#000000;strokeColor=#BD7000;" vertex="1" parent="1">
+          <mxGeometry x="185" y="650" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="extwFeU6hH8iW2knmYC_-4" target="extwFeU6hH8iW2knmYC_-8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-4" value="Use OCR to extract text from each doc and create OCRData entry in DB" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e51400;fontColor=#ffffff;strokeColor=#B20000;" vertex="1" parent="1">
+          <mxGeometry x="177.5" y="750" width="135" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-8" value="Done" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b1ddf0;strokeColor=#10739e;" vertex="1" parent="1">
+          <mxGeometry x="185" y="880" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="extwFeU6hH8iW2knmYC_-10" target="extwFeU6hH8iW2knmYC_-13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-10" value="Get all categories&amp;nbsp;&lt;div&gt;from&amp;nbsp;&lt;div&gt;CategoryTrainingDocument&amp;nbsp;&lt;/div&gt;&lt;div&gt;table&lt;/div&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="547.5" y="380" width="210" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-11" value="Create Category" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="160" y="310" width="170" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-12" value="Train Category" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="582.5" y="320" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="extwFeU6hH8iW2knmYC_-13" target="extwFeU6hH8iW2knmYC_-16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-13" value="For each category entry, get its associated OCRData entry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="552.5" y="560" width="200" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-14" value="User can create more than one category and then start the training part once all desired categories are uploaded" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="-30" y="390" width="160" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="extwFeU6hH8iW2knmYC_-16" target="extwFeU6hH8iW2knmYC_-18">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-26" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="extwFeU6hH8iW2knmYC_-16" target="extwFeU6hH8iW2knmYC_-25">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-16" value="Create Category labels and the needed datastructures, and start training" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="532.5" y="720" width="240" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-17" value="Once training as started, mark or remove or remove category entry in DB" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="787.5" y="400" width="160" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="extwFeU6hH8iW2knmYC_-18" target="extwFeU6hH8iW2knmYC_-21">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-18" value="Save Training Data with a version/hash/record for version control" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="530" y="890" width="245" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="extwFeU6hH8iW2knmYC_-21" target="extwFeU6hH8iW2knmYC_-22">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-21" value="Test Model and record Metrics" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fad7ac;strokeColor=#b46504;" vertex="1" parent="1">
+          <mxGeometry x="543.75" y="1030" width="217.5" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-22" value="Done" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b1ddf0;strokeColor=#10739e;" vertex="1" parent="1">
+          <mxGeometry x="557.5" y="1170" width="190" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-25" value="Two ways of doing this:&lt;div&gt;&lt;ul&gt;&lt;li&gt;(Simple) Add this new OCR data to existing training data from previous model, and begin training&lt;/li&gt;&lt;li&gt;(Undetermined) Finetune existing model and train on new OCR data&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="820" y="715" width="310" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-27" value="Integration" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1255" y="320" width="110" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-31" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="extwFeU6hH8iW2knmYC_-28" target="extwFeU6hH8iW2knmYC_-29">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-28" value="Display Different Classification Models in UI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="365" width="150" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-35" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="extwFeU6hH8iW2knmYC_-29" target="extwFeU6hH8iW2knmYC_-33">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-29" value="Backend loads user selected model" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fad7ac;strokeColor=#b46504;" vertex="1" parent="1">
+          <mxGeometry x="1245" y="515" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-32" value="User Selects a classification model they want to use" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="445" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="extwFeU6hH8iW2knmYC_-33" value="i.e.&amp;nbsp;call&amp;nbsp;DocumentClassifier method &#39;load_model&#39; and pass in in the model object" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1390" y="515" width="180" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

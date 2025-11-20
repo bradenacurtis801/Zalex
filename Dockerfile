@@ -1,6 +1,3 @@
-# Simple single-stage Dockerfile for ScanPro
-# This avoids all the Python copying issues
-
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -52,6 +49,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Install spaCy Spanish model
 RUN pip install --no-cache-dir https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.7.0/es_core_news_sm-3.7.0-py3-none-any.whl
 
+# Copy and install lib
+COPY lib/ ./lib/
+RUN pip install --no-cache-dir -e lib
+
 # Copy backend source code
 COPY backend/ ./backend/
 
@@ -78,7 +79,7 @@ ENV NODE_ENV=production \
     NEXT_PUBLIC_API_URL=http://127.0.0.1:5000 \
     POSTGRES_USERNAME=postgres \
     POSTGRES_PASSWORD=password \
-    POSTGRES_DB_NAME=scanpro_db \
+    POSTGRES_DB_NAME=app_db \
     POSTGRES_HOST=localhost \
     POSTGRES_PORT=5432
 

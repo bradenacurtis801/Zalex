@@ -1,4 +1,4 @@
-# Authentication router for ScanPro
+# Authentication router for Backend
 from fastapi import APIRouter, Depends, status, HTTPException
 from typing import List
 

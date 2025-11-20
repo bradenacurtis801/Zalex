@@ -1,5 +1,5 @@
 """
-Integration tests for ScanPro backend.
+Integration tests for the app backend.
 
 Integration tests verify that different components work together correctly,
 using real database connections and minimal mocking.

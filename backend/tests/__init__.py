@@ -1,7 +1,7 @@
 """
-ScanPro Backend Test Suite
+Backend Test Suite
 
-This package contains all tests for the ScanPro backend application.
+This package contains all tests for the backend application.
 The test structure follows the application architecture for easy navigation.
 
 Test Categories:

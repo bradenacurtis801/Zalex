@@ -1,5 +1,5 @@
 """
-Test data and sample files for ScanPro backend tests.
+Test data and sample files for backend tests.
 
 This directory contains sample documents, images, and other test data
 used across the test suite.

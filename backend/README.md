@@ -1,4 +1,4 @@
-# ScanPro Backend
+# Backend
 
 A FastAPI-based document processing and search backend that provides OCR, text extraction, semantic search, document indexing, and document classification capabilities.
 
@@ -373,34 +373,12 @@ The application uses `config.py` for centralized configuration:
 
 Application data is stored in platform-specific locations:
 
-#### Development Mode (`NODE_ENV=dev`)
-All data is stored in the `APP_DATA` directory relative to the backend folder:
+All data is stored in the `APP_DATA` directory at the project root folder:
 - **Uploads**: `APP_DATA/uploads/`
 - **Search Index**: `APP_DATA/document_index.faiss`
 - **Metadata**: `APP_DATA/document_metadata.json`
 - **ML Models**: `APP_DATA/ml_models/`
 - **Training Data**: `APP_DATA/training_data/`
-
-#### Production Mode
-Data is stored in platform-specific application data directories:
-
-**Windows:**
-- **Base Directory**: `%APPDATA%\ScanPro\`
-- **Uploads**: `%APPDATA%\ScanPro\uploads\`
-- **Search Index**: `%APPDATA%\ScanPro\document_index.faiss`
-- **Metadata**: `%APPDATA%\ScanPro\document_metadata.json`
-
-**macOS:**
-- **Base Directory**: `~/Library/Application Support/ScanPro/`
-- **Uploads**: `~/Library/Application Support/ScanPro/uploads/`
-- **Search Index**: `~/Library/Application Support/ScanPro/document_index.faiss`
-- **Metadata**: `~/Library/Application Support/ScanPro/document_metadata.json`
-
-**Linux:**
-- **Base Directory**: `~/.config/ScanPro/`
-- **Uploads**: `~/.config/ScanPro/uploads/`
-- **Search Index**: `~/.config/ScanPro/document_index.faiss`
-- **Metadata**: `~/.config/ScanPro/document_metadata.json`
 
 ## 🧠 Machine Learning Components
 
@@ -410,7 +388,7 @@ Data is stored in platform-specific application data directories:
 - **Image Preprocessing**: Adaptive preprocessing for better OCR accuracy
 
 ### Document Classification
-- **Model**: Hugging Face fine-tuned BERT classifier (`bradenacurtis/scanpro-classifier-v1-finetune`)
+- **Model**: Hugging Face fine-tuned BERT classifier (`bradenacurtis/tfid-classifier`)
 - **Types**: Personas, mercantil, inmuebles (Spanish legal documents)
 - **Confidence Scoring**: Provides confidence levels for predictions
 - **Fallback**: Similarity-based classifier with SentenceTransformer embeddings

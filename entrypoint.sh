@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-# ScanPro Entrypoint Script
+# App Entrypoint Script
 # Starts PostgreSQL database, FastAPI backend, and Next.js frontend
 
 set -e
 
-echo "🚀 Starting ScanPro Services..."
+echo "🚀 Starting App Services..."
 
 # Fatal error function
 fatal() {
@@ -75,7 +75,7 @@ init_database() {
 
 # Function to check if database tables have been initialized
 check_tables_initialized() {
-    local db_name="${POSTGRES_DB_NAME:-scanpro_db}"
+    local db_name="${POSTGRES_DB_NAME:-app_db}"
     
     # Query to count tables in the public schema (excluding system tables)
     local table_count=$(su postgres -c "psql -d ${db_name} -t -c \"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE';\" 2>/dev/null" | tr -d ' ' || echo "0")

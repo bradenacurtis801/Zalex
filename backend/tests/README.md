@@ -1,6 +1,6 @@
-# ScanPro Backend Testing
+# Backend Testing
 
-Simple, fast, mock-based testing for the ScanPro backend.
+Simple, fast, mock-based testing for the backend.
 
 ## 🎯 **Mock-Based Testing Approach**
 

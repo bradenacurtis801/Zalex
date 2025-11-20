@@ -185,7 +185,7 @@ def clear_document_data():
 
 def main():
     """Main function."""
-    print("🗑️  ScanPro Document Data Cleanup Script")
+    print("🗑️  Backend Document Data Cleanup Script")
     print("=" * 50)
     print(f"Database: {config.settings.database_url}")
     print(f"Environment: {config.settings.node_env_value}")

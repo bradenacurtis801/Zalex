@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Export PostgreSQL schema for ScanPro database
+Export PostgreSQL schema for the app database
 Generates SQL schema file and table descriptions
 """
 
@@ -112,7 +112,7 @@ def export_schema():
         
         cursor = conn.cursor()
         
-        print("📊 Exporting ScanPro database schema...")
+        print("📊 Exporting the app database schema...")
         print(f"   Host: {config.settings.postgres_host}")
         print(f"   Port: {config.settings.postgres_port}")
         print(f"   Database: {config.settings.postgres_db_name}")
@@ -134,7 +134,7 @@ def export_schema():
         output_dir = Path(__file__).parent
         schema_file = output_dir / 'schema.sql'
         with open(schema_file, 'w') as f:
-            f.write(f"-- ScanPro Database Schema\n")
+            f.write(f"-- App Database Schema\n")
             f.write(f"-- Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"-- Database: {config.settings.postgres_db_name}\n")
             f.write(f"-- Host: {config.settings.postgres_host}:{config.settings.postgres_port}\n")
@@ -211,7 +211,7 @@ def export_schema():
         # Generate table descriptions
         tables_file = output_dir / 'tables.md'
         with open(tables_file, 'w') as f:
-            f.write("# ScanPro Database Tables\n\n")
+            f.write("# App Database Tables\n\n")
             f.write(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"Database: {config.settings.postgres_db_name}\n")
             f.write(f"Host: {config.settings.postgres_host}:{config.settings.postgres_port}\n\n")

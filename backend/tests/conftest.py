@@ -1,5 +1,5 @@
 """
-Global pytest configuration and fixtures for ScanPro backend tests.
+Global pytest configuration and fixtures for backend tests.
 
 This file contains shared fixtures and configuration for mock-based testing.
 """
@@ -278,7 +278,7 @@ def mock_external_services():
         def mock_env_get(key, default=None):
             env_vars = {
                 'CORS_ORIGINS': '["http://localhost:3000"]',
-                'DATABASE_URL': 'postgresql://postgres:password@localhost:5432/scanpro_test',
+                'DATABASE_URL': 'postgresql://postgres:password@localhost:5432/app_test',
                 'JWT_SECRET_KEY': 'test_secret',
                 'DEBUG': '1',
                 'NODE_ENV': 'test'

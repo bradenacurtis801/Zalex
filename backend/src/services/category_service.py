@@ -12,7 +12,7 @@ from src.repositories.category_repository import CategoryRepository
 from src.repositories.document_repository import DocumentRepository
 from src.models.database import DocumentStatus
 from src.core.exceptions import CategoryAlreadyExistsError
-from scanpro_lib.utils.file_hasher import calculate_file_hash_from_content
+from lib.utils.file_hasher import calculate_file_hash_from_content
 
 logger = logging.getLogger(__name__)
 

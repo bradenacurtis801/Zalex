@@ -1,6 +1,6 @@
-# ScanPro Backend Testing - Mock-Based Approach
+# Backend Testing - Mock-Based Approach
 
-This document describes the **mock-based testing approach** for the ScanPro backend, which focuses on fast, isolated unit tests without external dependencies.
+This document describes the **mock-based testing approach** for the backend, which focuses on fast, isolated unit tests without external dependencies.
 
 ## 🎯 **Why Mock-Based Testing?**
 

@@ -7,7 +7,7 @@ import sys
 from setuptools import find_packages, setup
 from setuptools.command.build_ext import build_ext
 
-PY_MODULE_NAME = "scanpro_lib"
+PY_MODULE_NAME = "lib"
 
 setup(
     name=PY_MODULE_NAME,
@@ -15,5 +15,5 @@ setup(
     packages=find_packages(),  # Find all packages in current directory
     package_dir={"": "."},  # Packages are in the current directory
     include_package_data=True,  # Include package data files
-    description="ScanPro Library",
+    description="App Library",
 )

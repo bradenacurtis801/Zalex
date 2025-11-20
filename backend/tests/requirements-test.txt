@@ -1,4 +1,4 @@
-# Test dependencies for ScanPro backend
+# Test dependencies for backend
 # Install with: pip install -r tests/requirements-test.txt
 
 # Core testing framework

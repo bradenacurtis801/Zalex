@@ -1,6 +1,6 @@
 # Sample Documents for Testing
 
-This directory contains sample documents used for testing the ScanPro backend.
+This directory contains sample documents used for testing the backend.
 
 ## File Types
 

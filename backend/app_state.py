@@ -1,5 +1,5 @@
 """
-Application state management for ScanPro.
+Application state management for Backend.
 Centralizes all app-wide state and services.
 """
 
@@ -15,11 +15,11 @@ import sys
 from sentence_transformers import SentenceTransformer
 # from src.ml.classification.finetune_classifier import PreTrainedFinetuneClassifier
 from src.ml.classification.tfidf_classifier import PreTrainedTFIDFClassifier
-from scanpro_lib.ocr.factory import get_default_ocr_engine
+from lib.ocr.factory import get_default_ocr_engine
 from src.ml.faiss.embeddings import get_embeddings_index
 from src.services.document_processing_service import DocumentProcessingService
 from src.ml.faiss.embeddings import EmbeddingsIndex
-from scanpro_lib.ocr import OCREngine
+from lib.ocr import OCREngine
 from src.ml.classification.base_classifier import DocumentClassifier
 from src.ml.ner.base_ner import NERModel
 
@@ -88,8 +88,8 @@ class AppState:
         # Try to load from hardcoded Hugging Face model first
         logger.info(f"Loading model from Hugging Face: {config.TFIDF_CLASSIFIER_MODEL_ID}")
         hf_token = (
-            config.settings.scanpro_hf_token
-            if config.settings.scanpro_hf_token
+            config.settings.hf_token
+            if config.settings.hf_token
             else None
         )
 

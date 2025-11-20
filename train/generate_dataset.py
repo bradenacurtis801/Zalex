@@ -5,13 +5,13 @@ This script processes PDFs organized by category and generates a TrainingData ob
 that can be used for model training.
 """
 
-import scanpro_lib.constants as c
-from scanpro_lib.utils.training_utils import (
+import lib.constants as c
+from lib.utils.training_utils import (
     PDFProcessor,
     generate_training_data,
     save_training_data,
 )
-from scanpro_lib.ocr.factory import get_default_ocr_engine
+from lib.ocr.factory import get_default_ocr_engine
 
 
 def main():

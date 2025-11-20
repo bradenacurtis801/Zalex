@@ -14,15 +14,15 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from scanpro_lib.ocr import OCREngine
+from lib.ocr import OCREngine
 import joblib
 import pandas as pd
 from tqdm import tqdm
-from scanpro_lib.utils.pdf_helper import PDFHelper
-from scanpro_lib.ocr.factory import get_default_ocr_engine
-from scanpro_lib.models.classifier import Page, TrainingData
-from scanpro_lib.utils.text_preprocessing import DocumentMetrics
-from scanpro_lib.utils.file_hasher import calculate_file_hash
+from lib.utils.pdf_helper import PDFHelper
+from lib.ocr.factory import get_default_ocr_engine
+from lib.models.classifier import Page, TrainingData
+from lib.utils.text_preprocessing import DocumentMetrics
+from lib.utils.file_hasher import calculate_file_hash
 
 
 class MetricsTracker:
@@ -344,7 +344,7 @@ def generate_training_data(
         TrainingData object with all processed documents organized by category
         (contains raw, unfiltered OCR text)
     """
-    from scanpro_lib.models.classifier import DocumentData
+    from lib.models.classifier import DocumentData
     from datetime import datetime, timezone
     
     category_data: Dict[str, List[DocumentData]] = {}

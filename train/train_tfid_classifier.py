@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 import json
 
-import scanpro_lib.constants as c
+import lib.constants as c
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import accuracy_score, classification_report
@@ -21,17 +21,17 @@ from tqdm import tqdm
 import joblib
 
 # Import shared utilities from backend
-from scanpro_lib.utils.text_preprocessing import TextCleaner, DocumentMetrics
-from scanpro_lib.utils.training_utils import (
+from lib.utils.text_preprocessing import TextCleaner, DocumentMetrics
+from lib.utils.training_utils import (
     MetricsTracker,
     PDFProcessor,
     load_training_data,
     save_training_data,
 )
-from scanpro_lib.ocr.factory import get_default_ocr_engine
+from lib.ocr.factory import get_default_ocr_engine
 
-from scanpro_lib.utils.file_hasher import calculate_file_hash
-from scanpro_lib.models.classifier import (
+from lib.utils.file_hasher import calculate_file_hash
+from lib.models.classifier import (
     Page, 
     DocumentData, 
     TrainingData, 
@@ -43,7 +43,7 @@ from scanpro_lib.models.classifier import (
 DATA_DIR = c.DOCUMENT_RAW_DIR
 PROCESSED_DATA_DIR = c.DOCUMENT_DATASET_DIR
 
-CLASSIFIER_MODEL_ID = "bradenacurtis/scanpro-classifier-tfidf"
+CLASSIFIER_MODEL_ID = "bradenacurtis/classifier-tfidf"
 CLASSIFIER_MODEL_DIR = c.ML_MODELS_DIR / CLASSIFIER_MODEL_ID.replace("/", "-")
 
 MAX_PAGE = 5

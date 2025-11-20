@@ -1,5 +1,5 @@
 """
-Test fixtures and utilities for ScanPro backend tests.
+Test fixtures and utilities for backend tests.
 
 This module contains shared fixtures, mock objects, and utility functions
 that can be used across different test modules.
