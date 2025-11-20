@@ -72,7 +72,7 @@ export default function Dashboard() {
         {/* Main Content */}
         <main className="max-w-7xl mx-auto p-6">
           {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="bg-white p-6 rounded-lg shadow-lg">
               <div className="flex items-center">
                 <div className="p-2 bg-blue-100 rounded-lg">
@@ -97,20 +97,6 @@ export default function Dashboard() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Categories</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.totalCategories}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-              <div className="flex items-center">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Processing Speed</p>
-                  <p className="text-2xl font-bold text-gray-900">Fast</p>
                 </div>
               </div>
             </div>
