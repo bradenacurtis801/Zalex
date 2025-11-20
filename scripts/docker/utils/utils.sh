@@ -1,11 +1,52 @@
 #!/bin/bash
 
-# ScanPro Docker Utilities (Bash)
+# Docker Utilities (Bash)
 # Shared functions for Docker scripts
 
 # ==========================================
 # CONFIGURATION FUNCTIONS
 # ==========================================
+
+# Generic function to ensure an environment variable is set
+# Usage: ensure_env_var "VARIABLE_NAME" "friendly-name" "example-value"
+ensure_env_var() {
+    local var_name="$1"
+    local friendly_name="${2:-$var_name}"
+    local example_value="${3:-your-value}"
+    
+    # Use indirect variable reference to check if variable is set
+    local var_value="${!var_name}"
+    
+    if [ -z "$var_value" ]; then
+        echo "❌ ERROR: $friendly_name environment variable is required but not set" >&2
+        echo "   Please set it with: export $var_name='$example_value'" >&2
+        exit 1
+    fi
+    
+    # Export the variable so it's available to the calling script
+    export "$var_name"
+}
+
+# Specific wrapper functions for Docker configuration
+ensure_docker_username() {
+    ensure_env_var "DOCKER_USERNAME" "DOCKER_USERNAME" "your-dockerhub-username"
+}
+
+ensure_docker_repo_name() {
+    ensure_env_var "REPOSITORY_NAME" "REPOSITORY_NAME" "your-repository-name"
+}
+
+ensure_docker_volume_or_path() {
+    ensure_env_var "VOLUME_NAME_OR_PATH" "VOLUME_NAME_OR_PATH" "your_volume_name_or_path"
+}
+
+# Check and set Docker Hub configuration from environment variables
+# Exits with error if required variables are not set
+# This is a convenience function that checks both username and repo name
+ensure_docker_hub_config() {
+    ensure_docker_username
+    ensure_docker_repo_name
+}
 
 absolute_path() {
     local path="$1"
@@ -65,6 +106,36 @@ get_script_dirs() {
     fi
 }
 
+# Load environment variables from a file
+# Usage: load_env /path/to/.env
+# Exports all variables from the file into the current shell environment
+load_env() {
+    local env_file="$1"
+    
+    # Check if file path was provided
+    if [ -z "$env_file" ]; then
+        echo "❌ Error: load_env() requires ENV_FILE argument" >&2
+        echo "   Usage: load_env /path/to/.env" >&2
+        return 1
+    fi
+    
+    # Check if file exists
+    if [ ! -f "$env_file" ]; then
+        echo "⚠️  Warning: Environment file not found: $env_file" >&2
+        return 1
+    fi
+    
+    # Enable auto-export mode so all variables are exported
+    set -a
+    
+    # Source the file, ignoring errors from comments and empty lines
+    # This will export all valid variable assignments
+    . "$env_file" 2>/dev/null || true
+    
+    # Disable auto-export mode
+    set +a
+}
+
 # Get current git branch as tag
 get_git_tag() {
     IMAGE_TAG=$(git branch --show-current 2>/dev/null || echo "latest")
@@ -74,50 +145,61 @@ get_git_tag() {
     echo "$IMAGE_TAG"
 }
 
+# Try to resolve a file path at the project root
+# Usage: try_resolve_file <filename> [optional_full_path]
+# Returns the path to the file, determining it if not provided
+try_resolve_file() {
+    local filename="$1"
+    local file_path="$2"
+    
+    # If full path is already provided, return it
+    if [ -n "$file_path" ]; then
+        echo "$file_path"
+        return 0
+    fi
+    
+    # First, try to use ROOT_DIR if it's already set
+    if [ -n "$ROOT_DIR" ]; then
+        echo "$ROOT_DIR/$filename"
+        return 0
+    fi
+    
+    # Try to calculate root directory similar to get_script_dirs
+    # Get the directory where this script is located
+    local script_file="${BASH_SOURCE[0]}"
+    if [ -z "$script_file" ]; then
+        script_file="${0}"
+    fi
+    local script_dir="$(cd "$(dirname "$script_file")" && pwd)"
+    # Go up three levels: utils -> docker -> scripts -> root
+    local calculated_root=$(absolute_path "$script_dir/../../..")
+    
+    # Verify it's the right directory by checking for Dockerfile
+    if [ -f "$calculated_root/Dockerfile" ]; then
+        echo "$calculated_root/$filename"
+        return 0
+    fi
+    
+    # Fallback: search from current directory
+    local current_dir="$(pwd)"
+    local search_dir="$current_dir"
+    
+    # Walk up the directory tree looking for Dockerfile
+    while [ "$search_dir" != "/" ]; do
+        if [ -f "$search_dir/Dockerfile" ]; then
+            echo "$search_dir/$filename"
+            return 0
+        fi
+        search_dir="$(dirname "$search_dir")"
+    done
+    
+    # If still not found, use current directory
+    echo "$current_dir/$filename"
+}
+
 # Create .env file with template
 create_env_file() {
-    local env_file_path="${1:-$ENV_FILE_PATH}"
-    
-    # If ENV_FILE_PATH is not set, try to determine it
-    if [ -z "$env_file_path" ]; then
-        # First, try to use ROOT_DIR if it's already set
-        if [ -n "$ROOT_DIR" ]; then
-            env_file_path="$ROOT_DIR/.env"
-        else
-            # Try to calculate root directory similar to get_script_dirs
-            # Get the directory where this script is located
-            local script_file="${BASH_SOURCE[0]}"
-            if [ -z "$script_file" ]; then
-                script_file="${0}"
-            fi
-            local script_dir="$(cd "$(dirname "$script_file")" && pwd)"
-            # Go up three levels: utils -> docker -> scripts -> root
-            local calculated_root=$(absolute_path "$script_dir/../../..")
-            
-            # Verify it's the right directory by checking for Dockerfile
-            if [ -f "$calculated_root/Dockerfile" ]; then
-                env_file_path="$calculated_root/.env"
-            else
-                # Fallback: search from current directory
-                local current_dir="$(pwd)"
-                local search_dir="$current_dir"
-                
-                # Walk up the directory tree looking for Dockerfile
-                while [ "$search_dir" != "/" ]; do
-                    if [ -f "$search_dir/Dockerfile" ]; then
-                        env_file_path="$search_dir/.env"
-                        break
-                    fi
-                    search_dir="$(dirname "$search_dir")"
-                done
-                
-                # If still not found, use current directory
-                if [ -z "$env_file_path" ]; then
-                    env_file_path="$current_dir/.env"
-                fi
-            fi
-        fi
-    fi
+    local env_file_path=$(try_resolve_file ".env" "${1:-$ENV_FILE_PATH}")
     
     # Check if .env already exists
     if [ -f "$env_file_path" ]; then
@@ -125,36 +207,24 @@ create_env_file() {
         return 0
     fi
     
-    # Create .env file with template
-    cat > "$env_file_path" << 'EOF'
-# ScanPro Environment Configuration
-# ==========================================
-# This file contains environment variables required for ScanPro to run.
-# DO NOT commit this file to version control (it's in .gitignore)
-
-# Hugging Face Token
-# ==========================================
-# Required for downloading and accessing ML models from Hugging Face.
-# Get your token from: https://huggingface.co/settings/tokens
-# Format: hf_xxxxxxxxxxxxxxxxxxxx
-SCANPRO_HF_TOKEN=
-
-# Below contains config that is optional and is not required for the container to run.
-# Database Configuration (if needed)
-# ==========================================
-# DATABASE_URL=postgresql://user:password@localhost:5432/scanpro
-
-# Other Configuration (add as needed)
-# ==========================================
-# DEBUG=0
-EOF
+    # Get the .env.example file path
+    local env_example_path=$(try_resolve_file ".env.example")
     
-    echo "✅ Created .env file at $env_file_path"
+    # Check if .env.example exists
+    if [ ! -f "$env_example_path" ]; then
+        echo "❌ Error: .env.example file not found at $env_example_path" >&2
+        echo "   Please create a .env.example file at the project root." >&2
+        return 1
+    fi
+    
+    # Copy .env.example to .env
+    cp "$env_example_path" "$env_file_path"
+    
+    echo "✅ Created .env file at $env_file_path from $env_example_path"
     echo ""
     echo "📝 Next steps:"
     echo "   1. Open the .env file: $env_file_path"
-    echo "   2. Add your Hugging Face token: SCANPRO_HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxx"
-    echo "   3. Get your token from: https://huggingface.co/settings/tokens"
+    echo "   2. Update the environment variables as needed"
     echo ""
 }
 

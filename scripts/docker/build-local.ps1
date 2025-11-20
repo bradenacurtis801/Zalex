@@ -1,4 +1,4 @@
-# ScanPro Local Docker Build Script (PowerShell)
+# Local Docker Build Script (PowerShell)
 # Builds image for local development and testing
 
 # Load utilities
@@ -9,8 +9,16 @@ $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 # CONFIGURATION VARIABLES
 # ==========================================
 
-$DOCKER_USERNAME = "bradenacurtis801"
-$REPOSITORY_NAME = "scanpro"
+# Get directories
+Get-ScriptDirs
+
+Import-Env -EnvFile $ENV_FILE_PATH
+
+# Check and set Docker Hub configuration from environment variables
+Ensure-DockerUsername
+Ensure-DockerRepoName
+$DOCKER_USERNAME = $script:DOCKER_USERNAME
+$REPOSITORY_NAME = $script:REPOSITORY_NAME
 
 # Get directories and git tag
 Get-ScriptDirs
@@ -72,7 +80,7 @@ function Invoke-BuildImage {
 # MAIN SCRIPT EXECUTION
 # ==========================================
 
-Write-Host "ScanPro Local Docker Build Script" -ForegroundColor Cyan
+Write-Host "Local Docker Build Script" -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -97,5 +105,5 @@ if (-not (Invoke-BuildImage -FullImageName $FULL_IMAGE_NAME)) {
 Write-Host "Local build completed successfully!" -ForegroundColor Green
 Write-Host ""
 
-Write-Host "Done! Your local ScanPro image is ready." -ForegroundColor Green
+Write-Host "Done! Your local image is ready." -ForegroundColor Green
 Write-Host ""

@@ -1,5 +1,5 @@
-# ScanPro Run Script (PowerShell)
-# Runs the ScanPro containers
+# Docker Run Script (PowerShell)
+# Runs the Docker containers
 
 # Load utilities
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -8,15 +8,21 @@ $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 # ==========================================
 # CONFIGURATION VARIABLES
 # ==========================================
+Get-ScriptDirs
+Import-Env -EnvFile $ENV_FILE_PATH
 
-$DOCKER_USERNAME = "bradenacurtis801"
-$REPOSITORY_NAME = "scanpro"
+# Check and set Docker Hub configuration from environment variables
+Ensure-DockerUsername
+Ensure-DockerRepoName
+Ensure-DockerVolumeOrPath
+$DOCKER_USERNAME = $script:DOCKER_USERNAME
+$REPOSITORY_NAME = $script:REPOSITORY_NAME
+$VOLUME_NAME_OR_PATH = $script:VOLUME_NAME_OR_PATH
 
 # Get directories and git tag
-Get-ScriptDirs
 $IMAGE_TAG = Get-GitTag
 $IMAGE_NAME = "$DOCKER_USERNAME/$REPOSITORY_NAME`:$IMAGE_TAG"
-$CONTAINER_NAME = "scanpro"
+$CONTAINER_NAME = $REPOSITORY_NAME
 $FRONTEND_PORT = 3000
 
 # Check if .env file exists
@@ -37,7 +43,7 @@ if (-not (Test-Path $ENV_FILE_PATH)) {
 
 
 function Start-Container {
-    Write-Host "Starting ScanPro container..." -ForegroundColor Yellow
+    Write-Host "Starting container..." -ForegroundColor Yellow
     Write-Host "   Container name: $CONTAINER_NAME" -ForegroundColor Gray
     Write-Host "   Image: $IMAGE_NAME" -ForegroundColor Gray
     Write-Host ""
@@ -75,10 +81,25 @@ function Start-Container {
     }
     
     Write-Host "   Using port: $openFrontendPort" -ForegroundColor Gray
+    Write-Host "   Volume: $VOLUME_NAME_OR_PATH" -ForegroundColor Gray
+    
+    # Check if DEBUG is enabled to expose debug port
+    $debugPort = $null
+    if ($env:DEBUG -eq "1" -or $env:DEBUG -eq "2") {
+        $debugPort = "5678:5678"
+        Write-Host "   Debug port: 5678 (DEBUG=$env:DEBUG)" -ForegroundColor Cyan
+    }
     Write-Host ""
     
-    # Run docker run with real-time output using Start-Process
-    $dockerArgs = @("run", "-it", "--rm", "--name", $CONTAINER_NAME, "-p", "${openFrontendPort}:3000", "-v", "scanpro_data:/app/APP_DATA", "--env-file", $ENV_FILE_PATH, "-e", "DEBUG=0", $IMAGE_NAME)
+    # Build docker run arguments
+    $dockerArgs = @("run", "-it", "--rm", "--name", $CONTAINER_NAME, "-p", "${openFrontendPort}:3000", "-v", "${VOLUME_NAME_OR_PATH}:/app/APP_DATA", "--env-file", $ENV_FILE_PATH)
+    
+    # Add debug port if DEBUG is enabled
+    if ($debugPort) {
+        $dockerArgs += @("-p", $debugPort)
+    }
+    
+    $dockerArgs += $IMAGE_NAME
     $process = Start-Process -FilePath "docker" -ArgumentList $dockerArgs -Wait -NoNewWindow -PassThru
     
     $exitCode = $process.ExitCode
@@ -94,7 +115,7 @@ function Start-Container {
 # MAIN SCRIPT EXECUTION
 # ==========================================
 
-Write-Host "ScanPro Run Script" -ForegroundColor Magenta
+Write-Host "Docker Run Script" -ForegroundColor Magenta
 Write-Host "====================" -ForegroundColor Magenta
 Write-Host ""
 

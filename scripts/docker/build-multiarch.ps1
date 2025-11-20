@@ -1,4 +1,4 @@
-# ScanPro Multi-Architecture Docker Build and Push Script (PowerShell)
+# Multi-Architecture Docker Build and Push Script (PowerShell)
 # Builds multi-architecture image and pushes to Docker Hub
 #
 # Authentication:
@@ -14,17 +14,21 @@ $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 # ==========================================
 # CONFIGURATION VARIABLES
 # ==========================================
+Get-ScriptDirs
+Import-Env -EnvFile $ENV_FILE_PATH
 
-$DOCKER_USERNAME = "bradenacurtis801"
-$REPOSITORY_NAME = "scanpro"
+# Check and set Docker Hub configuration from environment variables
+Ensure-DockerUsername
+Ensure-DockerRepoName
+$DOCKER_USERNAME = $script:DOCKER_USERNAME
+$REPOSITORY_NAME = $script:REPOSITORY_NAME
 
 # Get directories and git tag
-Get-ScriptDirs
 $DOCKER_FILE_PATH = Join-Path $ROOT_DIR "Dockerfile"
 $IMAGE_TAG = Get-GitTag
 
 # Build Configuration
-$BUILDER_NAME = "scanpro-multiarch-builder"
+$BUILDER_NAME = "multiarch-builder"
 $PLATFORMS = "linux/amd64,linux/arm64"
 
 # ==========================================
@@ -142,7 +146,7 @@ function Show-Usage {
 # MAIN SCRIPT EXECUTION
 # ==========================================
 
-Write-Host "ScanPro Multi-Architecture Docker Build and Push Script" -ForegroundColor Cyan
+Write-Host "Multi-Architecture Docker Build and Push Script" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Auto-push mode: Will build and push to Docker Hub automatically" -ForegroundColor Yellow
@@ -187,5 +191,5 @@ Write-Host ""
 # Show usage instructions
 Show-Usage -FullImageName $FULL_IMAGE_NAME
 
-Write-Host "Done! Your ScanPro multi-architecture image is now available on Docker Hub." -ForegroundColor Green
+Write-Host "Done! Your multi-architecture image is now available on Docker Hub." -ForegroundColor Green
 Write-Host ""

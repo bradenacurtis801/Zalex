@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ScanPro Local Docker Build Script
+# Local Docker Build Script
 # Builds image for local development and testing
 
 # Load utilities
@@ -11,12 +11,16 @@ source "$SCRIPT_DIR/utils/utils.sh"
 # CONFIGURATION VARIABLES
 # ===========================================
 
-# Docker Hub Configuration
-DOCKER_USERNAME="bradenacurtis801"
-REPOSITORY_NAME="scanpro"
+# Get directories
+get_script_dirs
+
+load_env $ENV_FILE_PATH
+
+# Check and set Docker Hub configuration from environment variables
+ensure_docker_username
+ensure_docker_repo_name
 
 # Get directories and git tag
-get_script_dirs
 DOCKER_FILE_PATH="$ROOT_DIR/Dockerfile"
 IMAGE_TAG=$(get_git_tag)
 FULL_IMAGE_NAME="${DOCKER_USERNAME}/${REPOSITORY_NAME}:${IMAGE_TAG}"
@@ -54,7 +58,7 @@ build_image() {
 # MAIN SCRIPT EXECUTION
 # ===========================================
 
-echo "🐳 ScanPro Local Docker Build Script"
+echo "🐳 Local Docker Build Script"
 echo "====================================="
 echo ""
 
@@ -71,7 +75,7 @@ build_image "$FULL_IMAGE_NAME"
 if [ $? -eq 0 ]; then
     echo "✅ Local build completed successfully!"
     echo ""
-    echo "🎉 Done! Your local ScanPro image is ready."
+    echo "🎉 Done! Your local image is ready."
 else
     echo "❌ Build failed!"
     exit 1

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# ScanPro Run Script (Linux/Mac)
-# Runs the ScanPro containers
+# Docker Run Script (Linux/Mac)
+# Runs the Docker containers
 
 # Load utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -10,15 +10,18 @@ source "$SCRIPT_DIR/utils/utils.sh"
 # ==========================================
 # CONFIGURATION VARIABLES
 # ==========================================
+get_script_dirs
+load_env $ENV_FILE_PATH
 
-DOCKER_USERNAME="bradenacurtis801"
-REPOSITORY_NAME="scanpro"
+# Check and set Docker Hub configuration from environment variables
+ensure_docker_username
+ensure_docker_repo_name
+ensure_docker_volume_or_path
 
 # Get directories and git tag
-get_script_dirs
 IMAGE_TAG=$(get_git_tag)
 IMAGE_NAME="${DOCKER_USERNAME}/${REPOSITORY_NAME}:${IMAGE_TAG}"
-CONTAINER_NAME="scanpro"
+CONTAINER_NAME="$REPOSITORY_NAME"
 FRONTEND_PORT="3000"
 
 
@@ -39,7 +42,7 @@ fi
 # ==========================================
 
 run_container() {
-    echo "🐳 Starting ScanPro container..."
+    echo "🐳 Starting container..."
     echo "   Container name: $CONTAINER_NAME"
     echo "   Image: $IMAGE_NAME"
     echo ""
@@ -77,14 +80,23 @@ run_container() {
     fi
     
     echo "   Using port: $open_frontend_port"
+    echo "   Volume: $VOLUME_NAME_OR_PATH"
+    
+    # Check if DEBUG is enabled to expose debug port
+    if [ "$DEBUG" = "1" ] || [ "$DEBUG" = "2" ]; then
+        echo "   Debug port: 5678 (DEBUG=$DEBUG)"
+        DEBUG_PORT_MAPPING="-p 5678:5678"
+    else
+        DEBUG_PORT_MAPPING=""
+    fi
     echo ""
 
     docker run -it --rm \
         --name $CONTAINER_NAME \
         -p $open_frontend_port:3000 \
-        -v scanpro_data:/app/APP_DATA \
+        $DEBUG_PORT_MAPPING \
+        -v ${VOLUME_NAME_OR_PATH}:/app/APP_DATA \
         --env-file $ENV_FILE_PATH \
-        -e DEBUG=0 \
         $IMAGE_NAME
 
     exit_code=$?
@@ -100,7 +112,7 @@ run_container() {
 # MAIN SCRIPT EXECUTION
 # ==========================================
 
-echo "🚀 ScanPro Run Script"
+echo "🚀 Docker Run Script"
 echo "===================="
 echo ""
 

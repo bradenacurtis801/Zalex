@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ScanPro Multi-Architecture Docker Build and Push Script
+# Multi-Architecture Docker Build and Push Script
 # Builds multi-architecture image and pushes to Docker Hub
 #
 # Authentication:
@@ -17,13 +17,14 @@ source "$SCRIPT_DIR/utils/utils.sh"
 # ===========================================
 # CONFIGURATION VARIABLES
 # ===========================================
+get_script_dirs
+load_env $ENV_FILE_PATH
 
-# Docker Hub Configuration
-DOCKER_USERNAME="bradenacurtis801"
-REPOSITORY_NAME="scanpro"
+# Check and set Docker Hub configuration from environment variables
+ensure_docker_username
+ensure_docker_repo_name
 
 # Get directories and git tag
-get_script_dirs
 DOCKER_FILE_PATH="$ROOT_DIR/Dockerfile"
 IMAGE_TAG=$(get_git_tag)
 
@@ -46,7 +47,7 @@ if [ ! -f "$DOCKER_FILE_PATH" ]; then
 fi
 
 # Build Configuration
-BUILDER_NAME="scanpro-multiarch-builder"
+BUILDER_NAME="multiarch-builder"
 PLATFORMS="linux/amd64,linux/arm64"
 
 # ===========================================
@@ -147,7 +148,7 @@ show_platform_info() {
 # MAIN SCRIPT EXECUTION
 # ===========================================
 
-echo "🐳 ScanPro Multi-Architecture Docker Build and Push Script"
+echo "🐳 Multi-Architecture Docker Build and Push Script"
 echo "=========================================================="
 echo ""
 
@@ -185,7 +186,7 @@ if [ $? -eq 0 ]; then
     echo ""
     # Show usage instructions
     show_usage_instructions
-    echo "🎉 Done! Your ScanPro multi-architecture image is now available on Docker Hub."
+    echo "🎉 Done! Your multi-architecture image is now available on Docker Hub."
 else
     echo "❌ Build and push failed!"
     exit 1

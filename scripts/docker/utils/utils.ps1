@@ -1,9 +1,54 @@
-# ScanPro Docker Utilities (PowerShell)
+# Docker Utilities (PowerShell)
 # Shared functions for Docker scripts
 
 # ==========================================
 # CONFIGURATION FUNCTIONS
 # ==========================================
+
+# Generic function to ensure an environment variable is set
+# Usage: Ensure-EnvVar -VarName "VARIABLE_NAME" -FriendlyName "Friendly Name" -ExampleValue "example"
+function Ensure-EnvVar {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$VarName,
+        [string]$FriendlyName = $VarName,
+        [string]$ExampleValue = "your-value"
+    )
+    
+    # Get the environment variable value dynamically
+    $varValue = (Get-Item -Path "env:$VarName" -ErrorAction SilentlyContinue).Value
+    
+    if (-not $varValue) {
+        Write-Host "❌ ERROR: $FriendlyName environment variable is required but not set" -ForegroundColor Red
+        Write-Host "   Please set it with: `$env:$VarName = '$ExampleValue'" -ForegroundColor Yellow
+        exit 1
+    }
+    
+    # Set script-level variable for use in calling script
+    # Use Invoke-Expression to set variable with script scope
+    Invoke-Expression "`$script:$VarName = `$varValue"
+}
+
+# Specific wrapper functions for Docker configuration
+function Ensure-DockerUsername {
+    Ensure-EnvVar -VarName "DOCKER_USERNAME" -FriendlyName "DOCKER_USERNAME" -ExampleValue "your-dockerhub-username"
+}
+
+function Ensure-DockerRepoName {
+    Ensure-EnvVar -VarName "REPOSITORY_NAME" -FriendlyName "REPOSITORY_NAME" -ExampleValue "your-repository-name"
+}
+
+function Ensure-DockerVolumeOrPath {
+    Ensure-EnvVar -VarName "VOLUME_NAME_OR_PATH" -FriendlyName "VOLUME_NAME_OR_PATH" -ExampleValue "your_volume_name_or_path"
+}
+
+# Check and set Docker Hub configuration from environment variables
+# Exits with error if required variables are not set
+# This is a convenience function that checks both username and repo name
+function Ensure-DockerHubConfig {
+    Ensure-DockerUsername
+    Ensure-DockerRepoName
+}
 
 # Get script directory and root directory
 function Get-ScriptDirs {
@@ -11,6 +56,53 @@ function Get-ScriptDirs {
     $script:SCRIPT_DIR = Split-Path -Parent $PSScriptRoot
     $script:ROOT_DIR = (Resolve-Path (Join-Path $SCRIPT_DIR "..\..")).Path
     $script:ENV_FILE_PATH = Join-Path $ROOT_DIR ".env"
+}
+
+# Load environment variables from a file
+# Usage: Import-Env -EnvFile /path/to/.env
+# Exports all variables from the file into the current PowerShell environment
+function Import-Env {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$EnvFile
+    )
+    
+    # Check if file exists
+    if (-not (Test-Path $EnvFile)) {
+        Write-Host "⚠️  Warning: Environment file not found: $EnvFile" -ForegroundColor Yellow
+        return $false
+    }
+    
+    # Read file line by line
+    $lines = Get-Content $EnvFile
+    
+    foreach ($line in $lines) {
+        # Trim whitespace
+        $line = $line.Trim()
+        
+        # Skip empty lines and comments
+        if ([string]::IsNullOrWhiteSpace($line) -or $line.StartsWith('#')) {
+            continue
+        }
+        
+        # Parse KEY=VALUE format
+        if ($line -match '^([^=]+)=(.*)$') {
+            $key = $matches[1].Trim()
+            $value = $matches[2].Trim()
+            
+            # Remove quotes if present (handles both single and double quotes)
+            if (($value.StartsWith('"') -and $value.EndsWith('"')) -or 
+                ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+                $value = $value.Substring(1, $value.Length - 2)
+            }
+            
+            # Set environment variable
+            [Environment]::SetEnvironmentVariable($key, $value, [EnvironmentVariableTarget]::Process)
+            Set-Item -Path "env:$key" -Value $value
+        }
+    }
+    
+    return $true
 }
 
 # Get current git branch as tag
@@ -30,55 +122,61 @@ function Get-GitTag {
     }
 }
 
+# Try to resolve a file path at the project root
+# Usage: Try-ResolveFile -FileName <filename> [-FilePath <optional_full_path>]
+# Returns the path to the file, determining it if not provided
+function Try-ResolveFile {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$FileName,
+        [string]$FilePath = $null
+    )
+    
+    # If full path is already provided, return it
+    if ($FilePath) {
+        return $FilePath
+    }
+    
+    # First, try to use ROOT_DIR if it's already set
+    if ($ROOT_DIR) {
+        return Join-Path $ROOT_DIR $FileName
+    }
+    
+    # Try to calculate root directory similar to Get-ScriptDirs
+    $scriptFile = $PSScriptRoot
+    if ($scriptFile) {
+        $calculatedRoot = (Resolve-Path (Join-Path $scriptFile "..\..\..")).Path
+        
+        # Verify it's the right directory by checking for Dockerfile
+        if (Test-Path (Join-Path $calculatedRoot "Dockerfile")) {
+            return Join-Path $calculatedRoot $FileName
+        }
+    }
+    
+    # Fallback: search from current directory
+    $currentDir = Get-Location
+    $searchDir = $currentDir.Path
+    
+    # Walk up the directory tree looking for Dockerfile
+    while ($searchDir -and $searchDir -ne (Split-Path $searchDir)) {
+        if (Test-Path (Join-Path $searchDir "Dockerfile")) {
+            return Join-Path $searchDir $FileName
+        }
+        $searchDir = Split-Path $searchDir
+    }
+    
+    # If still not found, use current directory
+    return Join-Path $currentDir.Path $FileName
+}
+
 # Create .env file with template
 function Create-EnvFile {
     param(
         [string]$EnvFilePath = $null
     )
     
-    # If EnvFilePath is not provided, try to determine it
-    if (-not $EnvFilePath) {
-        # First, try to use ENV_FILE_PATH if it's already set
-        if ($ENV_FILE_PATH) {
-            $EnvFilePath = $ENV_FILE_PATH
-        }
-        # Try to use ROOT_DIR if it's already set
-        elseif ($ROOT_DIR) {
-            $EnvFilePath = Join-Path $ROOT_DIR ".env"
-        }
-        else {
-            # Try to calculate root directory similar to Get-ScriptDirs
-            $scriptFile = $PSScriptRoot
-            if ($scriptFile) {
-                $calculatedRoot = (Resolve-Path (Join-Path $scriptFile "..\..\..")).Path
-                
-                # Verify it's the right directory by checking for Dockerfile
-                if (Test-Path (Join-Path $calculatedRoot "Dockerfile")) {
-                    $EnvFilePath = Join-Path $calculatedRoot ".env"
-                }
-            }
-            
-            # Fallback: search from current directory
-            if (-not $EnvFilePath) {
-                $currentDir = Get-Location
-                $searchDir = $currentDir.Path
-                
-                # Walk up the directory tree looking for Dockerfile
-                while ($searchDir -and $searchDir -ne (Split-Path $searchDir)) {
-                    if (Test-Path (Join-Path $searchDir "Dockerfile")) {
-                        $EnvFilePath = Join-Path $searchDir ".env"
-                        break
-                    }
-                    $searchDir = Split-Path $searchDir
-                }
-                
-                # If still not found, use current directory
-                if (-not $EnvFilePath) {
-                    $EnvFilePath = Join-Path $currentDir.Path ".env"
-                }
-            }
-        }
-    }
+    # Get the .env file path
+    $EnvFilePath = Try-ResolveFile -FileName ".env" -FilePath $EnvFilePath
     
     # Check if .env already exists
     if (Test-Path $EnvFilePath) {
@@ -86,38 +184,24 @@ function Create-EnvFile {
         return
     }
     
-    # Create .env file with template
-    $envContent = @"
-# ScanPro Environment Configuration
-# ==========================================
-# This file contains environment variables required for ScanPro to run.
-# DO NOT commit this file to version control (it's in .gitignore)
-
-# Hugging Face Token
-# ==========================================
-# Required for downloading and accessing ML models from Hugging Face.
-# Get your token from: https://huggingface.co/settings/tokens
-# Format: hf_xxxxxxxxxxxxxxxxxxxx
-SCANPRO_HF_TOKEN=
-
-# Below contains config that is optional and is not required for the container to run.
-# Database Configuration (if needed)
-# ==========================================
-# DATABASE_URL=postgresql://user:password@localhost:5432/scanpro
-
-# Other Configuration (add as needed)
-# ==========================================
-# DEBUG=0
-"@
+    # Get the .env.example file path
+    $envExamplePath = Try-ResolveFile -FileName ".env.example"
     
-    $envContent | Out-File -FilePath $EnvFilePath -Encoding utf8 -NoNewline
+    # Check if .env.example exists
+    if (-not (Test-Path $envExamplePath)) {
+        Write-Host "❌ Error: .env.example file not found at $envExamplePath" -ForegroundColor Red
+        Write-Host "   Please create a .env.example file at the project root." -ForegroundColor Yellow
+        return
+    }
     
-    Write-Host "Created .env file at $EnvFilePath" -ForegroundColor Green
+    # Copy .env.example to .env
+    Copy-Item -Path $envExamplePath -Destination $EnvFilePath
+    
+    Write-Host "Created .env file at $EnvFilePath from $envExamplePath" -ForegroundColor Green
     Write-Host ""
     Write-Host "Next steps:" -ForegroundColor Cyan
     Write-Host "   1. Open the .env file: $EnvFilePath" -ForegroundColor Gray
-    Write-Host "   2. Add your Hugging Face token: SCANPRO_HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxx" -ForegroundColor Gray
-    Write-Host "   3. Get your token from: https://huggingface.co/settings/tokens" -ForegroundColor Gray
+    Write-Host "   2. Update the environment variables as needed" -ForegroundColor Gray
     Write-Host ""
 }
 
