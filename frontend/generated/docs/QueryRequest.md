@@ -7,6 +7,7 @@
 Name | Type
 ------------ | -------------
 `query` | string
+`limit` | number
 
 ## Example
 
@@ -16,6 +17,7 @@ import type { QueryRequest } from ''
 // TODO: Update the object below with actual values
 const example = {
   "query": null,
+  "limit": null,
 } satisfies QueryRequest
 
 console.log(example)

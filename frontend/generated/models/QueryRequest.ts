@@ -25,6 +25,12 @@ export interface QueryRequest {
      * @memberof QueryRequest
      */
     query: string;
+    /**
+     * 
+     * @type {number}
+     * @memberof QueryRequest
+     */
+    limit?: number | null;
 }
 
 /**
@@ -46,6 +52,7 @@ export function QueryRequestFromJSONTyped(json: any, ignoreDiscriminator: boolea
     return {
         
         'query': json['query'],
+        'limit': json['limit'] == null ? undefined : json['limit'],
     };
 }
 
@@ -61,6 +68,7 @@ export function QueryRequestToJSONTyped(value?: QueryRequest | null, ignoreDiscr
     return {
         
         'query': value['query'],
+        'limit': value['limit'],
     };
 }
 
