@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Script to clear all document-related data from the database while preserving users.
-This will delete all documents, classifications, feedback, OCR data, PDF cache, and upload sessions.
+This will delete all documents, classifications, feedback, OCR data, PDF cache, and processing tasks.
 """
 
 import sys
@@ -19,8 +19,6 @@ from src.models.database import (
     DocumentFeedback,
     OCRData,
     PDFCache,
-    UploadSession,
-    UploadSessionFile,
     ProcessingTask,
     EmbeddingMetadata,
     Entity,
@@ -54,8 +52,6 @@ def clear_document_data():
             feedback_count = len(session.exec(select(DocumentFeedback)).all())
             ocr_count = len(session.exec(select(OCRData)).all())
             pdf_cache_count = len(session.exec(select(PDFCache)).all())
-            upload_session_count = len(session.exec(select(UploadSession)).all())
-            upload_session_file_count = len(session.exec(select(UploadSessionFile)).all())
             processing_task_count = len(session.exec(select(ProcessingTask)).all())
             embedding_metadata_count = len(session.exec(select(EmbeddingMetadata)).all())
             entity_count = len(session.exec(select(Entity)).all())
@@ -67,8 +63,6 @@ def clear_document_data():
             logger.info(f"  Feedback: {feedback_count}")
             logger.info(f"  OCR Data: {ocr_count}")
             logger.info(f"  PDF Cache: {pdf_cache_count}")
-            logger.info(f"  Upload Sessions: {upload_session_count}")
-            logger.info(f"  Upload Session Files: {upload_session_file_count}")
             logger.info(f"  Processing Tasks: {processing_task_count}")
             logger.info(f"  Embedding Metadata: {embedding_metadata_count}")
             logger.info(f"  Entities: {entity_count}")
@@ -91,70 +85,56 @@ def clear_document_data():
             
             # Delete in order to respect foreign key constraints
             
-            # 1. Delete UploadSessionFiles (references documents)
-            logger.info("Deleting upload session files...")
-            upload_session_files = session.exec(select(UploadSessionFile)).all()
-            for file in upload_session_files:
-                session.delete(file)
-            logger.info(f"Deleted {len(upload_session_files)} upload session files")
-            
-            # 2. Delete UploadSessions
-            logger.info("Deleting upload sessions...")
-            upload_sessions = session.exec(select(UploadSession)).all()
-            for session_obj in upload_sessions:
-                session.delete(session_obj)
-            logger.info(f"Deleted {len(upload_sessions)} upload sessions")
-            
-            # 3. Delete OCRData (references documents)
+            # 1. Delete OCRData (references documents)
             logger.info("Deleting OCR data...")
             ocr_data = session.exec(select(OCRData)).all()
             for ocr in ocr_data:
                 session.delete(ocr)
             logger.info(f"Deleted {len(ocr_data)} OCR data records")
             
-            # 4. Delete PDFCache (references documents)
+            # 2. Delete PDFCache (references documents)
             logger.info("Deleting PDF cache...")
             pdf_caches = session.exec(select(PDFCache)).all()
             for cache in pdf_caches:
                 session.delete(cache)
             logger.info(f"Deleted {len(pdf_caches)} PDF cache records")
             
-            # 5. Delete DocumentFeedback (references documents)
+            # 3. Delete DocumentFeedback (references documents)
             logger.info("Deleting document feedback...")
             feedbacks = session.exec(select(DocumentFeedback)).all()
             for feedback in feedbacks:
                 session.delete(feedback)
             logger.info(f"Deleted {len(feedbacks)} feedback records")
             
-            # 6. Delete DocumentClassifications (references documents)
+            # 4. Delete DocumentClassifications (references documents)
             logger.info("Deleting document classifications...")
             classifications = session.exec(select(DocumentClassification)).all()
             for classification in classifications:
                 session.delete(classification)
             logger.info(f"Deleted {len(classifications)} classification records")
             
-            # 7. Delete ProcessingTasks (references documents)
+            # 5. Delete ProcessingTasks (references documents)
             logger.info("Deleting processing tasks...")
             processing_tasks = session.exec(select(ProcessingTask)).all()
             for task in processing_tasks:
                 session.delete(task)
             logger.info(f"Deleted {len(processing_tasks)} processing task records")
             
-            # 8. Delete Entities (references embedding_metadata)
+            # 6. Delete Entities (references embedding_metadata)
             logger.info("Deleting entities...")
             entities = session.exec(select(Entity)).all()
             for entity in entities:
                 session.delete(entity)
             logger.info(f"Deleted {len(entities)} entity records")
             
-            # 9. Delete EmbeddingMetadata (references documents)
+            # 7. Delete EmbeddingMetadata (references documents)
             logger.info("Deleting embedding metadata...")
             embedding_metadata = session.exec(select(EmbeddingMetadata)).all()
             for metadata in embedding_metadata:
                 session.delete(metadata)
             logger.info(f"Deleted {len(embedding_metadata)} embedding metadata records")
             
-            # 10. Finally, delete Documents
+            # 8. Finally, delete Documents
             logger.info("Deleting documents...")
             documents = session.exec(select(Document)).all()
             for document in documents:
