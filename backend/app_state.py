@@ -17,7 +17,7 @@ from sentence_transformers import SentenceTransformer
 from src.ml.classification.tfidf_classifier import PreTrainedTFIDFClassifier
 from lib.ocr.factory import get_default_ocr_engine
 from src.ml.faiss.embeddings import get_embeddings_index
-from src.services.document_processing_service import DocumentProcessingService
+from src.utils.document_processing_manager import DocumentProcessManager
 from src.ml.faiss.embeddings import EmbeddingsIndex
 from lib.ocr import OCREngine
 from src.ml.classification.base_classifier import DocumentClassifier
@@ -45,7 +45,7 @@ class AppState:
         self.ner_model: Optional[NERModel] = None
         self.ocr_engine: OCREngine = None
         self.embeddings_index: Optional[EmbeddingsIndex] = None
-        self.document_processing_service: DocumentProcessingService = None
+        self.document_processing_manager: DocumentProcessManager = None
 
     def initialize(self):
         """Initialize all application components."""

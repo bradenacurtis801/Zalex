@@ -15,7 +15,7 @@ from src.services.pdf_service import PDFService
 from src.services.query_service import QueryService
 from src.services.upload_service import UploadService
 from src.services.ocr_service import OCRService
-from src.services.document_processing_service import DocumentProcessingService
+from src.utils.document_processing_manager import DocumentProcessManager
 from src.services.auth_service import AuthService
 from src.services.task_service import TaskService
 from src.websocket_manager import get_connection_manager
@@ -199,12 +199,12 @@ def get_embeddings_index():
 def get_document_processing_service():
     """Dependency injection for DocumentProcessingService."""
     app_state = get_app_state()
-    if not app_state.document_processing_service:
+    if not app_state.document_processing_manager:
         raise RuntimeError("Document processing service not initialized")
-    return app_state.document_processing_service
+    return app_state.document_processing_manager
 
 def get_upload_service(
-    processing_service: DocumentProcessingService = Depends(get_document_processing_service),
+    document_process_manager: DocumentProcessManager = Depends(get_document_processing_service),
     document_repo: DocumentRepository = Depends(get_document_repository),
     classification_repo: DocumentClassificationRepository = Depends(get_document_classification_repository),
     pdf_cache_repo: PDFCacheRepository = Depends(get_pdf_cache_repository),
@@ -214,7 +214,7 @@ def get_upload_service(
 ) -> UploadService:
     """Dependency injection for UploadService."""
     return UploadService(
-        processing_service=processing_service,
+        document_process_manager=document_process_manager,
         event_bus=event_bus,
         document_repo=document_repo,
         classification_repo=classification_repo,

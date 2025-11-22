@@ -36,7 +36,7 @@ from src.repositories.task_repository import TaskRepository
 logger = logging.getLogger(__name__)
 
 
-class DocumentProcessingService:
+class DocumentProcessManager:
     """Service for processing documents (OCR extraction and classification)."""
 
     def __init__(

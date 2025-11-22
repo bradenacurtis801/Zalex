@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from fastapi import UploadFile
 from src.models.schemas.upload import UploadResponse
 from src.models.database import DocumentStatus, Document, DocumentClassification
-from src.services.document_processing_service import DocumentProcessingService
+from src.utils.document_processing_manager import DocumentProcessManager
 from src.event_bus import EventBus, EventType
 from src.models.schemas.events import FileCompleteEvent
 from src.repositories.document_repository import DocumentRepository
@@ -28,7 +28,7 @@ class UploadService:
 
     def __init__(
         self, 
-        processing_service: DocumentProcessingService,
+        document_process_manager: DocumentProcessManager,
         document_repo: DocumentRepository,
         classification_repo: DocumentClassificationRepository,
         pdf_cache_repo: PDFCacheRepository,
@@ -37,7 +37,7 @@ class UploadService:
         metadata_repo: MetadataRepository,
         event_bus: Optional[EventBus] = None,
     ):
-        self.processing_service = processing_service
+        self._document_process_manager = document_process_manager
         self.document_repo = document_repo
         self.classification_repo = classification_repo
         self.pdf_cache_repo = pdf_cache_repo
@@ -220,7 +220,7 @@ class UploadService:
         Returns:
             True if task was submitted, False if already classified
         """
-        needs_processing = self.processing_service.check_and_submit(
+        needs_processing = self._document_process_manager.check_and_submit(
             document_id=file_hash,
             filename=filename,
             file_content=file_content,

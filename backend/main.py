@@ -104,7 +104,7 @@ async def lifespan(app: FastAPI):
     
     # Initialize document processing service
     with next(get_session()) as db:
-        from src.services.document_processing_service import DocumentProcessingService
+        from src.utils.document_processing_manager import DocumentProcessManager
         from src.event_bus import event_bus
         from src.repositories import (
             DocumentRepository,
@@ -119,7 +119,7 @@ async def lifespan(app: FastAPI):
         ocr_data_repo = OCRDataRepository(db)
         task_repo = TaskRepository(db)
         
-        app_state.document_processing_service = DocumentProcessingService(
+        app_state.document_processing_manager = DocumentProcessManager(
             ocr_engine=app_state.ocr_engine,
             document_classifier=app_state.document_classifier,
             document_repo=document_repo,
@@ -133,7 +133,7 @@ async def lifespan(app: FastAPI):
         
         # Start processing service workers and load pending tasks
         logger.info("Starting document processing service workers and loading pending tasks...")
-        await app_state.document_processing_service.start()
+        await app_state.document_processing_manager.start()
         logger.info("Document processing service workers started")
     
     # Create default admin user if no users exist (at the very end)
@@ -145,9 +145,9 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down application...")
-    if app_state.document_processing_service:
+    if app_state.document_processing_manager:
         logger.info("Stopping document processing service workers...")
-        await app_state.document_processing_service.stop()
+        await app_state.document_processing_manager.stop()
     logger.debug("Application shutdown complete")
 
 
