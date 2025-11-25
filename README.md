@@ -1,4 +1,4 @@
-# App
+# SabioDocs
 
 A comprehensive document processing and search system that combines OCR, AI-powered document classification, and semantic search capabilities.
 
