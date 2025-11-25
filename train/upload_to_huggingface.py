@@ -13,21 +13,22 @@ from pathlib import Path
 from dotenv import load_dotenv
 from huggingface_hub import HfApi, Repository
 from huggingface_hub.utils import RepositoryNotFoundError
+import lib.constants as c
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Configuration
 HF_USERNAME = "bradenacurtis"
-FINETUNE_MODEL_NAME = "scanpro-classifier-v1-finetune"
+FINETUNE_MODEL_NAME = "tfid-classifier"  # Hugging Face repo name
+MODEL_DIR_NAME = "bradenacurtis-tfid-classifier"  # Actual directory name in ml_models
 
 # Load Hugging Face token from environment
-HF_TOKEN = os.getenv("SCANPRO_UPLOAD_TOKEN")
+HF_TOKEN = os.getenv("HF_UPLOAD_TOKEN")
 
 # Paths
 ROOT_DIR = Path(__file__).parent.parent
-SIMILARITY_MODEL_PATH = ROOT_DIR / "APP_DATA" / "ml_models" / "similarity_classifier"
-FINETUNE_MODEL_PATH = ROOT_DIR / "train" / "models" / "finetune_classifier"
+TFIDF_MODEL_PATH = c.ML_MODELS_DIR / MODEL_DIR_NAME
 
 
 def create_model_card(model_type: str, model_name: str) -> str:
@@ -80,24 +81,25 @@ Trained on Spanish legal documents from various sources, processed using OCR and
 
 The model achieves high accuracy on Spanish legal document classification tasks.
 """
-    else:  # finetune
+    else:  # tfidf
         return f"""---
 license: mit
 tags:
 - document-classification
-- bert
+- tfidf
+- naive-bayes
 - spanish
 - legal-documents
-- pytorch
+- scikit-learn
 ---
 
 # {model_name}
 
-A fine-tuned BERT-based document classifier for Spanish legal documents.
+A TFIDF + Naive Bayes document classifier for Spanish legal documents.
 
 ## Model Description
 
-This model is based on `dccuchile/bert-base-spanish-wwm-uncased` and fine-tuned specifically for Spanish legal document classification.
+This model uses TFIDF (Term Frequency-Inverse Document Frequency) vectorization combined with a Naive Bayes classifier to classify Spanish legal documents into categories.
 
 ## Categories
 
@@ -108,37 +110,33 @@ This model is based on `dccuchile/bert-base-spanish-wwm-uncased` and fine-tuned 
 ## Usage
 
 ```python
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import torch
+from lib.models.classifier import TFIDFClassifierModel
 
 # Load the model
-tokenizer = AutoTokenizer.from_pretrained("bradenacurtis/{model_name}")
-model = AutoModelForSequenceClassification.from_pretrained("bradenacurtis/{model_name}")
+model = TFIDFClassifierModel.from_pretrained("bradenacurtis/{model_name}")
 
 # Classify a document
 text = "Your document text here"
-inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True)
-with torch.no_grad():
-    outputs = model(**inputs)
-    predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
+prediction = model.predict(text)
+print(f"Category: {{prediction['category']}}, Confidence: {{prediction['confidence']}}")
 ```
 
 ## Training
 
-Fine-tuned on Spanish legal documents using the Hugging Face Transformers library.
+Trained on Spanish legal documents using scikit-learn's TFIDF vectorizer and Multinomial Naive Bayes classifier.
 
 ## Performance
 
-Achieves high accuracy on Spanish legal document classification tasks.
+Achieves high accuracy on Spanish legal document classification tasks with fast inference times.
 """
 
 
 def upload_finetune_classifier():
-    """Upload the fine-tuned classifier to Hugging Face Hub."""
-    print(f"Uploading fine-tuned classifier from {FINETUNE_MODEL_PATH}")
+    """Upload the TFIDF classifier to Hugging Face Hub."""
+    print(f"Uploading TFIDF classifier from {TFIDF_MODEL_PATH}")
 
-    if not FINETUNE_MODEL_PATH.exists():
-        print(f"Error: Model path {FINETUNE_MODEL_PATH} does not exist")
+    if not TFIDF_MODEL_PATH.exists():
+        print(f"Error: Model path {TFIDF_MODEL_PATH} does not exist")
         return False
 
     try:
@@ -155,11 +153,11 @@ def upload_finetune_classifier():
 
         # Upload files
         api.upload_folder(
-            folder_path=str(FINETUNE_MODEL_PATH), repo_id=repo_id, repo_type="model"
+            folder_path=str(TFIDF_MODEL_PATH), repo_id=repo_id, repo_type="model"
         )
 
         # Upload model card
-        model_card = create_model_card("finetune", FINETUNE_MODEL_NAME)
+        model_card = create_model_card("tfidf", FINETUNE_MODEL_NAME)
         api.upload_file(
             path_or_fileobj=model_card.encode(),
             path_in_repo="README.md",
@@ -167,11 +165,11 @@ def upload_finetune_classifier():
             repo_type="model",
         )
 
-        print(f"✅ Successfully uploaded fine-tuned classifier to {repo_id}")
+        print(f"✅ Successfully uploaded TFIDF classifier to {repo_id}")
         return True
 
     except Exception as e:
-        print(f"❌ Error uploading fine-tuned classifier: {e}")
+        print(f"❌ Error uploading TFIDF classifier: {e}")
         return False
 
 
@@ -184,7 +182,7 @@ def main():
     # Check if token is set
     if not HF_TOKEN:
         print("❌ Please set your Hugging Face token in the environment")
-        print("Set SCANPRO_UPLOAD_TOKEN environment variable or add it to .env file")
+        print("Set HF_UPLOAD_TOKEN environment variable or add it to .env file")
         print("Get your token from: https://huggingface.co/settings/tokens")
         return
 
@@ -198,7 +196,7 @@ def main():
         print("⚠️  Some uploads failed. Check the errors above.")
 
     print("\nNext steps:")
-    print("1. Set SCANPRO_UPLOAD_TOKEN environment variable or add it to .env file")
+    print("1. Set HF_UPLOAD_TOKEN environment variable or add it to .env file")
     print("2. Run: python train/upload_to_huggingface.py")
     print("3. Your models will be available at:")
     print(f"   - https://huggingface.co/{HF_USERNAME}/{FINETUNE_MODEL_NAME}")
