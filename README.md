@@ -2,38 +2,6 @@
 
 A comprehensive document processing and search system that combines OCR, AI-powered document classification, and semantic search capabilities.
 
-## 🎬 Demo
-
-![Login Page](demos/LoginPage.png)
-*Secure login interface with username and password authentication*
-
-![Dashboard Page](demos/DashboardPage.png)
-*Main dashboard showing document statistics, categories, and system overview*
-
-![Dashboard - Processing Upload](demos/DashboardPageProcessingUpload.png)
-*Real-time progress tracking during document upload with WebSocket integration*
-
-![Dashboard - Upload Complete](demos/DashboardPageUploadComplete.png)
-*Upload completed with classification results and scrollable file lists*
-
-![Dashboard - Category Management](demos/DashboardPageCategoryFeat.png)
-*Category management interface with dynamic color-coded categories and scrollable document lists*
-
-![User Profile](demos/UserProfileCrop.png)
-*User profile management with password change and profile editing capabilities*
-
-![Profile Dropdown](demos/ProfileDropDownCrop.png)
-*User menu dropdown with profile access and logout options*
-
-![User Management - Admin Panel](demos/AdminPanelUserManagement.png)
-*Admin interface for managing users, creating accounts, and assigning roles*
-
-![User Management - Edit User](demos/UserManagementEditCrop.png)
-*Admin interface for editing user details, roles, and resetting passwords*
-
-![Non-Admin User Profile](demos/NonAdminUserProfileCrop.png)
-*Standard user profile view with limited editing capabilities*
-
 ## 🚀 Overview
 
 This app is a full-stack document management application with user authentication, role-based access control, and intelligent document processing. Users can upload documents, automatically classify them by type, and perform semantic searches across their document collection. The system is designed to handle Spanish legal documents including birth certificates, marriage certificates, and property deeds.
