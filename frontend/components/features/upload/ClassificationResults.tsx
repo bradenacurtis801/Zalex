@@ -2,12 +2,14 @@
 
 import { DocumentClassification } from '@/generated'
 import { getCategoryColor, getCategoryLabel } from '@/utils/categoryUtils'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface ClassificationResultsProps {
   classifications: DocumentClassification[]
 }
 
 export default function ClassificationResults({ classifications }: ClassificationResultsProps) {
+  const { t } = useLanguage()
   if (!classifications || classifications.length === 0) {
     return null
   }
@@ -22,8 +24,8 @@ export default function ClassificationResults({ classifications }: Classificatio
   return (
     <div className="mt-4 space-y-3">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900">Document Classifications</h3>
-        <span className="text-sm text-gray-500">({classifications.length} documents)</span>
+        <h3 className="text-lg font-semibold text-gray-900">{t('classificationResults.title')}</h3>
+        <span className="text-sm text-gray-500">({classifications.length} {t('classificationResults.documents')})</span>
       </div>
       <div className="max-h-96 overflow-y-auto space-y-2 border border-gray-200 rounded-lg p-2">
         {classifications.map((classification, index) => (
@@ -52,7 +54,7 @@ export default function ClassificationResults({ classifications }: Classificatio
               </div>
             </div>
             <div className="flex items-center space-x-2 flex-shrink-0">
-              <span className="text-sm text-gray-500">Confidence:</span>
+              <span className="text-sm text-gray-500">{t('classificationResults.confidence')}</span>
               <span
                 className={`text-sm font-medium ${getConfidenceColor(
                   classification.confidence

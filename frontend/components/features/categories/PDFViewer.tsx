@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { CategoryDocument } from '@/hooks/useCategories'
 import { uploadApi } from '@/api'
 import PDFPage from './PDFPage'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface PDFViewerProps {
   document: CategoryDocument
@@ -22,6 +23,7 @@ export default function PDFViewer({
   currentPage = 0,
   onPageChange
 }: PDFViewerProps) {
+  const { t } = useLanguage()
   const [pdfPages, setPdfPages] = useState<Array<{page_number: number, image_data: string, width: number, height: number}>>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -72,7 +74,7 @@ export default function PDFViewer({
       setPdfPages(pagesData.pages || [])
     } catch (err) {
       console.error('Error loading PDF pages:', err)
-      setError('Failed to load PDF pages')
+      setError(t('pdfViewer.loadError'))
     } finally {
       setLoading(false)
     }
@@ -128,7 +130,7 @@ export default function PDFViewer({
       <div className={`flex items-center justify-center h-64 ${className}`}>
         <div className="text-center">
           <div className="loader mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading PDF pages...</p>
+          <p className="text-gray-600">{t('pdfViewer.loading')}</p>
         </div>
       </div>
     )
@@ -139,13 +141,13 @@ export default function PDFViewer({
       <div className={`flex items-center justify-center h-64 ${className}`}>
         <div className="text-center">
           <div className="text-6xl mb-4">📄</div>
-          <h4 className="text-lg font-medium text-gray-900 mb-2">PDF Load Error</h4>
+          <h4 className="text-lg font-medium text-gray-900 mb-2">{t('pdfViewer.loadError')}</h4>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={loadPDFPages}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
-            Try Again
+            {t('pdfViewer.tryAgain')}
           </button>
         </div>
       </div>
@@ -157,8 +159,8 @@ export default function PDFViewer({
       <div className={`flex items-center justify-center h-64 ${className}`}>
         <div className="text-center">
           <div className="text-6xl mb-4">📄</div>
-          <h4 className="text-lg font-medium text-gray-900 mb-2">No PDF Pages</h4>
-          <p className="text-gray-600">No pages available for this document.</p>
+          <h4 className="text-lg font-medium text-gray-900 mb-2">{t('pdfViewer.noPages')}</h4>
+          <p className="text-gray-600">{t('pdfViewer.noPagesDescription')}</p>
         </div>
       </div>
     )

@@ -8,6 +8,7 @@ import PDFViewer from './PDFViewer'
 import OCRPage from './OCRPage'
 import { ocrApi } from '@/api'
 import type { OCRDataResponse } from '@/generated/models/OCRDataResponse'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface OCRTextViewerProps {
   isOpen: boolean
@@ -20,6 +21,7 @@ export default function OCRTextViewer({
   onClose,
   document
 }: OCRTextViewerProps) {
+  const { t } = useLanguage()
   const [ocrData, setOcrData] = useState<OCRDataResponse[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -56,10 +58,10 @@ export default function OCRTextViewer({
       } else {
         console.warn('Unexpected OCR data structure:', data)
         setOcrData([])
-        setError('No OCR data available for this document')
+        setError(t('ocrTextViewer.noOcrDataDescription'))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load OCR data')
+      setError(err instanceof Error ? err.message : t('ocrTextViewer.loading'))
       console.error('Error loading OCR data:', err)
     } finally {
       setLoading(false)
@@ -128,10 +130,10 @@ export default function OCRTextViewer({
         <div className="flex justify-between items-center p-4 border-b bg-gray-50">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
-              OCR Text Viewer
+              {t('ocrTextViewer.title')}
             </h3>
             <p className="text-sm text-gray-600">
-              {document.filename} - Side-by-side PDF and OCR text
+              {document.filename} - {t('ocrTextViewer.subtitle')}
             </p>
           </div>
           <button
@@ -153,17 +155,17 @@ export default function OCRTextViewer({
                 disabled={currentPage === 0}
                 className="px-4 py-2 text-sm bg-blue-500 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
               >
-                ← Previous
+                {t('ocrTextViewer.previous')}
               </button>
               <span className="text-sm text-gray-700 font-medium">
-                Page {ocrData[currentPage]?.pageNumber !== undefined ? ocrData[currentPage].pageNumber + 1 : currentPage + 1} of {ocrData.length}
+                {t('ocrTextViewer.page', { current: ocrData[currentPage]?.pageNumber !== undefined ? ocrData[currentPage].pageNumber + 1 : currentPage + 1, total: ocrData.length })}
               </span>
               <button
                 onClick={() => handlePageNavigation(ocrData[currentPage + 1]?.pageNumber ?? -1)}
                 disabled={currentPage === ocrData.length - 1}
                 className="px-4 py-2 text-sm bg-blue-500 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
               >
-                Next →
+                {t('ocrTextViewer.next')}
               </button>
             </div>
           </div>
@@ -175,7 +177,7 @@ export default function OCRTextViewer({
           <div className="w-1/2 border-r">
             <div className="h-full flex flex-col">
               <div className="p-3 bg-gray-100 border-b">
-                <h4 className="font-medium">PDF Viewer</h4>
+                <h4 className="font-medium">{t('ocrTextViewer.pdfViewer')}</h4>
               </div>
               <div 
                 ref={pdfContainerRef}
@@ -185,7 +187,7 @@ export default function OCRTextViewer({
                   <div className="flex items-center justify-center h-64">
                     <div className="text-center">
                       <div className="loader mx-auto mb-4"></div>
-                      <p className="text-gray-600">Loading OCR data...</p>
+                      <p className="text-gray-600">{t('ocrTextViewer.loading')}</p>
                     </div>
                   </div>
                 )}
@@ -194,7 +196,7 @@ export default function OCRTextViewer({
                   <div className="p-8">
                     <StatusMessage message={error} type="error" />
                     <Button onClick={loadOCRData} className="mt-4">
-                      Retry
+                      {t('ocrTextViewer.retry')}
                     </Button>
                   </div>
                 )}
@@ -212,15 +214,15 @@ export default function OCRTextViewer({
                 {!loading && !error && ocrData.length === 0 && (
                   <div className="p-8 text-center">
                     <div className="text-6xl mb-4">📄</div>
-                    <h4 className="text-lg font-medium text-gray-900 mb-2">No OCR Data</h4>
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">{t('ocrTextViewer.noOcrData')}</h4>
                     <p className="text-gray-600">
-                      No OCR data available for this document. The document may not have been processed with OCR yet.
+                      {t('ocrTextViewer.noOcrDataDescription')}
                     </p>
                     <Button 
                       onClick={loadOCRData} 
                       className="mt-4 bg-blue-600 hover:bg-blue-700 text-white"
                     >
-                      Retry
+                      {t('ocrTextViewer.retry')}
                     </Button>
                   </div>
                 )}
@@ -232,7 +234,7 @@ export default function OCRTextViewer({
           <div className="w-1/2">
             <div className="h-full flex flex-col">
               <div className="p-3 bg-gray-100 border-b">
-                <h4 className="font-medium">OCR Text Display</h4>
+                <h4 className="font-medium">{t('ocrTextViewer.ocrTextDisplay')}</h4>
               </div>
               
               <div className="flex-1 min-h-0 overflow-hidden">
@@ -250,7 +252,7 @@ export default function OCRTextViewer({
             variant="secondary"
             onClick={onClose}
           >
-            Close
+            {t('ocrTextViewer.close')}
           </Button>
         </div>
       </div>

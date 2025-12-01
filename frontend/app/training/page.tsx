@@ -6,8 +6,10 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import Header from '@/components/layout/Header'
 import TrainingMetrics from '@/components/features/category/TrainingMetrics'
 import ClassificationTraining from '@/components/features/category/ClassificationTraining'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 export default function TrainingPage() {
+  const { t } = useLanguage()
   const { user } = useAuth()
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -16,10 +18,10 @@ export default function TrainingPage() {
     return (
       <ProtectedRoute>
         <div className="min-h-screen bg-gray-100">
-          <Header title="Classification Training" />
+          <Header title={t('training.title')} />
           <main className="max-w-7xl mx-auto p-6">
             <div className="bg-white border border-red-200 rounded-lg p-6 text-center">
-              <p className="text-red-600">Access denied. Admin privileges required.</p>
+              <p className="text-red-600">{t('training.accessDenied')}</p>
             </div>
           </main>
         </div>
@@ -35,20 +37,20 @@ export default function TrainingPage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-100">
-        <Header title="Classification Training" />
+        <Header title={t('training.title')} />
         
         <main className="max-w-7xl mx-auto p-6">
           <div className="space-y-6">
             {/* Training Metrics Section */}
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Training Metrics</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('training.trainingMetrics')}</h2>
               {/* Using key prop to force remount when refreshKey changes */}
               <TrainingMetrics key={refreshKey} />
             </div>
 
             {/* Create Category Section */}
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Create New Category</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('training.createNewCategory')}</h2>
               <ClassificationTraining onSuccess={handleCategoryCreated} />
             </div>
           </div>

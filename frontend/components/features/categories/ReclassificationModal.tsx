@@ -5,6 +5,7 @@ import { useFeedback } from '@/hooks/useFeedback'
 import { ReclassificationRequest } from '@/generated'
 import { Button } from '@/components/ui'
 import { StatusMessage } from '@/components/ui'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface ReclassificationModalProps {
   isOpen: boolean
@@ -26,6 +27,7 @@ export default function ReclassificationModal({
   document,
   availableCategories
 }: ReclassificationModalProps) {
+  const { t } = useLanguage()
   const { reclassifyDocument, loading, error } = useFeedback()
   const [selectedCategory, setSelectedCategory] = useState(document.category)
   const [userComment, setUserComment] = useState('')
@@ -42,7 +44,7 @@ export default function ReclassificationModal({
 
   const handleReclassify = async () => {
     if (selectedCategory === document.category) {
-      setStatusMessage('Please select a different category')
+      setStatusMessage(t('reclassification.selectDifferentCategory'))
       setStatusType('warning')
       return
     }
@@ -73,7 +75,7 @@ export default function ReclassificationModal({
         setStatusType('error')
       }
     } catch (err) {
-      setStatusMessage('Failed to reclassify document')
+      setStatusMessage(t('reclassification.error'))
       setStatusType('error')
     }
   }
@@ -91,7 +93,7 @@ export default function ReclassificationModal({
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">
-            Reclassify Document
+            {t('reclassification.title')}
           </h3>
           <button
             onClick={handleClose}
@@ -107,19 +109,19 @@ export default function ReclassificationModal({
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Document
+              {t('reclassification.document')}
             </label>
             <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded">
               {document.filename}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              Current: {document.category} ({(document.confidence * 100).toFixed(1)}% confidence)
+              {t('reclassification.current')} {document.category} ({(document.confidence * 100).toFixed(1)}% {t('documentViewer.confidence').toLowerCase()})
             </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              New Category
+              {t('reclassification.newCategory')}
             </label>
             <select
               value={selectedCategory}
@@ -129,7 +131,7 @@ export default function ReclassificationModal({
             >
               {availableCategories.map((category) => (
                 <option key={category} value={category}>
-                  {category === 'other' ? 'Other' : category.charAt(0).toUpperCase() + category.slice(1)}
+                  {category === 'other' ? t('reclassification.other') : category.charAt(0).toUpperCase() + category.slice(1)}
                 </option>
               ))}
             </select>
@@ -137,13 +139,13 @@ export default function ReclassificationModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Comment (Optional)
+              {t('reclassification.comment')}
             </label>
             <textarea
               value={userComment}
               onChange={(e) => setUserComment(e.target.value)}
               disabled={loading}
-              placeholder="Why are you reclassifying this document?"
+              placeholder={t('reclassification.commentPlaceholder')}
               className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-violet-500 disabled:opacity-50"
               rows={3}
             />
@@ -163,14 +165,14 @@ export default function ReclassificationModal({
               onClick={handleClose}
               disabled={loading}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleReclassify}
               disabled={loading || selectedCategory === document.category}
               isLoading={loading}
             >
-              {loading ? 'Reclassifying...' : 'Reclassify'}
+              {loading ? t('reclassification.reclassifying') : t('reclassification.reclassifyButton')}
             </Button>
           </div>
         </div>

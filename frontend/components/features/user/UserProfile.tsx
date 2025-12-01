@@ -5,12 +5,14 @@ import { useAuth } from '@/contexts/AuthContext'
 import { authApi } from '@/api'
 import { Button } from '@/components/ui'
 import { UserResponse, UserUpdate, UserChangePassword } from '@/generated'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface UserProfileProps {
   onClose: () => void
 }
 
 export default function UserProfile({ onClose }: UserProfileProps) {
+  const { t } = useLanguage()
   const { user, logout } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -57,7 +59,7 @@ export default function UserProfile({ onClose }: UserProfileProps) {
       window.location.reload()
     } catch (error) {
       console.error('Error updating profile:', error)
-      alert('Failed to update profile. Please try again.')
+      alert(t('userProfile.updateError'))
     } finally {
       setLoading(false)
     }
@@ -67,12 +69,12 @@ export default function UserProfile({ onClose }: UserProfileProps) {
     if (!user) return
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert('New passwords do not match')
+      alert(t('userProfile.passwordsDoNotMatch'))
       return
     }
 
     if (passwordData.newPassword.length < 8) {
-      alert('New password must be at least 8 characters long')
+      alert(t('userProfile.passwordMinLength'))
       return
     }
 
@@ -90,7 +92,7 @@ export default function UserProfile({ onClose }: UserProfileProps) {
 
       setShowPasswordSection(false)
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
-      alert('Password changed successfully. You will be logged out and need to log in again.')
+      alert(t('userProfile.passwordChangedSuccess'))
       
       // Log out the user since their session is now invalid
       setTimeout(() => {
@@ -98,7 +100,7 @@ export default function UserProfile({ onClose }: UserProfileProps) {
       }, 2000)
     } catch (error: any) {
       console.error('Error changing password:', error)
-      const errorMessage = error?.response?.data?.detail || 'Failed to change password'
+      const errorMessage = error?.response?.data?.detail || t('userProfile.changePasswordError')
       alert(errorMessage)
     } finally {
       setLoading(false)
@@ -123,7 +125,7 @@ export default function UserProfile({ onClose }: UserProfileProps) {
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">User Profile</h2>
+            <h2 className="text-xl font-bold text-gray-900">{t('userProfile.title')}</h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600"
@@ -137,7 +139,7 @@ export default function UserProfile({ onClose }: UserProfileProps) {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Username
+                {t('userProfile.username')}
               </label>
               <div className="px-3 py-2 bg-gray-100 rounded-md text-gray-500">
                 {user.username}
@@ -146,7 +148,7 @@ export default function UserProfile({ onClose }: UserProfileProps) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
+                {t('userProfile.email')}
               </label>
               {isEditing ? (
                 <input
@@ -162,7 +164,7 @@ export default function UserProfile({ onClose }: UserProfileProps) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name
+                {t('userProfile.fullName')}
               </label>
               {isEditing ? (
                 <input
@@ -178,7 +180,7 @@ export default function UserProfile({ onClose }: UserProfileProps) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Role
+                {t('userProfile.role')}
               </label>
               <p className="text-gray-900 capitalize">{user.user_role}</p>
             </div>
@@ -186,13 +188,13 @@ export default function UserProfile({ onClose }: UserProfileProps) {
             {/* Password Change Section */}
             <div className="border-t pt-4">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-medium text-gray-700">Change Password</h4>
+                <h4 className="text-sm font-medium text-gray-700">{t('userProfile.changePassword')}</h4>
                 <button
                   type="button"
                   onClick={() => setShowPasswordSection(!showPasswordSection)}
                   className="text-sm text-violet-600 hover:text-violet-800"
                 >
-                  {showPasswordSection ? 'Cancel' : 'Change Password'}
+                  {showPasswordSection ? t('userProfile.cancel') : t('userProfile.changePassword')}
                 </button>
               </div>
 
@@ -200,38 +202,38 @@ export default function UserProfile({ onClose }: UserProfileProps) {
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-600 mb-1">
-                      Current Password
+                      {t('userProfile.currentPassword')}
                     </label>
                     <input
                       type="password"
                       value={passwordData.currentPassword}
                       onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
-                      placeholder="Enter current password"
+                      placeholder={t('userProfile.enterCurrentPassword')}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-600 mb-1">
-                      New Password
+                      {t('userProfile.newPassword')}
                     </label>
                     <input
                       type="password"
                       value={passwordData.newPassword}
                       onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
-                      placeholder="Enter new password (min 8 characters)"
+                      placeholder={t('userProfile.enterNewPassword')}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-600 mb-1">
-                      Confirm New Password
+                      {t('userProfile.confirmNewPassword')}
                     </label>
                     <input
                       type="password"
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
-                      placeholder="Confirm new password"
+                      placeholder={t('userProfile.confirmNewPasswordPlaceholder')}
                     />
                   </div>
                   <div className="flex justify-end">
@@ -240,7 +242,7 @@ export default function UserProfile({ onClose }: UserProfileProps) {
                       disabled={loading || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
                       className="bg-green-600 hover:bg-green-700 text-white"
                     >
-                      {loading ? 'Changing...' : 'Change Password'}
+                      {loading ? t('userProfile.changing') : t('userProfile.changePassword')}
                     </Button>
                   </div>
                 </div>
@@ -256,20 +258,20 @@ export default function UserProfile({ onClose }: UserProfileProps) {
                   variant="secondary"
                   disabled={loading}
                 >
-                  Cancel
+                  {t('userProfile.cancel')}
                 </Button>
                 <Button
                   onClick={handleSave}
                   disabled={loading}
                 >
-                  {loading ? 'Saving...' : 'Save'}
+                  {loading ? t('userProfile.saving') : t('userProfile.save')}
                 </Button>
               </>
             ) : (
               <Button
                 onClick={() => setIsEditing(true)}
               >
-                Edit Profile
+                {t('userProfile.editProfile')}
               </Button>
             )}
           </div>

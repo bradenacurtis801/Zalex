@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { categoryApi, uploadApi } from '@/api'
 import { DocumentClassification, UserInfo, CategoryDocument, CategoryDocumentFromJSON } from '@/generated'
 import { getCategoryColor, getCategoryLabel } from '@/utils/categoryUtils'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface DocumentManagementProps {
   onClose: () => void
@@ -21,6 +22,7 @@ interface DocumentInfo {
 }
 
 export default function DocumentManagement({ onClose }: DocumentManagementProps) {
+  const { t } = useLanguage()
   const [documents, setDocuments] = useState<DocumentInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -55,15 +57,15 @@ export default function DocumentManagement({ onClose }: DocumentManagementProps)
                 
                 allDocuments.push({
                   id: docId,
-                  filename: categoryDoc.filename || 'Unknown',
+                  filename: categoryDoc.filename || t('documentManagement.unknown'),
                   category: categoryName,
                   confidence: categoryDoc.confidence || 0,
                   fileSize: categoryDoc.fileSize || 0,
                   mimeType: categoryDoc.mimeType || 'unknown',
                   createdAt: categoryDoc.timestamp || new Date().toISOString(),
                   user: categoryDoc.user ? {
-                    username: categoryDoc.user.username || 'Unknown',
-                    fullName: categoryDoc.user.fullName || 'Unknown'
+                    username: categoryDoc.user.username || t('documentManagement.unknown'),
+                    fullName: categoryDoc.user.fullName || t('documentManagement.unknown')
                   } : undefined
                 })
               }
@@ -75,7 +77,7 @@ export default function DocumentManagement({ onClose }: DocumentManagementProps)
       setDocuments(allDocuments)
     } catch (err) {
       console.error('Error loading documents:', err)
-      setError('Failed to load documents')
+      setError(t('documentManagement.loadError'))
     } finally {
       setLoading(false)
     }
@@ -93,7 +95,7 @@ export default function DocumentManagement({ onClose }: DocumentManagementProps)
   }
 
   const handleDeleteDocument = async (documentId: string, filename: string) => {
-    if (!confirm(`Are you sure you want to delete "${filename}"? This action cannot be undone.`)) {
+    if (!confirm(t('documentManagement.confirmDelete', { filename }))) {
       return
     }
 
@@ -112,20 +114,20 @@ export default function DocumentManagement({ onClose }: DocumentManagementProps)
       setDocuments(prev => prev.filter(doc => doc.id !== documentId))
       
       // Show success message
-      alert(`Document "${filename}" deleted successfully`)
+      alert(t('documentManagement.deleteSuccess', { filename }))
       
     } catch (err) {
       console.error('Error deleting document:', err)
-      setError(err instanceof Error ? err.message : 'Failed to delete document')
+      setError(err instanceof Error ? err.message : t('documentManagement.deleteError'))
     } finally {
       setDeleting(null)
     }
   }
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes'
+    if (bytes === 0) return `0 ${t('documentManagement.bytes')}`
     const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const sizes = [t('documentManagement.bytes'), t('documentManagement.kb'), t('documentManagement.mb'), t('documentManagement.gb')]
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
@@ -154,7 +156,7 @@ export default function DocumentManagement({ onClose }: DocumentManagementProps)
         {/* Header */}
         <div className="bg-violet-800 text-white p-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Manage Documents</h2>
+            <h2 className="text-2xl font-bold">{t('documentManagement.title')}</h2>
             <button
               onClick={onClose}
               className="text-white hover:text-violet-200 text-2xl"
@@ -173,7 +175,7 @@ export default function DocumentManagement({ onClose }: DocumentManagementProps)
               <div className="flex-1">
                 <input
                   type="text"
-                  placeholder="Search documents..."
+                  placeholder={t('documentManagement.searchPlaceholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
@@ -185,7 +187,7 @@ export default function DocumentManagement({ onClose }: DocumentManagementProps)
                   onChange={(e) => setSelectedCategory(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
                 >
-                  <option value="all">All Categories</option>
+                  <option value="all">{t('documentManagement.allCategories')}</option>
                   {categories.map(category => (
                     <option key={category} value={category}>
                       {getCategoryLabel(category)}
@@ -210,26 +212,26 @@ export default function DocumentManagement({ onClose }: DocumentManagementProps)
             {loading ? (
               <div className="text-center py-8">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
-                <p className="mt-2 text-gray-600">Loading documents...</p>
+                <p className="mt-2 text-gray-600">{t('documentManagement.loading')}</p>
               </div>
             ) : filteredDocuments.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 {searchTerm || selectedCategory !== 'all' 
-                  ? 'No documents match your filters' 
-                  : 'No documents found'
+                  ? t('documentManagement.noDocumentsMatch')
+                  : t('documentManagement.noDocumentsFound')
                 }
               </div>
             ) : (
               <table className="w-full border-collapse min-w-full">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-gray-50">
-                    <th className="text-left py-3 px-4 border-b font-medium text-gray-700">Filename</th>
-                    <th className="text-left py-3 px-4 border-b font-medium text-gray-700">Category</th>
-                    <th className="text-left py-3 px-4 border-b font-medium text-gray-700">Confidence</th>
-                    <th className="text-left py-3 px-4 border-b font-medium text-gray-700">Size</th>
-                    <th className="text-left py-3 px-4 border-b font-medium text-gray-700">Uploaded</th>
-                    <th className="text-left py-3 px-4 border-b font-medium text-gray-700">User</th>
-                    <th className="text-left py-3 px-4 border-b font-medium text-gray-700">Actions</th>
+                    <th className="text-left py-3 px-4 border-b font-medium text-gray-700">{t('documentManagement.filename')}</th>
+                    <th className="text-left py-3 px-4 border-b font-medium text-gray-700">{t('documentManagement.category')}</th>
+                    <th className="text-left py-3 px-4 border-b font-medium text-gray-700">{t('documentManagement.confidence')}</th>
+                    <th className="text-left py-3 px-4 border-b font-medium text-gray-700">{t('documentManagement.size')}</th>
+                    <th className="text-left py-3 px-4 border-b font-medium text-gray-700">{t('documentManagement.uploaded')}</th>
+                    <th className="text-left py-3 px-4 border-b font-medium text-gray-700">{t('documentManagement.user')}</th>
+                    <th className="text-left py-3 px-4 border-b font-medium text-gray-700">{t('documentManagement.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -266,7 +268,7 @@ export default function DocumentManagement({ onClose }: DocumentManagementProps)
                             <div className="text-xs text-gray-500">{doc.user.fullName}</div>
                           </div>
                         ) : (
-                          <span className="text-gray-400">Unknown</span>
+                          <span className="text-gray-400">{t('documentManagement.unknown')}</span>
                         )}
                       </td>
                       <td className="py-3 px-4 border-b">
@@ -278,10 +280,10 @@ export default function DocumentManagement({ onClose }: DocumentManagementProps)
                           {deleting === doc.id ? (
                             <div className="flex items-center">
                               <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-2"></div>
-                              Deleting...
+                              {t('documentManagement.deleting')}
                             </div>
                           ) : (
-                            'Delete'
+                            t('documentManagement.delete')
                           )}
                         </button>
                       </td>
@@ -298,20 +300,20 @@ export default function DocumentManagement({ onClose }: DocumentManagementProps)
           <div className="p-6 pt-4 border-t border-gray-200 bg-gray-50">
             <div className="flex justify-between items-center">
               <div className="text-sm text-gray-600">
-                Showing {filteredDocuments.length} of {documents.length} documents
+                {t('documentManagement.showing', { filtered: filteredDocuments.length, total: documents.length })}
               </div>
               <div className="flex gap-3">
                 <button
                   onClick={loadDocuments}
                   className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
                 >
-                  Refresh
+                  {t('documentManagement.refresh')}
                 </button>
                 <button
                   onClick={onClose}
                   className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
                 >
-                  Close
+                  {t('documentManagement.close')}
                 </button>
               </div>
             </div>

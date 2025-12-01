@@ -3,6 +3,8 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { WebSocketProvider } from '@/contexts/WebSocketContext'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { LanguageProvider } from '@/contexts/LanguageContext'
+import { LanguageProviderWrapper } from '@/components/providers/LanguageProviderWrapper'
 import { APP_TITLE, APP_DESCRIPTION } from '@/utils/constants'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -20,11 +22,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AuthProvider>
-          <WebSocketProvider>
-            {children}
-          </WebSocketProvider>
-        </AuthProvider>
+        <LanguageProvider>
+          <LanguageProviderWrapper>
+            <AuthProvider>
+              <WebSocketProvider>
+                {children}
+              </WebSocketProvider>
+            </AuthProvider>
+          </LanguageProviderWrapper>
+        </LanguageProvider>
       </body>
     </html>
   )

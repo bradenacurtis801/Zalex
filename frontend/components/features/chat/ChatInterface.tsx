@@ -5,6 +5,7 @@ import { queryApi } from '@/api'
 import { Button, Input } from '@/components/ui'
 import { SearchResult } from '@/generated/models/SearchResult'
 import SearchResultViewer from './SearchResultViewer'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface Message {
   text: string
@@ -14,8 +15,9 @@ interface Message {
 }
 
 export default function ChatInterface() {
+  const { t } = useLanguage()
   const [messages, setMessages] = useState<Message[]>([
-    { text: "Hello! Ask me anything about your enrolled documents.", sender: 'bot' }
+    { text: t('chat.welcomeMessage'), sender: 'bot' }
   ])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -58,7 +60,7 @@ export default function ChatInterface() {
           return a.score - b.score
         })
         
-        botResponse = `Found ${sortedResults.length} result${sortedResults.length !== 1 ? 's' : ''} for your query.`
+        botResponse = t('chat.foundResults', { count: sortedResults.length })
         
         // Replace loading message with response that includes search results
         setMessages(prev => {
@@ -72,7 +74,7 @@ export default function ChatInterface() {
           return newMessages
         })
       } else {
-        botResponse = "I couldn't find any relevant information in your documents for that query."
+        botResponse = t('chat.noResults')
         
         // Replace loading message with no results message
         setMessages(prev => {
@@ -86,7 +88,7 @@ export default function ChatInterface() {
       setMessages(prev => {
         const newMessages = [...prev]
         newMessages[newMessages.length - 1] = { 
-          text: `Sorry, an error occurred: ${error instanceof Error ? error.message : 'Search failed'}`, 
+          text: t('chat.errorOccurred', { error: error instanceof Error ? error.message : t('chat.searchFailed') }), 
           sender: 'bot' 
         }
         return newMessages
@@ -131,7 +133,7 @@ export default function ChatInterface() {
         <Input
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Ask a question..."
+          placeholder={t('chat.askPlaceholder')}
           disabled={isLoading}
           className="flex-grow"
         />

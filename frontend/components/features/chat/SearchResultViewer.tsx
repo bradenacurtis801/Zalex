@@ -7,6 +7,7 @@ import { CategoryDocument } from '@/hooks/useCategories'
 import PDFViewer from '../categories/PDFViewer'
 import { Button } from '@/components/ui'
 import { uploadApi } from '@/api'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 function HighlightedText({ text, entities }: { text: string; entities: Entity[] }) {
   if (!entities || entities.length === 0) {
@@ -95,12 +96,13 @@ interface PDFViewerModalProps {
 }
 
 function PDFViewerModal({ isOpen, onClose, documentId, pageNumber }: PDFViewerModalProps) {
+  const { t } = useLanguage()
   const pdfContainerRef = useRef<HTMLDivElement>(null)
 
   // Create a minimal CategoryDocument object - PDFViewer only needs the id
   const document: CategoryDocument = {
     id: documentId,
-    filename: 'Document',
+    filename: t('searchResults.document'),
     category: 'unknown',
     confidence: 0,
     timestamp: ''
@@ -118,10 +120,10 @@ function PDFViewerModal({ isOpen, onClose, documentId, pageNumber }: PDFViewerMo
         <div className="flex justify-between items-center p-6 border-b">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
-              Original Document
+              {t('searchResults.originalDocument')}
             </h3>
             <p className="text-sm text-gray-600 mt-1">
-              Document ID: {documentId.slice(0, 16)}...
+              {t('searchResults.documentId')} {documentId.slice(0, 16)}...
             </p>
           </div>
           <button
@@ -137,7 +139,7 @@ function PDFViewerModal({ isOpen, onClose, documentId, pageNumber }: PDFViewerMo
         {/* PDF Viewer */}
         <div className="flex-1 p-6 overflow-hidden flex flex-col min-h-0">
           <div className="mb-4 text-sm text-gray-600 flex-shrink-0">
-            Showing page {pageNumber + 1} of the document
+            {t('searchResults.showingPage', { page: pageNumber + 1 })}
           </div>
           <div className="flex-1 min-h-0 overflow-auto">
             <PDFViewer
@@ -155,7 +157,7 @@ function PDFViewerModal({ isOpen, onClose, documentId, pageNumber }: PDFViewerMo
             variant="secondary"
             onClick={onClose}
           >
-            Close
+            {t('searchResults.close')}
           </Button>
         </div>
       </div>
@@ -172,6 +174,7 @@ interface SearchResultItemProps {
 }
 
 function SearchResultItem({ result, index, onViewDocument, category, onCategoryUpdate }: SearchResultItemProps) {
+  const { t } = useLanguage()
   const [pageImage, setPageImage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -202,11 +205,11 @@ function SearchResultItem({ result, index, onViewDocument, category, onCategoryU
       if (page) {
         setPageImage(page.image_data)
       } else {
-        setError('Page not found')
+        setError(t('searchResults.pageNotFound'))
       }
     } catch (err) {
       console.error('Error loading page image:', err)
-      setError('Failed to load page image')
+      setError(t('searchResults.loadImageError'))
     } finally {
       setLoading(false)
     }
@@ -219,7 +222,7 @@ function SearchResultItem({ result, index, onViewDocument, category, onCategoryU
           #{index + 1}
         </span>
         <span className="text-xs text-gray-500">
-          Page {result.page + 1}
+          {t('searchResults.page', { number: result.page + 1 })}
         </span>
         {category && (
           <>
@@ -238,14 +241,14 @@ function SearchResultItem({ result, index, onViewDocument, category, onCategoryU
                 <span
                   key={idx}
                   className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-200"
-                  title={`${label} entities found`}
+                  title={t('searchResults.entitiesFound', { label })}
                 >
                   {label}
                 </span>
               ))}
               {Array.from(new Set(result.entities?.map((e) => e.label) || [])).length > 3 && (
                 <span className="text-xs text-gray-500">
-                  +{Array.from(new Set(result.entities?.map((e) => e.label) || [])).length - 3} more
+                  +{Array.from(new Set(result.entities?.map((e) => e.label) || [])).length - 3} {t('searchResults.more')}
                 </span>
               )}
             </div>
@@ -268,7 +271,7 @@ function SearchResultItem({ result, index, onViewDocument, category, onCategoryU
         {pageImage && !loading && !error && (
           <img
             src={pageImage}
-            alt={`Page ${result.page + 1}`}
+            alt={t('searchResults.page', { number: result.page + 1 })}
             className="w-full h-auto max-h-64 object-contain mx-auto"
           />
         )}
@@ -280,27 +283,27 @@ function SearchResultItem({ result, index, onViewDocument, category, onCategoryU
           onClick={() => setShowText(!showText)}
           className="text-xs text-gray-600 hover:text-gray-800 hover:underline font-medium"
         >
-          {showText ? 'Hide' : 'View'} matched text
+          {showText ? t('searchResults.hideMatchedText') : t('searchResults.viewMatchedText')}
         </button>
         <span className="text-gray-300">|</span>
         <button
           onClick={() => onViewDocument(result)}
           className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium"
         >
-          View full document →
+          {t('searchResults.viewFullDocument')}
         </button>
       </div>
 
       {/* Text Preview */}
       {showText && (
         <div className="mt-3 pt-3 border-t border-gray-200">
-          <p className="text-xs text-gray-600 mb-1 font-medium">Matched text:</p>
+          <p className="text-xs text-gray-600 mb-1 font-medium">{t('searchResults.matchedText')}</p>
           <HighlightedText text={result.text} entities={result.entities || []} />
           
           {/* NER Entities */}
           {result.entities && result.entities.length > 0 && (
             <div className="mt-3 pt-3 border-t border-gray-200">
-              <p className="text-xs text-gray-600 mb-2 font-medium">Extracted entities:</p>
+              <p className="text-xs text-gray-600 mb-2 font-medium">{t('searchResults.extractedEntities')}</p>
               <div className="flex flex-wrap gap-2">
                 {result.entities?.map((entity, idx) => (
                   <span
@@ -322,6 +325,7 @@ function SearchResultItem({ result, index, onViewDocument, category, onCategoryU
 }
 
 export default function SearchResultViewer({ results, query }: SearchResultViewerProps) {
+  const { t } = useLanguage()
   const [selectedResult, setSelectedResult] = useState<{ documentId: string; pageNumber: number } | null>(null)
   const [visibleCount, setVisibleCount] = useState(5)
   const [documentCategories, setDocumentCategories] = useState<Map<string, string>>(new Map())
@@ -345,8 +349,8 @@ export default function SearchResultViewer({ results, query }: SearchResultViewe
     return (
       <div className="text-center py-12">
         <div className="text-6xl mb-4">🔍</div>
-        <h4 className="text-lg font-medium text-gray-900 mb-2">No Results Found</h4>
-        <p className="text-gray-600">No documents match your search query: &quot;{query}&quot;</p>
+        <h4 className="text-lg font-medium text-gray-900 mb-2">{t('searchResults.noResultsFound')}</h4>
+        <p className="text-gray-600">{t('searchResults.noDocumentsMatch', { query })}</p>
       </div>
     )
   }
@@ -379,7 +383,7 @@ export default function SearchResultViewer({ results, query }: SearchResultViewe
             onClick={handleLoadMore}
             className="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium px-4 py-2 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
           >
-            Load more ({results.length - visibleCount} remaining)
+            {t('searchResults.loadMore', { remaining: results.length - visibleCount })}
           </button>
         </div>
       )}
@@ -387,7 +391,7 @@ export default function SearchResultViewer({ results, query }: SearchResultViewe
       {/* Total Results Count */}
       {!hasMore && results.length > RESULTS_PER_PAGE && (
         <p className="text-xs text-gray-500 text-center pt-2">
-          Showing all {results.length} result{results.length !== 1 ? 's' : ''}
+          {t('searchResults.showingAll', { count: results.length })}
         </p>
       )}
 

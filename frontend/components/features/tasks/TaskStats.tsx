@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useTasks } from '@/hooks/useTasks'
+import { useLanguage } from '@/contexts/LanguageContext'
 import { Button } from '@/components/ui'
 import { StatusMessage } from '@/components/ui'
 import { TaskEntry } from '@/generated'
@@ -12,6 +13,7 @@ import { FileCompleteMessage, FileStartMessage, UploadProgressEvent } from '@/we
 type TaskStatusFilter = 'all' | 'pending' | 'processing' | 'completed' | 'failed'
 
 export default function TaskStats() {
+  const { t } = useLanguage()
   const { 
     taskSummary, 
     summaryLoading, 
@@ -144,7 +146,7 @@ export default function TaskStats() {
   const someFilteredSelected = filteredTasks.some(task => selectedTaskIds.has(task.id))
 
   const handleDeleteTask = async (taskId: number) => {
-    if (!confirm(`Are you sure you want to delete this task? This action cannot be undone.`)) {
+    if (!confirm(t('tasks.confirmDeleteTask'))) {
       return
     }
 
@@ -161,7 +163,7 @@ export default function TaskStats() {
         return newSet
       })
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete task'
+      const errorMessage = err instanceof Error ? err.message : t('tasks.deleteTaskError')
       setDeleteError(errorMessage)
       console.error('Error deleting task:', err)
     } finally {
@@ -173,7 +175,7 @@ export default function TaskStats() {
     const selectedIds = Array.from(selectedTaskIds)
     if (selectedIds.length === 0) return
 
-    if (!confirm(`Are you sure you want to delete ${selectedIds.length} task(s)? This action cannot be undone.`)) {
+    if (!confirm(t('tasks.confirmDeleteTasks', { count: selectedIds.length }))) {
       return
     }
 
@@ -185,7 +187,7 @@ export default function TaskStats() {
       // Tasks are already removed from state by deleteTasks
       setSelectedTaskIds(new Set())
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete tasks'
+      const errorMessage = err instanceof Error ? err.message : t('tasks.deleteTasksError')
       setDeleteError(errorMessage)
       console.error('Error deleting tasks:', err)
     } finally {
@@ -198,7 +200,7 @@ export default function TaskStats() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="loader mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading task statistics...</p>
+          <p className="text-gray-600">{t('tasks.loadingStatistics')}</p>
         </div>
       </div>
     )
@@ -209,7 +211,7 @@ export default function TaskStats() {
       <div className="text-center p-6">
         <StatusMessage message={summaryError} type="error" />
         <Button onClick={refetch} className="mt-4">
-          Try Again
+          {t('tasks.tryAgain')}
         </Button>
       </div>
     )
@@ -220,7 +222,7 @@ export default function TaskStats() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4 border-b pb-2">
         <h2 className="text-xl font-semibold text-violet-800">
-          Document Processing Tasks
+          {t('tasks.title')}
         </h2>
         <div className="flex gap-2 items-center">
           <Button 
@@ -229,7 +231,7 @@ export default function TaskStats() {
             size="sm"
             isLoading={summaryLoading || tasksLoading}
           >
-            Refresh
+            {t('tasks.refresh')}
           </Button>
         </div>
       </div>
@@ -239,23 +241,23 @@ export default function TaskStats() {
         <div className="grid grid-cols-5 gap-4 mb-6">
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="text-2xl font-bold text-gray-900">{taskSummary.totalTasks}</div>
-            <div className="text-sm text-gray-500 mt-1">Total Tasks</div>
+            <div className="text-sm text-gray-500 mt-1">{t('tasks.totalTasks')}</div>
           </div>
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="text-2xl font-bold text-yellow-700">{taskSummary.pending}</div>
-            <div className="text-sm text-yellow-600 mt-1">Pending</div>
+            <div className="text-sm text-yellow-600 mt-1">{t('tasks.pending')}</div>
           </div>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="text-2xl font-bold text-blue-700">{taskSummary.processing}</div>
-            <div className="text-sm text-blue-600 mt-1">Processing</div>
+            <div className="text-sm text-blue-600 mt-1">{t('tasks.processing')}</div>
           </div>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="text-2xl font-bold text-green-700">{taskSummary.completed}</div>
-            <div className="text-sm text-green-600 mt-1">Completed</div>
+            <div className="text-sm text-green-600 mt-1">{t('tasks.completed')}</div>
           </div>
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="text-2xl font-bold text-red-700">{taskSummary.failed}</div>
-            <div className="text-sm text-red-600 mt-1">Failed</div>
+            <div className="text-sm text-red-600 mt-1">{t('tasks.failed')}</div>
           </div>
         </div>
       )}
@@ -271,7 +273,7 @@ export default function TaskStats() {
       <div className="mb-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-            Filter by status:
+            {t('tasks.filterByStatus')}
             <select
               value={statusFilter}
               onChange={(e) => {
@@ -280,11 +282,11 @@ export default function TaskStats() {
               }}
               className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             >
-              <option value="all">All Tasks</option>
-              <option value="pending">Pending</option>
-              <option value="processing">Processing</option>
-              <option value="completed">Completed</option>
-              <option value="failed">Failed</option>
+              <option value="all">{t('tasks.allTasks')}</option>
+              <option value="pending">{t('tasks.pending')}</option>
+              <option value="processing">{t('tasks.processing')}</option>
+              <option value="completed">{t('tasks.completed')}</option>
+              <option value="failed">{t('tasks.failed')}</option>
             </select>
           </label>
         </div>
@@ -292,7 +294,7 @@ export default function TaskStats() {
         {selectedTaskIds.size > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">
-              {selectedTaskIds.size} task{selectedTaskIds.size !== 1 ? 's' : ''} selected
+              {t('tasks.tasksSelected', { count: selectedTaskIds.size })}
             </span>
             <Button
               variant="secondary"
@@ -302,7 +304,7 @@ export default function TaskStats() {
               isLoading={isDeletingBulk}
               className="text-xs text-red-600 hover:text-red-800"
             >
-              {isDeletingBulk ? 'Deleting...' : `Delete Selected (${selectedTaskIds.size})`}
+              {isDeletingBulk ? t('tasks.deleting') : `${t('tasks.deleteSelected')} (${selectedTaskIds.size})`}
             </Button>
           </div>
         )}
@@ -312,7 +314,7 @@ export default function TaskStats() {
       <div className="overflow-hidden flex flex-col" style={{ maxHeight: '400px' }}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-gray-700">
-            Task List ({filteredTasks.length} of {tasks.length})
+            {t('tasks.taskList', { filtered: filteredTasks.length, total: tasks.length })}
           </span>
         </div>
         
@@ -320,27 +322,27 @@ export default function TaskStats() {
           <div className="flex items-center justify-center h-32">
             <div className="text-center">
               <div className="loader mx-auto mb-2"></div>
-              <p className="text-gray-600">Loading tasks...</p>
+              <p className="text-gray-600">{t('tasks.loadingTasks')}</p>
             </div>
           </div>
         ) : tasksError ? (
           <div className="text-center p-6">
             <StatusMessage message={tasksError} type="error" />
             <Button onClick={refetch} className="mt-4" size="sm">
-              Try Again
+              {t('tasks.tryAgain')}
             </Button>
           </div>
         ) : tasks.length === 0 ? (
           <div className="text-center p-8 text-gray-500">
             <div className="text-4xl mb-4">📋</div>
-            <h3 className="text-lg font-medium mb-2">No Tasks Found</h3>
-            <p className="text-sm">No processing tasks found. Upload documents to see tasks here.</p>
+            <h3 className="text-lg font-medium mb-2">{t('tasks.noTasksFound')}</h3>
+            <p className="text-sm">{t('tasks.noTasksDescription')}</p>
           </div>
         ) : filteredTasks.length === 0 ? (
           <div className="text-center p-8 text-gray-500">
             <div className="text-4xl mb-4">🔍</div>
-            <h3 className="text-lg font-medium mb-2">No Tasks Found</h3>
-            <p className="text-sm">No tasks found with status "{statusFilter}".</p>
+            <h3 className="text-lg font-medium mb-2">{t('tasks.noTasksFound')}</h3>
+            <p className="text-sm">{t('tasks.noTasksWithStatus', { status: statusFilter })}</p>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-2 border border-gray-200 rounded-lg p-2">
@@ -356,7 +358,7 @@ export default function TaskStats() {
                   onChange={(e) => handleSelectAll(e.target.checked)}
                   className="rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                 />
-                <span>Select All ({filteredTasks.length})</span>
+                <span>{t('tasks.selectAll')} ({filteredTasks.length})</span>
               </label>
             </div>
 
@@ -391,15 +393,15 @@ export default function TaskStats() {
                       {task.filename}
                     </h4>
                     <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                      <span>ID: {task.documentId.substring(0, 8)}...</span>
-                      <span>Created: {formatDate(task.createdAt)}</span>
+                      <span>{t('tasks.id')} {task.documentId.substring(0, 8)}...</span>
+                      <span>{t('tasks.created')} {formatDate(task.createdAt)}</span>
                       {task.updatedAt && (
-                        <span>Updated: {formatDate(task.updatedAt)}</span>
+                        <span>{t('tasks.updated')} {formatDate(task.updatedAt)}</span>
                       )}
                     </div>
                     {task.error && (
                       <div className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
-                        <strong>Error:</strong> {task.error}
+                        <strong>{t('tasks.error')}</strong> {task.error}
                       </div>
                     )}
                   </div>
@@ -413,7 +415,7 @@ export default function TaskStats() {
                       isLoading={deletingTaskId === task.id}
                       className="text-xs text-red-600 hover:text-red-800"
                     >
-                      {deletingTaskId === task.id ? 'Deleting...' : 'Delete'}
+                      {deletingTaskId === task.id ? t('tasks.deleting') : t('tasks.delete')}
                     </Button>
                   </div>
                 </div>
@@ -432,10 +434,10 @@ export default function TaskStats() {
                 onClick={() => fetchTasks(pagination.page - 1, pagination.pageSize)}
                 disabled={pagination.page <= 1 || tasksLoading}
               >
-                Previous
+                {t('tasks.previous')}
               </Button>
               <span className="text-sm text-gray-600">
-                Page {pagination.page} of {pagination.totalPages}
+                {t('tasks.page', { current: pagination.page, total: pagination.totalPages })}
               </span>
               <Button
                 variant="secondary"
@@ -443,11 +445,15 @@ export default function TaskStats() {
                 onClick={() => fetchTasks(pagination.page + 1, pagination.pageSize)}
                 disabled={pagination.page >= pagination.totalPages || tasksLoading}
               >
-                Next
+                {t('tasks.next')}
               </Button>
             </div>
             <div className="text-sm text-gray-600">
-              Showing {((pagination.page - 1) * pagination.pageSize) + 1} to {Math.min(pagination.page * pagination.pageSize, pagination.total)} of {pagination.total} tasks
+              {t('tasks.showingTasks', {
+                start: ((pagination.page - 1) * pagination.pageSize) + 1,
+                end: Math.min(pagination.page * pagination.pageSize, pagination.total),
+                total: pagination.total
+              })}
             </div>
           </div>
         )}

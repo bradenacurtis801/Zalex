@@ -5,12 +5,14 @@ import { useAuth } from '@/contexts/AuthContext'
 import { authApi } from '@/api'
 import { Button } from '@/components/ui'
 import { UserResponse, UserCreate, UserUpdate, UserRole, AdminPasswordReset } from '@/generated'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface UserManagementProps {
   onClose: () => void
 }
 
 export default function UserManagement({ onClose }: UserManagementProps) {
+  const { t } = useLanguage()
   const { user } = useAuth()
   const [users, setUsers] = useState<UserResponse[]>([])
   const [loading, setLoading] = useState(true)
@@ -50,7 +52,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
       setUsers(response || [])
     } catch (error) {
       console.error('Error loading users:', error)
-      alert('Failed to load users')
+      alert(t('userManagement.loadError'))
     } finally {
       setLoading(false)
     }
@@ -62,7 +64,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
       
       // Validate password length
       if (createForm.password.length < 8) {
-        alert('Password must be at least 8 characters long')
+        alert(t('userManagement.passwordMinLength'))
         return
       }
       
@@ -90,7 +92,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
       loadUsers()
     } catch (error: any) {
       console.error('Error creating user:', error)
-      const errorMessage = error?.response?.data?.detail || 'Failed to create user'
+      const errorMessage = error?.response?.data?.detail || t('userManagement.createError')
       alert(errorMessage)
     } finally {
       setCreateLoading(false)
@@ -130,7 +132,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
       loadUsers()
     } catch (error: any) {
       console.error('Error updating user:', error)
-      const errorMessage = error?.response?.data?.detail || 'Failed to update user'
+      const errorMessage = error?.response?.data?.detail || t('userManagement.updateError')
       alert(errorMessage)
     } finally {
       setEditLoading(false)
@@ -141,12 +143,12 @@ export default function UserManagement({ onClose }: UserManagementProps) {
     if (!editingUser) return
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      alert('Passwords do not match')
+      alert(t('userManagement.passwordsDoNotMatch'))
       return
     }
 
     if (passwordForm.newPassword.length < 8) {
-      alert('Password must be at least 8 characters long')
+      alert(t('userManagement.passwordMinLength'))
       return
     }
 
@@ -164,10 +166,10 @@ export default function UserManagement({ onClose }: UserManagementProps) {
 
       setShowPasswordSection(false)
       setPasswordForm({ newPassword: '', confirmPassword: '' })
-      alert('Password reset successfully')
+      alert(t('userManagement.passwordResetSuccess'))
     } catch (error: any) {
       console.error('Error resetting password:', error)
-      const errorMessage = error?.response?.data?.detail || 'Failed to reset password'
+      const errorMessage = error?.response?.data?.detail || t('userManagement.resetPasswordError')
       alert(errorMessage)
     } finally {
       setEditLoading(false)
@@ -176,7 +178,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
 
   const handleDeleteUser = async () => {
     if (!editingUser) return
-    if (!confirm('Are you sure you want to delete this user?')) return
+    if (!confirm(t('userManagement.confirmDelete'))) return
 
     try {
       await authApi.deleteUserApiAuthUsersUserIdDelete({ userId: editingUser.id })
@@ -184,7 +186,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
       loadUsers()
     } catch (error: any) {
       console.error('Error deleting user:', error)
-      const errorMessage = error?.response?.data?.detail || 'Failed to delete user'
+      const errorMessage = error?.response?.data?.detail || t('userManagement.deleteError')
       alert(errorMessage)
     }
   }
@@ -198,7 +200,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">User Management</h2>
+            <h2 className="text-xl font-bold text-gray-900">{t('userManagement.title')}</h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600"
@@ -210,21 +212,21 @@ export default function UserManagement({ onClose }: UserManagementProps) {
           </div>
 
           <div className="flex justify-between items-center mb-4">
-            <p className="text-gray-600">Manage system users and their roles</p>
+            <p className="text-gray-600">{t('userManagement.description')}</p>
             <Button
               onClick={() => setShowCreateForm(true)}
             >
-              Create New User
+              {t('userManagement.createNewUser')}
             </Button>
           </div>
 
           {showCreateForm && (
             <div className="bg-gray-50 p-4 rounded-lg mb-4">
-              <h3 className="text-lg font-semibold mb-3">Create New User</h3>
+              <h3 className="text-lg font-semibold mb-3">{t('userManagement.createNewUser')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Username
+                    {t('userManagement.username')}
                   </label>
                   <input
                     type="text"
@@ -235,7 +237,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
+                    {t('userManagement.email')}
                   </label>
                   <input
                     type="email"
@@ -246,7 +248,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name
+                    {t('userManagement.fullName')}
                   </label>
                   <input
                     type="text"
@@ -257,7 +259,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Password
+                    {t('userManagement.password')}
                   </label>
                   <input
                     type="password"
@@ -268,15 +270,15 @@ export default function UserManagement({ onClose }: UserManagementProps) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Role
+                    {t('userManagement.role')}
                   </label>
                   <select
                     value={createForm.userRole}
                     onChange={(e) => setCreateForm({ ...createForm, userRole: e.target.value as UserRole })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
                   >
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
+                    <option value="user">{t('userManagement.user')}</option>
+                    <option value="admin">{t('userManagement.admin')}</option>
                   </select>
                 </div>
               </div>
@@ -285,13 +287,13 @@ export default function UserManagement({ onClose }: UserManagementProps) {
                   onClick={() => setShowCreateForm(false)}
                   variant="secondary"
                 >
-                  Cancel
+                  {t('userManagement.cancel')}
                 </Button>
                 <Button
                   onClick={handleCreateUser}
                   disabled={createLoading}
                 >
-                  {createLoading ? 'Creating...' : 'Create User'}
+                  {createLoading ? t('userManagement.creating') : t('userManagement.createUser')}
                 </Button>
               </div>
             </div>
@@ -299,7 +301,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
 
           {loading ? (
             <div className="text-center py-8">
-              <div className="text-lg">Loading users...</div>
+              <div className="text-lg">{t('userManagement.loading')}</div>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -307,19 +309,19 @@ export default function UserManagement({ onClose }: UserManagementProps) {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Username
+                      {t('userManagement.username')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
+                      {t('userManagement.email')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Full Name
+                      {t('userManagement.fullName')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Role
+                      {t('userManagement.role')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
+                      {t('documentManagement.actions')}
                     </th>
                   </tr>
                 </thead>
@@ -349,7 +351,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
                           onClick={() => handleEditUser(userItem)}
                           className="text-blue-600 hover:text-blue-900"
                         >
-                          Edit
+                          {t('userManagement.edit')}
                         </button>
                       </td>
                     </tr>
@@ -367,7 +369,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900">Edit User</h3>
+                <h3 className="text-lg font-bold text-gray-900">{t('userManagement.editUser')}</h3>
                 <button
                   onClick={() => setEditingUser(null)}
                   className="text-gray-400 hover:text-gray-600"
@@ -381,7 +383,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Username
+                    {t('userManagement.username')}
                   </label>
                   <input
                     type="text"
@@ -389,12 +391,12 @@ export default function UserManagement({ onClose }: UserManagementProps) {
                     disabled
                     className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Username cannot be changed</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('userManagement.usernameCannotChange')}</p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
+                    {t('userManagement.email')}
                   </label>
                   <input
                     type="email"
@@ -406,7 +408,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name
+                    {t('userManagement.fullName')}
                   </label>
                   <input
                     type="text"
@@ -418,7 +420,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Role
+                    {t('userManagement.role')}
                   </label>
                   {editingUser.id === user?.id ? (
                     <input
@@ -433,8 +435,8 @@ export default function UserManagement({ onClose }: UserManagementProps) {
                       onChange={(e) => setEditForm({ ...editForm, userRole: e.target.value as UserRole })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
                     >
-                      <option value="user">User</option>
-                      <option value="admin">Admin</option>
+                      <option value="user">{t('userManagement.user')}</option>
+                      <option value="admin">{t('userManagement.admin')}</option>
                     </select>
                   )}
                 </div>
@@ -442,13 +444,13 @@ export default function UserManagement({ onClose }: UserManagementProps) {
                 {/* Password Section */}
                 <div className="border-t pt-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-medium text-gray-700">Reset Password</h4>
+                    <h4 className="text-sm font-medium text-gray-700">{t('userManagement.resetPassword')}</h4>
                     <button
                       type="button"
                       onClick={() => setShowPasswordSection(!showPasswordSection)}
                       className="text-sm text-violet-600 hover:text-violet-800"
                     >
-                      {showPasswordSection ? 'Cancel' : 'Reset Password'}
+                      {showPasswordSection ? t('userManagement.cancel') : t('userManagement.resetPassword')}
                     </button>
                   </div>
 
@@ -456,26 +458,26 @@ export default function UserManagement({ onClose }: UserManagementProps) {
                     <div className="space-y-3">
                       <div>
                         <label className="block text-sm font-medium text-gray-600 mb-1">
-                          New Password
+                          {t('userManagement.newPassword')}
                         </label>
                         <input
                           type="password"
                           value={passwordForm.newPassword}
                           onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
-                          placeholder="Enter new password (min 8 characters)"
+                          placeholder={t('userManagement.enterNewPassword')}
                         />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-600 mb-1">
-                          Confirm Password
+                          {t('userManagement.confirmPassword')}
                         </label>
                         <input
                           type="password"
                           value={passwordForm.confirmPassword}
                           onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
-                          placeholder="Confirm new password"
+                          placeholder={t('userManagement.confirmNewPassword')}
                         />
                       </div>
                       <div className="flex justify-end">
@@ -484,7 +486,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
                           disabled={editLoading || !passwordForm.newPassword || !passwordForm.confirmPassword}
                           className="bg-green-600 hover:bg-green-700 text-white"
                         >
-                          {editLoading ? 'Resetting...' : 'Reset Password'}
+                          {editLoading ? t('userManagement.resetting') : t('userManagement.resetPassword')}
                         </Button>
                       </div>
                     </div>
@@ -500,7 +502,7 @@ export default function UserManagement({ onClose }: UserManagementProps) {
                       variant="secondary"
                       className="bg-red-600 hover:bg-red-700 text-white"
                     >
-                      Delete User
+                      {t('userManagement.deleteUser')}
                     </Button>
                   )}
                 </div>
@@ -510,13 +512,13 @@ export default function UserManagement({ onClose }: UserManagementProps) {
                     variant="secondary"
                     disabled={editLoading}
                   >
-                    Cancel
+                    {t('userManagement.cancel')}
                   </Button>
                   <Button
                     onClick={handleUpdateUser}
                     disabled={editLoading}
                   >
-                    {editLoading ? 'Saving...' : 'Save Changes'}
+                    {editLoading ? t('userManagement.saving') : t('userManagement.saveChanges')}
                   </Button>
                 </div>
               </div>
