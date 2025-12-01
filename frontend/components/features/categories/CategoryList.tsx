@@ -2,6 +2,7 @@
 
 import { CategorySummary } from '@/hooks/useCategories'
 import { Button } from '@/components/ui'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface CategoryListProps {
   categories: CategorySummary[]
@@ -10,6 +11,8 @@ interface CategoryListProps {
 }
 
 export default function CategoryList({ categories, onCategorySelect, loading }: CategoryListProps) {
+  const { t } = useLanguage()
+
   // Ensure categories is an array
   const safeCategories = Array.isArray(categories) ? categories : []
 
@@ -17,8 +20,13 @@ export default function CategoryList({ categories, onCategorySelect, loading }: 
     return (
       <div className="text-center p-8 text-gray-500">
         <div className="text-6xl mb-4">📁</div>
-        <h3 className="text-lg font-medium mb-2">No Categories Found</h3>
-        <p className="text-sm">Upload some documents to see categories appear here.</p>
+        <h3 className="text-lg font-medium mb-2">{t('categories.noCategories', 'No Categories Found')}</h3>
+        <p className="text-sm">
+          {t(
+            'categories.noCategoriesDescription',
+            'Upload some documents to see categories appear here.'
+          )}
+        </p>
       </div>
     )
   }
@@ -37,11 +45,11 @@ export default function CategoryList({ categories, onCategorySelect, loading }: 
                 {category.category.replace('_', ' ')}
               </h3>
               <p className="text-sm text-gray-600">
-                {category.count} document{category.count !== 1 ? 's' : ''}
+                {category.count} {t('categories.document', 'document')}{category.count !== 1 ? 's' : ''}
               </p>
               {category.lastUpdated && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Last updated: {new Date(category.lastUpdated).toLocaleDateString()}
+                  {t('categories.lastUpdated', 'Last updated')}: {new Date(category.lastUpdated).toLocaleDateString()}
                 </p>
               )}
             </div>

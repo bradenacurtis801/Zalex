@@ -6,8 +6,10 @@ import { Button } from '@/components/ui'
 import { StatusMessage } from '@/components/ui'
 import CategoryList from './CategoryList'
 import CategoryDocuments from './CategoryDocuments'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 export default function CategoryManager() {
+  const { t } = useLanguage()
   const { 
     categorySummary, 
     summaryLoading, 
@@ -15,6 +17,7 @@ export default function CategoryManager() {
     fetchCategorySummary,
     clearSelectedCategory
   } = useCategories()
+
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState<string>('')
   const [statusType, setStatusType] = useState<'success' | 'error' | 'warning'>('success')
@@ -31,26 +34,25 @@ export default function CategoryManager() {
   }
 
   const handleRefresh = async () => {
-    setStatusMessage('Refreshing categories...')
+    setStatusMessage(t('categories.refreshing'))
     setStatusType('success')
     try {
       await fetchCategorySummary()
-      setStatusMessage('Categories refreshed successfully!')
+      setStatusMessage(t('categories.refreshSuccess'))
       setStatusType('success')
     } catch (err) {
       console.error('Error refreshing categories:', err)
-      setStatusMessage('Failed to refresh categories')
+      setStatusMessage(t('categories.refreshError'))
       setStatusType('error')
     }
   }
-
 
   if (summaryLoading && categorySummary.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="loader mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading categories...</p>
+          <p className="text-gray-600">{t('categories.loading')}</p>
         </div>
       </div>
     )
@@ -61,7 +63,7 @@ export default function CategoryManager() {
       <div className="text-center p-6">
         <StatusMessage message={summaryError} type="error" />
         <Button onClick={handleRefresh} className="mt-4">
-          Try Again
+          {t('categories.tryAgain')}
         </Button>
       </div>
     )
@@ -72,7 +74,9 @@ export default function CategoryManager() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4 border-b pb-2">
         <h2 className="text-xl font-semibold text-violet-800">
-          {selectedCategory ? `Documents in ${selectedCategory}` : 'Document Categories'}
+          {selectedCategory 
+            ? t('categories.documentsIn', { category: selectedCategory }) 
+            : t('categories.title')}
         </h2>
         <div className="flex gap-2">
           {selectedCategory && (
@@ -81,7 +85,7 @@ export default function CategoryManager() {
               onClick={handleBackToList}
               size="sm"
             >
-              ← Back to Categories
+              ← {t('categories.backToList')}
             </Button>
           )}
           <Button 
@@ -90,7 +94,7 @@ export default function CategoryManager() {
             size="sm"
             isLoading={summaryLoading}
           >
-            Refresh
+            {t('categories.refresh')}
           </Button>
         </div>
       </div>

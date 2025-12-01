@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createWordTextBlock, createLineTextBlock } from './TextBlock'
 import type { OCRDataResponse } from '@/generated/models/OCRDataResponse'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface OCRPageProps {
   pageData: OCRDataResponse
@@ -13,6 +14,7 @@ export default function OCRPage({
   pageData,
   className = ''
 }: OCRPageProps) {
+  const { t } = useLanguage()
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const [viewMode, setViewMode] = useState<'raw' | 'full'>('raw')
@@ -220,30 +222,26 @@ export default function OCRPage({
         {/* Top Row - Title and Stats */}
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center px-4 py-3 space-y-2 lg:space-y-0">
           <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-            <h3 className="text-xl font-bold text-white">OCR Page {pageData.pageNumber + 1}</h3>
+            <h3 className="text-xl font-bold text-white">{t('ocrPage.page', { number: pageData.pageNumber + 1 })}</h3>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <div className="flex items-center space-x-1">
                 <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                <span className="text-gray-300">{pageData.totalWords || 0} words</span>
+                <span className="text-gray-300">{t('ocrPage.words', { count: pageData.totalWords || 0 })}</span>
               </div>
               <div className="flex items-center space-x-1">
                 <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span className="text-gray-300">{pageData.totalLines || 0} lines</span>
+                <span className="text-gray-300">{t('ocrPage.lines', { count: pageData.totalLines || 0 })}</span>
               </div>
               <div className="flex items-center space-x-1">
                 <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                <span className="text-gray-300">{((pageData.confidenceScore || 0) * 100).toFixed(1)}% confidence</span>
+                <span className="text-gray-300">{t('ocrPage.confidence', { value: ((pageData.confidenceScore || 0) * 100).toFixed(1) })}</span>
               </div>
             </div>
           </div>
           
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <div className="text-sm text-gray-400">
-              Pan: <span className="text-blue-300 font-mono">({Math.round(pan.x)}, {Math.round(pan.y)})</span>
-            </div>
-            <div className="text-sm text-gray-400">
-              Zoom: <span className="text-purple-300 font-mono">{Math.round(zoom * 100)}%</span>
-            </div>
+            <div className="text-sm text-gray-400">{t('ocrPage.pan')}: <span className="text-blue-300 font-mono">({Math.round(pan.x)}, {Math.round(pan.y)})</span></div>
+            <div className="text-sm text-gray-400">{t('ocrPage.zoom')}: <span className="text-purple-300 font-mono">{Math.round(zoom * 100)}%</span></div>
           </div>
         </div>
 
@@ -251,47 +249,29 @@ export default function OCRPage({
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between px-4 py-3 bg-gray-750 border-t border-gray-600 space-y-3 lg:space-y-0">
           {/* Left Controls - View Mode */}
           <div className="flex items-center space-x-3">
-            <span className="text-sm font-medium text-gray-300">View:</span>
+            <span className="text-sm font-medium text-gray-300">{t('ocrPage.view')}:</span>
             <div className="flex bg-gray-600 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('raw')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                  viewMode === 'raw' 
-                    ? 'bg-blue-600 text-white shadow-sm' 
-                    : 'text-gray-300 hover:text-white hover:bg-gray-500'
-                }`}
-              >
-                Raw Text
-              </button>
-              <button
-                onClick={() => setViewMode('full')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                  viewMode === 'full' 
-                    ? 'bg-blue-600 text-white shadow-sm' 
-                    : 'text-gray-300 hover:text-white hover:bg-gray-500'
-                }`}
-              >
-                Full Text
-              </button>
+              <button onClick={() => setViewMode('raw')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${viewMode === 'raw' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-300 hover:text-white hover:bg-gray-500'}`}>{t('ocrPage.rawText')}</button>
+              <button onClick={() => setViewMode('full')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${viewMode === 'full' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-300 hover:text-white hover:bg-gray-500'}`}>{t('ocrPage.fullText')}</button>
             </div>
           </div>
 
           {/* Center Controls - Display Mode */}
           <div className="flex items-center space-x-3">
-            <span className="text-sm font-medium text-gray-300">Display:</span>
+            <span className="text-sm font-medium text-gray-300">{t('ocrPage.display')}:</span>
             <select
               value={displayMode}
               onChange={(e) => setDisplayMode(e.target.value as 'words' | 'lines')}
               className="px-3 py-1.5 bg-gray-600 text-gray-300 hover:bg-gray-500 rounded-md text-sm border border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
             >
-              <option value="words">Words</option>
-              <option value="lines">Lines</option>
+              <option value="words">{t('ocrPage.wordsOption')}</option>
+              <option value="lines">{t('ocrPage.linesOption')}</option>
             </select>
           </div>
 
           {/* Right Controls - Zoom */}
           <div className="flex items-center space-x-3">
-            <span className="text-sm font-medium text-gray-300">Zoom:</span>
+            <span className="text-sm font-medium text-gray-300">{t('ocrPage.zoom')}:</span>
             <div className="flex items-center bg-gray-600 rounded-lg p-1">
               <button
                 onClick={() => handleZoom(-0.2)}
@@ -311,13 +291,7 @@ export default function OCRPage({
                 +
               </button>
             </div>
-            <button
-              onClick={resetView}
-              className="px-3 py-1.5 bg-gray-600 text-gray-300 hover:bg-gray-500 rounded-md text-sm font-medium transition-all duration-200 border border-gray-500"
-              title="Reset View"
-            >
-              Reset
-            </button>
+            <button onClick={resetView} className="px-3 py-1.5 bg-gray-600 text-gray-300 hover:bg-gray-500 rounded-md text-sm font-medium border border-gray-500" title={t('ocrPage.resetView')}>{t('ocrPage.reset')}</button>
           </div>
         </div>
       </div>
@@ -386,14 +360,13 @@ export default function OCRPage({
             </button>
           </div>
           <div className="text-xs mb-1">
-            {debugInfo.type === 'word' ? 'Word' : 'Line'} • {(debugInfo.confidence * 100).toFixed(1)}% confidence
+            {debugInfo.type === 'word' ? t('ocrPage.word') : t('ocrPage.line')} • {(debugInfo.confidence * 100).toFixed(1)}% {t('ocrPage.confidence')}
           </div>
           <div className="text-xs mb-1">
-            Block {debugInfo.blockNum}, Par {debugInfo.parNum}, Line {debugInfo.lineNum}
-            {debugInfo.wordNum !== undefined && `, Word ${debugInfo.wordNum}`}
+            {t('ocrPage.block')}: {debugInfo.blockNum}, {t('ocrPage.par')}: {debugInfo.parNum}, {t('ocrPage.lineLabel')}: {debugInfo.lineNum}{debugInfo.wordNum !== undefined && `, ${t('ocrPage.wordLabel')}: ${debugInfo.wordNum}`}
           </div>
           <div className="text-xs text-gray-300">
-            Bounds: {debugInfo.bbox.left.toFixed(0)}, {debugInfo.bbox.top.toFixed(0)} ({debugInfo.bbox.width.toFixed(0)}×{debugInfo.bbox.height.toFixed(0)})
+            {t('ocrPage.bounds')}: {debugInfo.bbox.left.toFixed(0)}, {debugInfo.bbox.top.toFixed(0)} ({debugInfo.bbox.width.toFixed(0)}×{debugInfo.bbox.height.toFixed(0)})
           </div>
         </div>
       )}

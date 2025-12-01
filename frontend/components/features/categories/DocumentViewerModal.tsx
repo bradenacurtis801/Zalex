@@ -9,6 +9,7 @@ import { uploadApi } from '@/api'
 import ReclassificationModal from './ReclassificationModal'
 import OCRTextViewer from './OCRTextViewer'
 import PDFViewer from './PDFViewer'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface DocumentViewerModalProps {
   isOpen: boolean
@@ -25,6 +26,7 @@ export default function DocumentViewerModal({
   onReclassify,
   availableCategories = []
 }: DocumentViewerModalProps) {
+  const { t } = useLanguage()
   const [documentContent, setDocumentContent] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -134,7 +136,7 @@ export default function DocumentViewerModal({
         <div className="flex justify-between items-center p-6 border-b">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
-              Document Viewer
+              {t('documentViewer.title')}
             </h3>
             <p className="text-sm text-gray-600 mt-1">
               {document.filename}
@@ -155,13 +157,13 @@ export default function DocumentViewerModal({
         <div className="px-6 py-4 bg-gray-50 border-b">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <span className="font-medium text-gray-700">Category:</span>
+              <span className="font-medium text-gray-700">{t('documentViewer.category')}</span>
               <span className={`ml-2 px-2 py-1 rounded-full text-xs ${getCategoryColor(document.category)}`}>
                 {document.category}
               </span>
             </div>
             <div>
-              <span className="font-medium text-gray-700">Confidence:</span>
+              <span className="font-medium text-gray-700">{t('documentViewer.confidence')}</span>
               <span className={`ml-2 font-medium ${
                 document.confidence > 0.8 ? 'text-green-600' :
                 document.confidence > 0.5 ? 'text-yellow-600' :
@@ -171,7 +173,7 @@ export default function DocumentViewerModal({
               </span>
             </div>
             <div>
-              <span className="font-medium text-gray-700">Added:</span>
+              <span className="font-medium text-gray-700">{t('documentViewer.added')}</span>
               <span className="ml-2 text-gray-600">
                 {formatDate(document.timestamp)}
               </span>
@@ -184,7 +186,7 @@ export default function DocumentViewerModal({
               onClick={handleReclassify}
               className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
             >
-              Did we get this wrong? Click to reclassify
+              {t('documentViewer.reclassifyLink')}
             </button>
           </div>
         </div>
@@ -195,7 +197,7 @@ export default function DocumentViewerModal({
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
                 <div className="loader mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading document content...</p>
+                <p className="text-gray-600">{t('documentViewer.loading')}</p>
               </div>
             </div>
           )}
@@ -204,14 +206,14 @@ export default function DocumentViewerModal({
             <div className="text-center p-8">
               <StatusMessage message={error} type="error" />
               <Button onClick={loadDocumentContent} className="mt-4">
-                Retry
+               {t('documentViewer.retry')}
               </Button>
             </div>
           )}
 
           {!loading && !error && contentType === 'text' && (
             <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 mb-2">Document Content:</h4>
+              <h4 className="font-medium text-gray-900 mb-2">{t('documentViewer.contentTitle')}</h4>
               <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono max-h-96 overflow-auto">
                 {documentContent || 'No content available'}
               </pre>
@@ -232,12 +234,12 @@ export default function DocumentViewerModal({
           {!loading && !error && contentType === 'pdf' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
-                <h4 className="text-lg font-medium text-gray-900">PDF Document</h4>
+                <h4 className="text-lg font-medium text-gray-900">{t('documentViewer.pdfTitle')}</h4>
                 <Button
                   onClick={handleViewOCR}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  View OCR Text
+                  {t('documentViewer.viewOCR')}
                 </Button>
               </div>
               <PDFViewer
@@ -254,13 +256,13 @@ export default function DocumentViewerModal({
             variant="secondary"
             onClick={handleDownload}
           >
-            Download
+            {t('documentViewer.download')}
           </Button>
           <Button
             variant="secondary"
             onClick={handleClose}
           >
-            Close
+            {t('documentViewer.close')}
           </Button>
         </div>
       </div>

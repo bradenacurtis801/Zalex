@@ -9,6 +9,7 @@ import { useWebSocket } from '@/contexts/WebSocketContext'
 import { WebSocketMessageType } from '@/websocket-protocol'
 import { getCategoryColor, getCategoryLabel } from '@/utils/categoryUtils'
 import { FileStartMessage, FileCompleteMessage, UploadProgressEvent, ErrorMessage } from '@/websocket-protocol'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface DocumentUploadProps {
   onUploadStatus: (status: string, type?: 'success' | 'error' | 'warning') => void
@@ -35,6 +36,7 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
   
   // Track if upload was successful to show clear results button
   const [uploadCompleted, setUploadCompleted] = useState(false)
+  const { t } = useLanguage()
   
   // WebSocket context
   const { register } = useWebSocket()
@@ -291,11 +293,11 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
           <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
           </svg>
-          <p className="mt-2 text-gray-500">Drag & drop files here, or click to select</p>
-          <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG</p>
+          <p className="mt-2 text-gray-500">{t('upload.dragOrClick')}</p>
+          <p className="text-xs text-gray-400 mt-1">{t('upload.fileTypes')}</p>
           {uploadCompleted && (
             <p className="text-xs text-blue-600 mt-2 font-medium">
-              Drop new files to start fresh upload
+              {t('upload.dropToStartFresh')}
             </p>
           )}
         </div>
@@ -305,7 +307,7 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
         <div className="mt-4">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-medium text-gray-700">
-              {uploadCompleted ? 'Processed files' : 'Selected files'} ({files.length})
+              {t('upload.selectedFiles', { count: files.length, processed: uploadCompleted })}
             </span>
             {!isUploading && (
               <button
@@ -317,7 +319,7 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
                     : 'text-red-600 hover:text-red-800'
                 }`}
               >
-                {uploadCompleted ? 'Clear Results' : 'Clear All'}
+                {uploadCompleted ? t('upload.clearResults') : t('upload.clearAll')}
               </button>
             )}
           </div>
@@ -399,7 +401,7 @@ export default function DocumentUpload({ onUploadStatus }: DocumentUploadProps) 
             : ''
         }`}
       >
-        {uploadCompleted ? '✓ Upload Complete' : 'Enroll Documents'}
+        {uploadCompleted ? t('upload.uploadComplete') : t('upload.enrollDocuments')}
       </Button>
 
       {/* Progress bar */}

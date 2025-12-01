@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useLanguage } from '@/contexts/LanguageContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import Header from '@/components/layout/Header'
 import { categoryApi, queryApi } from '@/api'
@@ -17,6 +18,7 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const { t } = useLanguage()
   const [stats, setStats] = useState<DashboardStats>({
     totalDocuments: 0,
     totalCategories: 0,
@@ -58,7 +60,7 @@ export default function Dashboard() {
     return (
       <ProtectedRoute>
         <div className="flex items-center justify-center h-screen">
-          <div className="text-lg">Loading dashboard...</div>
+          <div className="text-lg">{t('common.loading')}</div>
         </div>
       </ProtectedRoute>
     )
@@ -67,7 +69,7 @@ export default function Dashboard() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-100">
-        <Header title="Dashboard" />
+        <Header title={t('dashboard.title')} />
 
         {/* Main Content */}
         <main className="max-w-7xl mx-auto p-6">
@@ -81,7 +83,7 @@ export default function Dashboard() {
                   </svg>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Documents</p>
+                  <p className="text-sm font-medium text-gray-600">{t('dashboard.totalDocuments')}</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.totalDocuments}</p>
                 </div>
               </div>
@@ -95,7 +97,7 @@ export default function Dashboard() {
                   </svg>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Categories</p>
+                  <p className="text-sm font-medium text-gray-600">{t('dashboard.totalCategories')}</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.totalCategories}</p>
                 </div>
               </div>
@@ -110,7 +112,7 @@ export default function Dashboard() {
           {/* Category Distribution */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white p-6 rounded-lg shadow-lg">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Document Distribution by Category</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('dashboard.categoryDistribution')}</h3>
               <div className="space-y-3">
                 {Object.entries(stats.categoryCounts).map(([category, count]) => (
                   <div key={category} className="flex items-center justify-between">
@@ -130,25 +132,25 @@ export default function Dashboard() {
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-lg">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('dashboard.quickActions')}</h3>
               <div className="space-y-3">
                 <a 
                   href="/upload" 
                   className="block w-full bg-violet-600 text-white text-center py-2 px-4 rounded-lg hover:bg-violet-700 transition-colors"
                 >
-                  Upload Documents
+                  {t('upload.title')}
                 </a>
                 <a 
                   href="/categories" 
                   className="block w-full bg-gray-600 text-white text-center py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
                 >
-                  Manage Categories
+                  {t('categories.manageCategories')}
                 </a>
                 <a 
                   href="/search" 
                   className="block w-full bg-blue-600 text-white text-center py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  Search Documents
+                  {t('search.title')}
                 </a>
               </div>
             </div>

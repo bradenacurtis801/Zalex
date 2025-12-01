@@ -8,6 +8,7 @@ import { StatusMessage } from '@/components/ui'
 import { getCategoryColor } from '@/utils/categoryUtils'
 import ReclassificationModal from './ReclassificationModal'
 import DocumentViewerModal from './DocumentViewerModal'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface CategoryDocumentsProps {
   category: string
@@ -16,6 +17,7 @@ interface CategoryDocumentsProps {
 }
 
 export default function CategoryDocuments({ category, onError, availableCategories = [] }: CategoryDocumentsProps) {
+  const { t } = useLanguage()
   const { 
     categoryDocuments, 
     documentsLoading, 
@@ -79,7 +81,7 @@ export default function CategoryDocuments({ category, onError, availableCategori
       <div className="flex items-center justify-center h-32">
         <div className="text-center">
           <div className="loader mx-auto mb-2"></div>
-          <p className="text-gray-600">Loading documents...</p>
+          <p className="text-gray-600">{t('categories.loadingDocuments')}</p>
         </div>
       </div>
     )
@@ -90,7 +92,7 @@ export default function CategoryDocuments({ category, onError, availableCategori
       <div className="text-center p-6">
         <StatusMessage message={documentsError} type="error" />
         <Button onClick={loadDocuments} className="mt-4" size="sm">
-          Try Again
+          {t('categories.tryAgain')}
         </Button>
       </div>
     )
@@ -100,8 +102,8 @@ export default function CategoryDocuments({ category, onError, availableCategori
     return (
       <div className="text-center p-8 text-gray-500">
         <div className="text-4xl mb-4">📄</div>
-        <h3 className="text-lg font-medium mb-2">No Documents Found</h3>
-        <p className="text-sm">No documents found in the {category} category.</p>
+        <h3 className="text-lg font-medium mb-2">{t('categories.noDocuments')}</h3>
+        <p className="text-sm">{t('categories.noDocumentsInCategory', { category })}</p>
       </div>
     )
   }
@@ -110,7 +112,7 @@ export default function CategoryDocuments({ category, onError, availableCategori
     <>
       <div className="space-y-3">
         <div className="text-sm text-gray-600 mb-4">
-          Showing {categoryDocuments.length} document{categoryDocuments.length !== 1 ? 's' : ''} in {category}
+          {t('categories.showingDocuments', { count: categoryDocuments.length })}
         </div>
         
         <div className="max-h-96 overflow-y-auto space-y-3 border border-gray-200 rounded-lg p-2">
@@ -127,10 +129,10 @@ export default function CategoryDocuments({ category, onError, availableCategori
                 <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                    Confidence: {formatConfidence(doc.confidence)}
+                      {t('categories.confidence')}: {formatConfidence(doc.confidence)}
                   </span>
                   <span>
-                    Added: {formatDate(doc.timestamp)}
+                    {t('categories.added')}: {formatDate(doc.timestamp)}
                   </span>
                 </div>
               </div>
@@ -144,7 +146,7 @@ export default function CategoryDocuments({ category, onError, availableCategori
                   onClick={() => handleViewDocument(doc)}
                   className="text-xs"
                 >
-                  View
+                  {t('categories.view')}
                 </Button>
                 <Button
                   variant="secondary"
@@ -152,7 +154,7 @@ export default function CategoryDocuments({ category, onError, availableCategori
                   onClick={() => handleReclassify(doc)}
                   className="text-xs"
                 >
-                  Reclassify
+                  {t('categories.reclassify')}
                 </Button>
               </div>
             </div>

@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
+import { useLanguage } from '@/contexts/LanguageContext'
 import UserProfile from '@/components/features/user/UserProfile'
 import UserManagement from '@/components/features/user/UserManagement'
 import DocumentManagement from '@/components/features/document/DocumentManagement'
+import LanguageSwitcher from '@/components/ui/LanguageSwitcher'
 
 interface HeaderProps {
   title: string
@@ -16,6 +18,7 @@ interface HeaderProps {
 export default function Header({ title, showBackButton = false, onBackClick }: HeaderProps) {
   const { user, logout } = useAuth()
   const router = useRouter()
+  const { t } = useLanguage()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showUserProfile, setShowUserProfile] = useState(false)
   const [showUserManagement, setShowUserManagement] = useState(false)
@@ -45,18 +48,23 @@ export default function Header({ title, showBackButton = false, onBackClick }: H
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-6">
             <a href="/dashboard" className="hover:text-violet-200 transition-colors">
-              Dashboard
+              {t('navigation.dashboard')}
             </a>
             <a href="/upload" className="hover:text-violet-200 transition-colors">
-              Upload
+              {t('navigation.upload')}
             </a>
             <a href="/categories" className="hover:text-violet-200 transition-colors">
-              Categories
+              {t('navigation.categories')}
             </a>
             <a href="/search" className="hover:text-violet-200 transition-colors">
-              Search
+              {t('navigation.search')}
             </a>
           </nav>
+
+          {/* Language Switcher */}
+          <div className="hidden md:block mr-4">
+            <LanguageSwitcher />
+          </div>
 
           {/* User Menu */}
           <div className="relative">
@@ -84,7 +92,7 @@ export default function Header({ title, showBackButton = false, onBackClick }: H
                   }}
                   className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >
-                  View Profile
+                  {t('user.profile')}
                 </button>
                 {user?.user_role === 'admin' && (
                   <>
@@ -95,7 +103,7 @@ export default function Header({ title, showBackButton = false, onBackClick }: H
                       }}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
-                      Manage Users
+                      {t('user.manageUsers')}
                     </button>
                     <button
                       onClick={() => {
@@ -104,7 +112,7 @@ export default function Header({ title, showBackButton = false, onBackClick }: H
                       }}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
-                      Manage Documents
+                      {t('user.manageDocuments')}
                     </button>
                     <button
                       onClick={() => {
@@ -113,7 +121,7 @@ export default function Header({ title, showBackButton = false, onBackClick }: H
                       }}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
-                      Classification Training
+                      {t('user.classificationTraining')}
                     </button>
                   </>
                 )}
@@ -124,7 +132,7 @@ export default function Header({ title, showBackButton = false, onBackClick }: H
                   }}
                   className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >
-                  Logout
+                  {t('auth.logout')}
                 </button>
               </div>
             )}
@@ -134,11 +142,14 @@ export default function Header({ title, showBackButton = false, onBackClick }: H
 
       {/* Mobile Navigation */}
       <div className="md:hidden bg-violet-700 px-4 py-2">
-        <div className="flex space-x-4">
-          <a href="/dashboard" className="text-white hover:text-violet-200 text-sm">Dashboard</a>
-          <a href="/upload" className="text-white hover:text-violet-200 text-sm">Upload</a>
-          <a href="/categories" className="text-white hover:text-violet-200 text-sm">Categories</a>
-          <a href="/search" className="text-white hover:text-violet-200 text-sm">Search</a>
+        <div className="flex space-x-4 items-center">
+          <a href="/dashboard" className="text-white hover:text-violet-200 text-sm">{t('navigation.dashboard')}</a>
+          <a href="/upload" className="text-white hover:text-violet-200 text-sm">{t('navigation.upload')}</a>
+          <a href="/categories" className="text-white hover:text-violet-200 text-sm">{t('navigation.categories')}</a>
+          <a href="/search" className="text-white hover:text-violet-200 text-sm">{t('navigation.search')}</a>
+          <div className="ml-auto">
+            <LanguageSwitcher />
+          </div>
         </div>
       </div>
 
