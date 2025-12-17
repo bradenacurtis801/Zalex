@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useDeferredValue } from 'react'
 import { SearchResult } from '@/generated/models/SearchResult'
 import { Entity } from '@/generated/models/Entity'
 import { CategoryDocument } from '@/hooks/useCategories'
@@ -331,6 +331,36 @@ export default function SearchResultViewer({ results, query }: SearchResultViewe
   const [documentCategories, setDocumentCategories] = useState<Map<string, string>>(new Map())
   const RESULTS_PER_PAGE = 10
 
+  // Use a deferred value for the query to avoid expensive filtering on every keystroke
+  const deferredQuery = useDeferredValue(query)
+
+  // Precompute a lower-cased searchable string for each result to speed up repeated checks
+  const resultsWithSearchable = useMemo(() => {
+    return results.map((r) => {
+      const entityText = (r.entities || []).map((e) => e.text).join(' ')
+      const combined = `${r.text || ''} ${entityText} ${r.source || ''}`
+      return {
+        result: r,
+        searchable: combined.toLowerCase()
+      }
+    })
+  }, [results])
+
+  // Memoize filtered results using the deferred query
+  const filteredResults = useMemo(() => {
+    const q = (deferredQuery || '').trim().toLowerCase()
+    if (!q) return resultsWithSearchable.map((r) => r.result)
+
+    // Split terms and require all terms to be present for a match (AND semantics)
+    const terms = q.split(/\s+/).filter(Boolean)
+    return resultsWithSearchable
+      .filter((r) => {
+        const s = r.searchable
+        return terms.every((term) => s.includes(term))
+      })
+      .map((r) => r.result)
+  }, [resultsWithSearchable, deferredQuery])
+
   const handleViewDocument = (result: SearchResult) => {
     setSelectedResult({
       documentId: result.source,
@@ -339,13 +369,13 @@ export default function SearchResultViewer({ results, query }: SearchResultViewe
   }
 
   const handleLoadMore = () => {
-    setVisibleCount(prev => Math.min(prev + RESULTS_PER_PAGE, results.length))
+    setVisibleCount(prev => Math.min(prev + RESULTS_PER_PAGE, filteredResults.length))
   }
 
-  const hasMore = visibleCount < results.length
-  const visibleResults = results.slice(0, visibleCount)
+  const hasMore = visibleCount < filteredResults.length
+  const visibleResults = filteredResults.slice(0, visibleCount)
 
-  if (results.length === 0) {
+  if (filteredResults.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="text-6xl mb-4">🔍</div>
@@ -360,7 +390,7 @@ export default function SearchResultViewer({ results, query }: SearchResultViewe
       <div className="space-y-2">
         {visibleResults.map((result, index) => (
           <SearchResultItem
-            key={index}
+            key={`${result.source}-${result.page}`}
             result={result}
             index={index}
             onViewDocument={handleViewDocument}
@@ -383,15 +413,15 @@ export default function SearchResultViewer({ results, query }: SearchResultViewe
             onClick={handleLoadMore}
             className="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium px-4 py-2 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
           >
-            {t('searchResults.loadMore', { remaining: results.length - visibleCount })}
+            {t('searchResults.loadMore', { remaining: filteredResults.length - visibleCount })}
           </button>
         </div>
       )}
 
       {/* Total Results Count */}
-      {!hasMore && results.length > RESULTS_PER_PAGE && (
+      {!hasMore && filteredResults.length > RESULTS_PER_PAGE && (
         <p className="text-xs text-gray-500 text-center pt-2">
-          {t('searchResults.showingAll', { count: results.length })}
+          {t('searchResults.showingAll', { count: filteredResults.length })}
         </p>
       )}
 

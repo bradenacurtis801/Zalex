@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { queryApi } from '@/api'
+import { useSearch } from '@/hooks/useSearch'
 import { Button, Input } from '@/components/ui'
 import { SearchResult } from '@/generated/models/SearchResult'
+import { QueryFilters } from '@/generated'
 import SearchResultViewer from './SearchResultViewer'
 import { useLanguage } from '@/contexts/LanguageContext'
 
@@ -21,7 +22,11 @@ export default function ChatInterface() {
   ])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [dateFrom, setDateFrom] = useState<string | null>(null)
+  const [dateTo, setDateTo] = useState<string | null>(null)
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { search } = useSearch()
   
 
   const scrollToBottom = () => {
@@ -47,35 +52,44 @@ export default function ChatInterface() {
     setIsLoading(true)
 
     try {
-      const response = await queryApi.queryIndexApiQueryPost({ queryRequest: { query } })
-      
+      // Build typed filters only when the user provided values
+      let filters: QueryFilters | undefined = undefined
+      if (dateFrom || dateTo || categoryFilter) {
+        filters = {}
+        if (dateFrom) filters.dateFrom = new Date(dateFrom)
+        if (dateTo) filters.dateTo = new Date(dateTo)
+        if (categoryFilter) filters.category = categoryFilter
+      }
+
+      const results = await search(query, filters)
+
       let botResponse = ''
-      if (response && response.results && response.results.length > 0) {
+      if (results && results.length > 0) {
         // Sort results by score (ascending - lower distance = better match)
         // Results with null/undefined scores go to the end
-        const sortedResults = [...response.results].sort((a, b) => {
+        const sortedResults = [...results].sort((a, b) => {
           if (a.score == null && b.score == null) return 0
           if (a.score == null) return 1
           if (b.score == null) return -1
           return a.score - b.score
         })
-        
+
         botResponse = t('chat.foundResults', { count: sortedResults.length })
-        
+
         // Replace loading message with response that includes search results
         setMessages(prev => {
           const newMessages = [...prev]
-          newMessages[newMessages.length - 1] = { 
-            text: botResponse, 
+          newMessages[newMessages.length - 1] = {
+            text: botResponse,
             sender: 'bot',
             searchResults: sortedResults,
-            query: query
+            query: query,
           }
           return newMessages
         })
       } else {
         botResponse = t('chat.noResults')
-        
+
         // Replace loading message with no results message
         setMessages(prev => {
           const newMessages = [...prev]
@@ -130,6 +144,31 @@ export default function ChatInterface() {
       </div>
 
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
+        <div className="flex gap-2 items-center">
+          <input
+            aria-label={t('chat.filter.dateFrom')}
+            type="date"
+            value={dateFrom ?? ''}
+            onChange={(e) => setDateFrom(e.target.value || null)}
+            className="border rounded px-2 py-1"
+          />
+          <input
+            aria-label={t('chat.filter.dateTo')}
+            type="date"
+            value={dateTo ?? ''}
+            onChange={(e) => setDateTo(e.target.value || null)}
+            className="border rounded px-2 py-1"
+          />
+          <input
+            aria-label={t('chat.filter.categoryPlaceholder')}
+            type="text"
+            placeholder={t('chat.filter.categoryPlaceholder')}
+            value={categoryFilter ?? ''}
+            onChange={(e) => setCategoryFilter(e.target.value || null)}
+            className="border rounded px-2 py-1"
+          />
+        </div>
+
         <Input
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}

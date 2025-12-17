@@ -86,7 +86,7 @@ export function FeedbackSummaryToJSONTyped(value?: FeedbackSummary | null, ignor
         
         'total_corrections': value['totalCorrections'],
         'corrections_by_category': value['correctionsByCategory'],
-        'last_updated': value['lastUpdated'].toISOString(),
+        'last_updated': ((value['lastUpdated']).toISOString()),
         'model_version': value['modelVersion'],
     };
 }

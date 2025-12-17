@@ -1,13 +1,14 @@
 """Query service for handling search operations."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from src.ml.faiss.embeddings import EmbeddingsIndex
 from src.models.database import EmbeddingMetadata
 from src.models.database import Entity as DBEntity
-from src.models.schemas.query import Entity, QueryResponse, SearchResult
+from src.models.schemas.query import Entity, QueryResponse, SearchResult, QueryFilters
 from src.repositories import DataRepository
+
 
 logger = logging.getLogger(__name__)
 
@@ -23,52 +24,129 @@ class QueryService:
         self._embeddings_index = embeddings_index
         self._data_repo = data_repo
 
-    def search_documents(self, query_text: str, k: int = 100) -> QueryResponse:
+    def search_documents(
+        self, 
+        query_text: str = "", 
+        k: int = 100, 
+        filter: Optional[QueryFilters] = None
+    ) -> QueryResponse:
         """
-        Search for documents based on query text.
+        Search for documents based on query text and filters.
 
         Args:
             query_text: The search query
             k: Number of results to retrieve (default: 100, capped at index size)
+            filters: Optional structured filters
 
         Returns:
             QueryResponse with search results
         """
-        logger.info(f"Processing search query: '{query_text}'")
+        logger.info(f"Processing search query: '{query_text}' filters={filter}")
         logger.debug(f"Query length: {len(query_text)} characters")
 
+        # Early return if no index
         if not self._embeddings_index:
-            logger.warning("No embeddings index available, returning empty results")
+            logger.warning("No embeddings index available")
             return QueryResponse(results=[])
 
-        # Check if index has any embeddings
         index_size = self._embeddings_index.embeddings.ntotal
         logger.info(f"FAISS index contains {index_size} embeddings")
         
         if index_size == 0:
-            logger.warning("FAISS index is empty - no documents have been indexed yet")
+            logger.warning("FAISS index is empty - no documents indexed yet")
             return QueryResponse(results=[])
 
-        # Cap k to not exceed the index size
-        original_k = k
+        # Cap k to index size
         k = min(k, index_size)
-        if original_k > index_size:
-            logger.debug(f"Capped k from {original_k} to {k} (index size: {index_size})")
-
-        # Search the index using EmbeddingsIndex (embeddings only)
-        # Get FAISS indices and distances
-        distances, indices = self._search_faiss(query_text, k)
-        logger.info(f"FAISS search returned {len(indices)} candidate results")
         
-        # Get metadata from database using FAISS indices
+        # Apply filters to get candidate indices
+        candidate_indices = self._apply_filter(filter) if filter else None
+        
+        # Handle filter-only queries (no semantic search)
+        if not query_text and candidate_indices is not None:
+            return self._return_filtered_results(candidate_indices)
+        
+        # Perform semantic search
+        distances, indices = self._search_faiss(query_text, k)
+        logger.info(f"FAISS search returned {len(indices)} candidates")
+        
+        # Intersect with filter results if present
+        if candidate_indices is not None:
+            indices, distances = self._filter_search_results(
+                indices, distances, candidate_indices
+            )
+        
+        # Get metadata and process results
         metadata_list = self._data_repo.get_document_metadata_from_indices(indices)
-
-        logger.info(f"Found {len(metadata_list)} metadata records in database")
-
-        # Process results
+        logger.info(f"Found {len(metadata_list)} metadata records")
+        
         results = self._process_search_results(metadata_list, distances, query_text)
+        logger.info(f"Returning {len(results)} results")
+        
+        return QueryResponse(results=results)
 
-        logger.info(f"Found {len(results)} relevant chunks for query (after filtering).")
+    def _apply_filter(self, filter: QueryFilters) -> Optional[Set[int]]:
+        """Apply all filters and return intersection of matching document indices."""
+        candidate_sets = []
+        
+        # Entity filters
+        if filter.entity_filter:
+            for ef in filter.entity_filter:
+                indices = self._data_repo.get_document_metadata_indices_by_entity_text(
+                    ef.label, ef.text, match=ef.match
+                )
+                candidate_sets.append(set(indices))
+        
+        # Date range filter
+        if filter.date_from and filter.date_to:
+            indices = self._data_repo.get_document_metadata_indices_by_date_range(
+                filter.date_from.isoformat(), 
+                filter.date_to.isoformat()
+            )
+            candidate_sets.append(set(indices))
+        
+        # Category filters
+        if filter.category_filter:
+            cat_indices = set()
+            for category in filter.category_filter:
+                indices = self._data_repo.get_document_metadata_indices_by_filters(
+                    category=category
+                )
+                cat_indices.update(indices)
+            candidate_sets.append(cat_indices)
+        
+        # Return intersection of all filter results
+        if not candidate_sets:
+            return None
+        
+        return set.intersection(*candidate_sets) if len(candidate_sets) > 1 else candidate_sets[0]
+
+    def _filter_search_results(
+        self, 
+        indices: List[int], 
+        distances: List[float], 
+        allowed_indices: Set[int]
+    ) -> tuple[List[int], List[float]]:
+        """Filter search results to only include allowed indices."""
+        filtered_indices = []
+        filtered_distances = []
+        
+        for idx, dist in zip(indices, distances):
+            if idx in allowed_indices:
+                filtered_indices.append(idx)
+                filtered_distances.append(dist)
+        
+        return filtered_indices, filtered_distances
+
+    def _return_filtered_results(self, indices: Set[int]) -> QueryResponse:
+        """Return results from filter-only query (no semantic search)."""
+        indices_list = list(indices)
+        logger.info(f"Returning {len(indices_list)} filter-only results")
+        
+        metadata_list = self._data_repo.get_document_metadata_from_indices(indices_list)
+        distances = [None] * len(indices_list)
+        results = self._process_search_results(metadata_list, distances, query_text="")
+        
         return QueryResponse(results=results)
 
 

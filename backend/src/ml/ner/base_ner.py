@@ -7,6 +7,8 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
+from cv2 import normalize
+
 logger = logging.getLogger(__name__)
 
 
@@ -19,6 +21,8 @@ class Entity:
         label: str,
         start: int,
         end: int,
+        page_number: Optional[int] = None,
+        normalized: Optional[str] = None,
         confidence: Optional[float] = None,
     ):
         """
@@ -35,6 +39,8 @@ class Entity:
         self.label = label
         self.start = start
         self.end = end
+        self.page_number = page_number
+        self.normalized = normalized
         self.confidence = confidence
 
     def to_dict(self) -> Dict[str, Any]:

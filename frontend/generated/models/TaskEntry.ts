@@ -112,8 +112,8 @@ export function TaskEntryToJSONTyped(value?: TaskEntry | null, ignoreDiscriminat
         'filename': value['filename'],
         'status': value['status'],
         'error': value['error'],
-        'created_at': value['createdAt'].toISOString(),
-        'updated_at': value['updatedAt'].toISOString(),
+        'created_at': ((value['createdAt']).toISOString()),
+        'updated_at': ((value['updatedAt']).toISOString()),
     };
 }
 

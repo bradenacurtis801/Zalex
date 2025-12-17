@@ -5,6 +5,7 @@ Handles the sequential steps: Classification → NER → Embedding → FAISS
 """
 
 import logging
+import re
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
@@ -13,8 +14,9 @@ from src.models.shared import OCRPage
 from sqlmodel import Session
 from src.ml.classification.base_classifier import DocumentClassifier
 from src.ml.faiss.embeddings import EmbeddingsIndex
-from src.ml.ner.base_ner import NERModel
-from src.models.database import EmbeddingMetadata, Entity
+from src.ml.ner.base_ner import NERModel, Entity
+from src.models.database import EmbeddingMetadata
+from src.utils.normalizers import should_normalize_entity, normalize_date
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +60,7 @@ class DocumentProcessor:
 
     def process(
         self,
-        pages: List[Any],  # List[OCRPage] - using Any to avoid circular import
+        pages: List[OCRPage],  # List[OCRPage] - using Any to avoid circular import
         filename: str,
         document_id: str,
     ) -> ProcessingResult:
@@ -150,7 +152,7 @@ class DocumentProcessor:
         page: OCRPage,  # OCRPage
         document_id: str,
         category: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Entity]:
         """
         Process a single page: NER extraction and FAISS indexing.
         
@@ -162,15 +164,96 @@ class DocumentProcessor:
         Returns:
             List of entities extracted from this page
         """
-        page_entities: List[Dict[str, Any]] = []
-        
+        page_entities: List[Entity] = []
+
         # ========== STEP 2: Extract NER entities for this page ==========
         if self.ner_model:
-            ner_result = self.ner_model.extract_entities(page.text, category)
-            page_entities = [entity.to_dict() for entity in ner_result.entities]
-            logger.debug(
-                f"[Step 2/4] Page {page.page_number}: extracted {len(page_entities)} entities"
-            )
+            # Prefer per-line NER to match training (training uses lines).
+            # Map line-relative offsets to page-level offsets so metadata remains page-scoped.
+            try:
+                page_text = page.text or ""
+                cursor = 0
+
+                for ocr_line in page.ocr_result.lines:
+                    line_text = (ocr_line.text or "").strip()
+                    if not line_text:
+                        continue
+
+                    # Try to find exact line match starting at the current cursor
+                    idx = page_text.find(line_text, cursor)
+                    if idx == -1:
+                        # Fallback: try finding anywhere in the page
+                        idx = page_text.find(line_text)
+
+                    if idx == -1:
+                        # As a last resort, try a collapsed-whitespace match
+                        collapsed_page = re.sub(r"\s+", " ", page_text).strip()
+                        collapsed_line = re.sub(r"\s+", " ", line_text).strip()
+                        cidx = collapsed_page.find(collapsed_line)
+                        if cidx != -1:
+                            # map collapsed index back approximately by searching nearby
+                            # (best-effort; if mapping fails, skip this line)
+                            approx = page_text.find(collapsed_line)
+                            idx = approx if approx != -1 else -1
+
+                    if idx == -1:
+                        logger.debug(
+                            f"[Step 2/4] Page {page.page_number}: could not map line to page text, skipping line: '{line_text[:40]}'"
+                        )
+                        continue
+
+                    line_start = idx
+                    line_end = idx + len(line_text)
+                    cursor = line_end
+
+                    ner_result = self.ner_model.extract_entities(line_text, category)
+                    for ent in ner_result.entities:
+                        # Map relative offsets to page-level offsets
+                        rel_start = ent.start
+                        rel_end = ent.end
+                        ent.start = line_start + rel_start
+                        ent.end = line_start + rel_end
+                        ent.page_number = page.page_number
+                        # Ensure text and label keys exist
+                        ent.text = page_text[ent.start:ent.end]
+                        # Normalize DATE entities when appropriate and store ISO value
+                        try:
+                            if should_normalize_entity(ent, min_confidence=0.0):
+                                iso = normalize_date(ent.text)
+                                if iso:
+                                    ent.normalized = iso
+                        except Exception:
+                            # Normalization must not break processing; ignore failures
+                            pass
+                        page_entities.append(ent)
+
+                # Deduplicate identical spans (start, end, label)
+                seen = set()
+                unique_entities: List[Entity] = []
+                for e in page_entities:
+                    key = (e.start, e.end, e.label)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    unique_entities.append(e)
+                page_entities = unique_entities
+                # Ensure DATE entities are normalized even when page-level NER was used
+                try:
+                    self._apply_normalization_to_entities(page_entities)
+                except Exception:
+                    # Never let normalization break processing
+                    logger.debug("Date normalization failed for page_entities, continuing without normalized values")
+
+                logger.debug(
+                    f"[Step 2/4] Page {page.page_number}: extracted {len(page_entities)} entities (per-line)"
+                )
+            except Exception as e:
+                logger.warning(f"NER per-line processing failed, falling back to page-level NER: {e}")
+                try:
+                    ner_result = self.ner_model.extract_entities(page.text, category)
+                    page_entities = [entity.to_dict() for entity in ner_result.entities]
+                except Exception:
+                    page_entities = []
         else:
             logger.debug(f"[Step 2/4] Page {page.page_number}: NER model not available, skipping")
         
@@ -198,6 +281,30 @@ class DocumentProcessor:
             logger.debug(f"[Step 3/4] Page {page.page_number}: FAISS index not available, skipping")
         
         return page_entities
+
+    def _apply_normalization_to_entities(self, entities: List[Entity]) -> None:
+        """Apply normalization (ISO date) to DATE entities in-place.
+
+        This is a best-effort step that will not raise on failure. It uses the
+        existing should_normalize_entity / normalize_date helpers.
+        """
+        if not entities:
+            return
+
+        for ent in entities:
+            try:
+                # Skip if already normalized
+                if ent.normalized:
+                    continue
+
+                # Only attempt normalization for entities that qualify
+                if should_normalize_entity(ent, min_confidence=0.0):
+                    iso = normalize_date(ent.text)
+                    if iso:
+                        ent.normalized = iso
+            except Exception:
+                # Ignore normalization errors per-page to avoid breaking pipeline
+                continue
 
 
     def _apply_classification_filters(
@@ -258,7 +365,7 @@ class DocumentProcessor:
         page_number: int,
         text: str,
         category: str,
-        entities: List[Dict[str, Any]],
+        entities: List[Entity],
     ) -> None:
         """
         Update metadata in database for a FAISS embedding (page-level).
@@ -292,11 +399,12 @@ class DocumentProcessor:
                 entity_objects = [
                     Entity(
                         embedding_metadata_id=metadata.id,
-                        text=entity.get("text", "")[:500],  # Truncate to max length
-                        label=entity.get("label", "")[:50],  # Truncate to max length
-                        start=entity.get("start", 0),
-                        end=entity.get("end", 0),
-                        confidence=entity.get("confidence"),
+                        text=entity.text[:500],  # Truncate to max length
+                        label=entity.label[:50],  # Truncate to max length
+                        start=entity.start,
+                        end=entity.end,
+                        confidence=entity.confidence,
+                        normalized_value=entity.normalized,
                     )
                     for entity in entities
                 ]

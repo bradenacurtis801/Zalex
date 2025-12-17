@@ -105,7 +105,7 @@ export function DocumentInfoToJSONTyped(value?: DocumentInfo | null, ignoreDiscr
         'file_size': value['fileSize'],
         'mime_type': value['mimeType'],
         'status': value['status'],
-        'created_at': value['createdAt'].toISOString(),
+        'created_at': ((value['createdAt']).toISOString()),
     };
 }
 

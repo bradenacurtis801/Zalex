@@ -156,7 +156,7 @@ export function PageOCRDataResponseToJSONTyped(value?: PageOCRDataResponse | nul
         'total_lines': value['totalLines'],
         'words_data': ((value['wordsData'] as Array<any>).map(OCRWordDataToJSON)),
         'lines_data': ((value['linesData'] as Array<any>).map(OCRLineDataToJSON)),
-        'created_at': value['createdAt'].toISOString(),
+        'created_at': ((value['createdAt']).toISOString()),
     };
 }
 

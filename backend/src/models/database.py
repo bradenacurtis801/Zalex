@@ -175,6 +175,8 @@ class EntityBase(SQLModel):
     start: int = Field(ge=0)  # Start character position in the text
     end: int = Field(ge=0)  # End character position in the text
     confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)  # Optional confidence score
+    # Normalized value for entities where applicable (ISO dates, numeric amounts, etc.)
+    normalized_value: Optional[str] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

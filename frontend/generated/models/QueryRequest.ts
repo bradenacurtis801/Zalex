@@ -13,6 +13,14 @@
  */
 
 import { mapValues } from '../runtime';
+import type { QueryFilters } from './QueryFilters';
+import {
+    QueryFiltersFromJSON,
+    QueryFiltersFromJSONTyped,
+    QueryFiltersToJSON,
+    QueryFiltersToJSONTyped,
+} from './QueryFilters';
+
 /**
  * 
  * @export
@@ -31,6 +39,12 @@ export interface QueryRequest {
      * @memberof QueryRequest
      */
     limit?: number | null;
+    /**
+     * 
+     * @type {QueryFilters}
+     * @memberof QueryRequest
+     */
+    filters?: QueryFilters | null;
 }
 
 /**
@@ -53,6 +67,7 @@ export function QueryRequestFromJSONTyped(json: any, ignoreDiscriminator: boolea
         
         'query': json['query'],
         'limit': json['limit'] == null ? undefined : json['limit'],
+        'filters': json['filters'] == null ? undefined : QueryFiltersFromJSON(json['filters']),
     };
 }
 
@@ -69,6 +84,7 @@ export function QueryRequestToJSONTyped(value?: QueryRequest | null, ignoreDiscr
         
         'query': value['query'],
         'limit': value['limit'],
+        'filters': QueryFiltersToJSON(value['filters']),
     };
 }
 

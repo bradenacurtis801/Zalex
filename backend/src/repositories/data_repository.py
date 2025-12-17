@@ -1057,6 +1057,152 @@ class DataRepository:
             self._db.commit()
         
         return deleted_count
+    
+    def get_document_metadata_indices_by_entity_text(self, label: str, text: str, match: str = "contains") -> List[int]:
+        """
+        Find FAISS indices for embeddings that contain an entity with given label and text.
+
+        Args:
+            label: Entity label (e.g., 'DATE', 'PER')
+            text: Text to match
+            match: 'exact' or 'contains'
+
+        Returns:
+            List of faiss_index integers
+        """
+        if not text:
+            return []
+
+        if match == "exact":
+            stmt = (
+                select(db.EmbeddingMetadata.faiss_index)
+                .join(db.Entity)
+                .where(db.Entity.label == label)
+                .where(db.Entity.text == text)
+            )
+        else:
+            # contains (case-insensitive)
+            stmt = (
+                select(db.EmbeddingMetadata.faiss_index)
+                .join(db.Entity)
+                .where(db.Entity.label == label)
+                .where(db.Entity.text.ilike(f"%{text}%"))
+            )
+
+        rows = list(self._db.exec(stmt).all())
+        return [r[0] for r in rows]
+
+    def get_document_metadata_indices_by_date_range(self, date_from: str, date_to: str) -> List[int]:
+        """
+        Find FAISS indices for embeddings that mention dates in a given inclusive range.
+
+        This is a best-effort implementation that looks for DATE entities containing the year
+        or searches the page text for the year if entities are not normalized. For reliable
+        results consider adding a normalized date column to Entity.
+
+        Args:
+            date_from: ISO date 'YYYY-MM-DD'
+            date_to: ISO date 'YYYY-MM-DD'
+
+        Returns:
+            List of faiss_index integers
+        """
+        # Prefer normalized ISO date values when available (fast and accurate)
+        try:
+            # Basic validation of date strings
+            from datetime import datetime
+            _ = datetime.fromisoformat(date_from)
+            _ = datetime.fromisoformat(date_to)
+        except Exception:
+            return []
+
+        faiss_indices = set()
+
+        # Query using Entity.normalized_value range (preferred path)
+        try:
+            stmt = (
+                select(db.EmbeddingMetadata.faiss_index)
+                .join(db.Entity)
+                .where(db.Entity.label == "DATE")
+                .where(db.Entity.normalized_value != None)
+                .where(db.Entity.normalized_value >= date_from)
+                .where(db.Entity.normalized_value <= date_to)
+            )
+            rows = list(self._db.exec(stmt).all())
+            for r in rows:
+                faiss_indices.add(r[0])
+        except Exception:
+            # If normalized_value column or join fails, fall back to year-text matching below
+            faiss_indices = set()
+
+        if faiss_indices:
+            return list(faiss_indices)
+
+        # Fallback: year-based text search when normalized values aren't available
+        try:
+            from datetime import datetime, timedelta
+
+            start = datetime.fromisoformat(date_from)
+            end = datetime.fromisoformat(date_to)
+        except Exception:
+            return []
+
+        years = set()
+        cur = start
+        while cur <= end:
+            years.add(cur.year)
+            try:
+                cur = cur.replace(year=cur.year + 1)
+            except Exception:
+                cur = cur + timedelta(days=365)
+
+        for y in years:
+            year_str = str(y)
+            stmt = (
+                select(db.EmbeddingMetadata.faiss_index)
+                .join(db.Entity)
+                .where(db.Entity.label == "DATE")
+                .where(db.Entity.text.ilike(f"%{year_str}%"))
+            )
+            rows = list(self._db.exec(stmt).all())
+            for r in rows:
+                faiss_indices.add(r[0])
+
+            text_stmt = (
+                select(db.EmbeddingMetadata.faiss_index)
+                .where(db.EmbeddingMetadata.text.ilike(f"%{year_str}%"))
+            )
+            text_rows = list(self._db.exec(text_stmt).all())
+            for r in text_rows:
+                faiss_indices.add(r[0])
+
+        return list(faiss_indices)
+
+    def get_document_metadata_indices_by_filters(
+        self,
+        category: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> List[int]:
+        """
+        Combined helper to get faiss indices by simple filters.
+        Currently supports category and a date range (best-effort via year search).
+        """
+        indices = None
+
+        if category:
+            stmt = select(db.EmbeddingMetadata.faiss_index).where(db.EmbeddingMetadata.category == category)
+            rows = list(self._db.exec(stmt).all())
+            indices = {r[0] for r in rows}
+
+        if date_from and date_to:
+            date_indices = set(self.get_indices_by_date_range(date_from, date_to))
+            if indices is None:
+                indices = date_indices
+            else:
+                indices = indices.intersection(date_indices)
+
+        return list(indices) if indices is not None else []
 
     #####################################################
     ### ========== Document Ocr Operations ========== ###

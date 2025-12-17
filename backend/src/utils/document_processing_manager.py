@@ -28,10 +28,7 @@ from src.event_bus import EventBus, EventType
 from src.models.schemas.events import FileStartEvent, FileCompleteEvent
 from src.utils.document_processor import DocumentProcessor
 from src.models.shared import OCRPage, ProcessingTask
-from src.repositories.document_repository import DocumentRepository
-from src.repositories.document_classification_repository import DocumentClassificationRepository
-from src.repositories.ocr_data_repository import OCRDataRepository
-from src.repositories.task_repository import TaskRepository
+from src.repositories import DataRepository
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +40,7 @@ class DocumentProcessManager:
         self,
         ocr_engine: OCREngine,
         document_classifier: DocumentClassifier,
-        document_repo: DocumentRepository,
-        classification_repo: DocumentClassificationRepository,
-        ocr_data_repo: OCRDataRepository,
-        task_repo: TaskRepository,
+        data_repo: DataRepository,
         ner_model: NERModel,
         event_bus: EventBus,
         embeddings_index: EmbeddingsIndex,
@@ -54,10 +48,7 @@ class DocumentProcessManager:
     ):
         self.ocr_engine = ocr_engine
         self.document_classifier = document_classifier
-        self.document_repo = document_repo
-        self.classification_repo = classification_repo
-        self.ocr_data_repo = ocr_data_repo
-        self.task_repo = task_repo
+        self.data_repo = data_repo
         self.embeddings_index = embeddings_index
         self.ner_model = ner_model
         self.event_bus = event_bus
@@ -225,25 +216,25 @@ class DocumentProcessManager:
         """Load pending tasks from database and add them to the worker queue."""
         try:
             # Reset any tasks stuck in PROCESSING status (from previous crash/restart)
-            stuck_tasks = self.task_repo.get_all_processing()
+            stuck_tasks = self.data_repo.get_all_pending_tasks()
             
             if stuck_tasks:
                 logger.info(f"Found {len(stuck_tasks)} task(s) stuck in PROCESSING status, resetting to PENDING")
-                self.task_repo.reset_processing_to_pending(stuck_tasks)
+                self.data_repo.reset_processing_tasks_to_pending(stuck_tasks)
                 logger.info(f"Reset {len(stuck_tasks)} stuck task(s) to PENDING")
             
             # Load all pending tasks (including the ones we just reset)
-            pending_tasks = self.task_repo.get_all_pending()
+            pending_tasks = self.data_repo.get_all_pending_tasks()
             
             if pending_tasks:
                 logger.info(f"Loading {len(pending_tasks)} pending task(s) from database")
                 
                 for db_task in pending_tasks:
                     # Get document to retrieve file content
-                    document = self.document_repo.get_by_id(db_task.document_id)
+                    document = self.data_repo.get_document(db_task.document_id)
                     if not document:
                         logger.warning(f"Document {db_task.document_id} not found for task {db_task.id}, marking as failed")
-                        self.task_repo.update_status(
+                        self.data_repo.update_task_status(
                             db_task, 
                             ProcessingTaskStatus.FAILED, 
                             "Document not found"
@@ -285,9 +276,9 @@ class DocumentProcessManager:
             return
         
         try:
-            db_task = self.task_repo.get_by_id(task.db_task_id)
+            db_task = self.data_repo.get_task(task.db_task_id)
             if db_task:
-                self.task_repo.update_status(db_task, status, error)
+                self.data_repo.update_task_status(db_task, status, error)
                 logger.debug(f"Updated task {task.db_task_id} status to {status.value}")
         except Exception as e:
             logger.error(f"Error updating task status in database: {e}", exc_info=True)
@@ -320,16 +311,16 @@ class DocumentProcessManager:
                     
                     # Fallback: If task still exists and is PROCESSING, mark as completed
                     # (process_document_task should have already called _mark_completed, but this is a safety check)
-                    db_task = self.task_repo.get_by_id(task.db_task_id) if task.db_task_id else None
+                    db_task = self.data_repo.get_task(task.db_task_id) if task.db_task_id else None
                     if db_task and db_task.status == ProcessingTaskStatus.PROCESSING:
                         # Ensure document is marked as completed
-                        document = self.document_repo.get_by_id(task.document_id)
+                        document = self.data_repo.get_document(task.document_id)
                         if document and document.status != DocumentStatus.COMPLETED:
-                            self.document_repo.update_status(document, DocumentStatus.COMPLETED)
+                            self.data_repo.update_document_status(document, DocumentStatus.COMPLETED)
 
                         # Mark task as completed
                         try:
-                            self.task_repo.update_status(db_task, ProcessingTaskStatus.COMPLETED, None)
+                            self.data_repo.update_task_status(db_task, ProcessingTaskStatus.COMPLETED, None)
                             logger.debug(f"Marked task {task.db_task_id} as completed (fallback cleanup)")
                         except Exception as e:
                             logger.warning(f"Failed to mark task {task.db_task_id} as completed in fallback: {e}")
@@ -534,7 +525,7 @@ class DocumentProcessManager:
         import json
 
         for page in pages:
-            self.ocr_data_repo.create(
+            self.data_repo.create_ocr_entry(
                 document_id=document_id,
                 page_number=page.page_number,
                 full_text=page.text,
@@ -574,7 +565,7 @@ class DocumentProcessManager:
             entities: Extracted entities
         """
         # Create or update classification record (one-to-one)
-        self.classification_repo.create_or_update(
+        self.data_repo.create_or_update_classification(
             document_id=document_id,
             category=category,
             confidence=confidence,
@@ -595,16 +586,16 @@ class DocumentProcessManager:
             db_task_id: Database task ID
         """
         # Update document status
-        document = self.document_repo.get_by_id(document_id)
+        document = self.data_repo.get_document(document_id)
         if document:
-            self.document_repo.update_status(document, DocumentStatus.COMPLETED)
+            self.data_repo.update_document_status(document, DocumentStatus.COMPLETED)
 
         # Update task status to completed
         if db_task_id:
-            db_task = self.task_repo.get_by_id(db_task_id)
+            db_task = self.data_repo.get_task(db_task_id)
             if db_task:
                 try:
-                    self.task_repo.update_status(db_task, ProcessingTaskStatus.COMPLETED, None)
+                    self.data_repo.update_task_status(db_task, ProcessingTaskStatus.COMPLETED, None)
                     logger.debug(f"Marked task {db_task_id} as completed for document {document_id}")
                 except Exception as e:
                     # Log error but don't fail - task status update is not critical
@@ -625,15 +616,15 @@ class DocumentProcessManager:
         """
         try:
             # Update document status
-            document = self.document_repo.get_by_id(document_id)
+            document = self.data_repo.get_document(document_id)
             if document:
-                self.document_repo.update_status(document, DocumentStatus.FAILED)
+                self.data_repo.update_document_status(document, DocumentStatus.FAILED)
 
             # Update task status to failed
             if db_task_id:
-                db_task = self.task_repo.get_by_id(db_task_id)
+                db_task = self.data_repo.get_task(db_task_id)
                 if db_task:
-                    self.task_repo.update_status(db_task, ProcessingTaskStatus.FAILED, error)
+                    self.data_repo.update_task_status(db_task, ProcessingTaskStatus.FAILED, error)
         except Exception as db_error:
             logger.error(f"Error updating document/task status: {db_error}")
 

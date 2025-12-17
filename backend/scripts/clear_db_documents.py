@@ -22,6 +22,7 @@ from src.models.database import (
     ProcessingTask,
     EmbeddingMetadata,
     Entity,
+    CategoryTrainingDocument,
     User
 )
 import config
@@ -133,8 +134,15 @@ def clear_document_data():
             for metadata in embedding_metadata:
                 session.delete(metadata)
             logger.info(f"Deleted {len(embedding_metadata)} embedding metadata records")
+
+            # 8. Delete CategoryTrainingDocument (references documents)
+            logger.info("Deleting category training document links...")
+            training_links = session.exec(select(CategoryTrainingDocument)).all()
+            for t in training_links:
+                session.delete(t)
+            logger.info(f"Deleted {len(training_links)} category training document records")
             
-            # 8. Finally, delete Documents
+            # 9. Finally, delete Documents
             logger.info("Deleting documents...")
             documents = session.exec(select(Document)).all()
             for document in documents:

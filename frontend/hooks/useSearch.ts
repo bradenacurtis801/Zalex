@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { queryApi } from '@/api'
-import { SearchResult } from '@/generated'
+import { SearchResult, QueryFilters } from '@/generated'
 
 export function useSearch() {
   const [results, setResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const search = async (query: string): Promise<SearchResult[]> => {
+  // Accept optional typed filters (generated models expect QueryFilters shape)
+  const search = async (query: string, filters?: QueryFilters): Promise<SearchResult[]> => {
     if (!query.trim()) {
       setResults([])
       return []
@@ -17,7 +18,9 @@ export function useSearch() {
     setError(null)
 
     try {
-      const searchResults = await queryApi.queryIndexApiQueryPost({ queryRequest: { query } })
+  const queryRequest: any = { query }
+  if (filters !== undefined) queryRequest.filters = filters
+  const searchResults = await queryApi.queryIndexApiQueryPost({ queryRequest })
       setResults(searchResults.results)
       return searchResults.results
     } catch (err) {

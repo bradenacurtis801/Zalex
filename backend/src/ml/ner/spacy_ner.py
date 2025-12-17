@@ -6,8 +6,11 @@ Uses spaCy models for named entity recognition.
 import logging
 from typing import List, Optional
 
+from anyio import Path
 import spacy
 from spacy import Language
+import os
+from huggingface_hub import snapshot_download
 
 from .base_ner import NERModel, NERResult, Entity
 
@@ -42,6 +45,23 @@ class SpacyNERModel(NERModel):
         self.nlp: Optional[Language] = None
         self._supported_entity_types: List[str] = []
 
+        if "/" in self.model_name_or_path and not os.path.exists(self.model_name_or_path):
+            # This looks like a Hugging Face repo ID (e.g., "username/model-name")
+            model_path = str(Path(self.cache_folder) / self.model_name_or_path.replace("/", "-"))
+            
+            # Check cache for model
+            logger.debug(f"Checking cache for model: {model_path}")
+            if os.path.exists(model_path):
+                self.model_path = model_path
+            else:
+                logger.debug(f"Model not found in cache, downloading from Hugging Face: {self.model_name_or_path}")
+                # Download model from Hugging Face
+                logger.info(f"Loading model from Hugging Face: {self.model_name_or_path}")
+                self.model_path = self._download_from_huggingface(self.model_name_or_path, model_path, token)
+        else:
+            # This is a local path
+            self.model_path = model_name_or_path
+
     def initialize(self) -> bool:
         """
         Initialize the spaCy model.
@@ -51,9 +71,15 @@ class SpacyNERModel(NERModel):
         """
 
         logger.info(f"Loading spaCy model: {self.model_name_or_path}")
+
+       
+        model_path = None
+
+        if os.path.exists(self.model_path):
+            model_path = self.model_path
         
         # Try to load the model
-        self.nlp = spacy.load(self.model_name_or_path)
+        self.nlp = spacy.load(model_path or self.model_name_or_path)
 
         # Get supported entity types from the model
         if self.nlp and "ner" in self.nlp.pipe_names:
@@ -70,6 +96,37 @@ class SpacyNERModel(NERModel):
 
         self.is_initialized = True
         return True
+    
+    def _download_from_huggingface(
+        self, repo_id: str, local_path: str, token: Optional[str] = None
+    ) -> str:
+        """
+        Download model from Hugging Face Hub with caching.
+
+        Args:
+            repo_id: Hugging Face repository ID
+            local_path: Local path where model should be downloaded
+            token: Hugging Face token for private models
+
+        Returns:
+            Local path to downloaded model
+        """
+        try:
+
+            # Download the model
+            logger.info(f"Downloading model to: {local_path}")
+            model_path = snapshot_download(
+                repo_id=repo_id,
+                local_dir=local_path,
+                token=token,
+                local_dir_use_symlinks=False,  # Avoid symlinks for better compatibility
+            )
+            logger.info(f"Model downloaded to: {model_path}")
+            return model_path
+
+        except Exception as e:
+            logger.error(f"Failed to download model from Hugging Face {repo_id}: {e}")
+            raise
 
     def extract_entities(
         self, text: str, doc_type: Optional[str] = None

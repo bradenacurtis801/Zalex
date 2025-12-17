@@ -1,9 +1,30 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
+from datetime import date
+
+
+class EntityFilter(BaseModel):
+    label: str
+    text: str
+    match: Optional[str] = "contains"
+
+
+class QueryFilters(BaseModel):
+    """Typed structured filters for the /query endpoint.
+
+    date_from and date_to are parsed by Pydantic/FastAPI from ISO date strings
+    (YYYY-MM-DD) into `datetime.date` objects.
+    """
+    date_from: Optional[date] = Field(None, description="Inclusive start date (YYYY-MM-DD)")
+    date_to: Optional[date] = Field(None, description="Inclusive end date (YYYY-MM-DD)")
+    entity_filter: Optional[List[EntityFilter]] = None
+    category_filter: Optional[str] = None
+
 
 class QueryRequest(BaseModel):
     query: str
     limit: Optional[int] = None  # Optional limit on number of results (defaults to service default)
+    filters: Optional[QueryFilters] = None
 
 class Entity(BaseModel):
     """Named entity extracted from document text."""

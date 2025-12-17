@@ -1,7 +1,3 @@
-"""Repository layer for data access."""
+from .data_repository import DataRepository
 
-from data_repository import DataRepository
-
-__all__ = [
-    "DataRepository",
-]
+__all__ = ["DataRepository"]
