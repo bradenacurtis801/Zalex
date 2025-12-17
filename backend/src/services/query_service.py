@@ -1,12 +1,13 @@
 """Query service for handling search operations."""
 
 import logging
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from src.ml.faiss.embeddings import EmbeddingsIndex
-from src.models.database import EmbeddingMetadata, Entity as DBEntity
-from src.models.schemas.query import QueryResponse, SearchResult, Entity
-from src.repositories.metadata_repository import MetadataRepository
+from src.models.database import EmbeddingMetadata
+from src.models.database import Entity as DBEntity
+from src.models.schemas.query import Entity, QueryResponse, SearchResult
+from src.repositories import DataRepository
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +17,11 @@ class QueryService:
 
     def __init__(
         self,
-        embeddings_index: Optional[EmbeddingsIndex],
-        metadata_repo: Optional[MetadataRepository],
+        embeddings_index: EmbeddingsIndex,
+        data_repo: DataRepository,
     ):
-        self.embeddings_index = embeddings_index
-        self.metadata_repo = metadata_repo
+        self._embeddings_index = embeddings_index
+        self._data_repo = data_repo
 
     def search_documents(self, query_text: str, k: int = 100) -> QueryResponse:
         """
@@ -36,12 +37,12 @@ class QueryService:
         logger.info(f"Processing search query: '{query_text}'")
         logger.debug(f"Query length: {len(query_text)} characters")
 
-        if not self.embeddings_index:
+        if not self._embeddings_index:
             logger.warning("No embeddings index available, returning empty results")
             return QueryResponse(results=[])
 
         # Check if index has any embeddings
-        index_size = self.embeddings_index.embeddings.ntotal
+        index_size = self._embeddings_index.embeddings.ntotal
         logger.info(f"FAISS index contains {index_size} embeddings")
         
         if index_size == 0:
@@ -60,7 +61,7 @@ class QueryService:
         logger.info(f"FAISS search returned {len(indices)} candidate results")
         
         # Get metadata from database using FAISS indices
-        metadata_list = self.metadata_repo.get_by_faiss_indices(indices)
+        metadata_list = self._data_repo.get_document_metadata_from_indices(indices)
 
         logger.info(f"Found {len(metadata_list)} metadata records in database")
 
@@ -84,15 +85,15 @@ class QueryService:
             distances: List of floats
             indices: List of ints (converted from numpy array)
         """
-        if not self.embeddings_index or self.embeddings_index.embeddings.ntotal == 0:
+        if not self._embeddings_index or self._embeddings_index.embeddings.ntotal == 0:
             return [], []
         
         # Generate embedding for query
-        embedded_query = self.embeddings_index.transformer.encode([query_text], convert_to_tensor=False)
+        embedded_query = self._embeddings_index.transformer.encode([query_text], convert_to_tensor=False)
         embedded_query = embedded_query.astype('float32')
         
         # Search in FAISS index
-        distances, indices = self.embeddings_index.embeddings.search(embedded_query, k)
+        distances, indices = self._embeddings_index.embeddings.search(embedded_query, k)
         
         # Convert numpy arrays to Python lists with native types for database compatibility
         distances_list = distances[0].tolist() if hasattr(distances[0], 'tolist') else list(distances[0])
@@ -113,7 +114,6 @@ class QueryService:
         return distances_list, indices_list
     
 
-    
     def _process_search_results(
         self, metadata_list: List[EmbeddingMetadata], distances: List[float], query_text: Optional[str] = None
     ) -> List[SearchResult]:

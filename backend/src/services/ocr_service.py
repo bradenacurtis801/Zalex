@@ -4,23 +4,24 @@ OCR data service for managing extracted text and metadata.
 
 import json
 import logging
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
+from lib.ocr import OCREngine
+
+from src.core.exceptions import DocumentNotFoundError
 from src.models.database import OCRData
 from src.models.schemas.ocr import (
-    OCRDataResponse,
-    OCRWordData,
-    OCRLineData,
-    PageOCRDataResponse,
     DocumentOCRDataResponse,
-    OCRSearchResponse,
-    OCRSearchMatch,
-    OCRSummaryResponse,
     DocumentTextSummary,
+    OCRDataResponse,
+    OCRLineData,
+    OCRSearchMatch,
+    OCRSearchResponse,
+    OCRSummaryResponse,
+    OCRWordData,
+    PageOCRDataResponse,
 )
-from src.core.exceptions import DocumentNotFoundError
-from lib.ocr.tesseract_engine import TesseractEngine
-from src.repositories.ocr_data_repository import OCRDataRepository
+from src.repositories import DataRepository
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +31,11 @@ class OCRService:
 
     def __init__(
         self,
-        ocr_engine: TesseractEngine,
-        ocr_data_repo: OCRDataRepository,
+        ocr_engine: OCREngine,
+        data_repo: DataRepository,
     ):
-        self.ocr_engine = ocr_engine
-        self.ocr_data_repo = ocr_data_repo
+        self._ocr_engine = ocr_engine
+        self._data_repo = data_repo
 
     def save_ocr_data(
         self, 
@@ -63,7 +64,7 @@ class OCRService:
             confidence_score = total_confidence / len(words) / 100.0  # Convert to 0-1 range
         
 
-        ocr_data = self.ocr_data_repo.create(
+        ocr_data = self._data_repo.create_ocr_entry(
             document_id=document_id,
             page_number=page_number,
             full_text=ocr_result.get('text', ''),
@@ -90,7 +91,7 @@ class OCRService:
         Returns:
             DocumentOCRDataResponse: Formatted OCR data response for the document
         """
-        ocr_data_list = self.ocr_data_repo.get_by_document_id(document_id)
+        ocr_data_list = self._data_repo.get_ocr_data(document_id)
         response_data = []
         
         for ocr_data in ocr_data_list:
@@ -138,7 +139,7 @@ class OCRService:
         Raises:
             DocumentNotFoundError: If OCR data for the page is not found
         """
-        ocr_data = self.ocr_data_repo.get_by_page(document_id, page_number)
+        ocr_data = self._data_repo.get_ocr_entry_by_page(document_id, page_number)
         
         if not ocr_data:
             raise DocumentNotFoundError(
@@ -282,7 +283,7 @@ class OCRService:
         """
         logger.info(f"Searching for '{search_term}' in document {document_id}")
         
-        ocr_data_list = self.ocr_data_repo.get_by_document_id(document_id)
+        ocr_data_list = self._data_repo.get_ocr_data(document_id)
         matches = []
         
         search_term_lower = search_term.lower() if not case_sensitive else search_term
@@ -328,7 +329,7 @@ class OCRService:
         Returns:
             OCRSummaryResponse: Document text summary response
         """
-        ocr_data_list = self.ocr_data_repo.get_by_document_id(document_id)
+        ocr_data_list = self._data_repo.get_ocr_data(document_id)
         
         if not ocr_data_list:
             summary = DocumentTextSummary(

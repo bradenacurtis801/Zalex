@@ -1,25 +1,32 @@
 # auth service layer
-import secrets
 import hashlib
 import json
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Union
-from sqlmodel import Session, select
-from passlib.context import CryptContext
-from fastapi import HTTPException, status
 
-from src.models.database import User, Session as DBSession
-from src.models.schemas.auth import (
-    UserCreate, UserResponse, UserUpdate, UserLogin, UserChangePassword,
-    AdminPasswordReset, TokenResponse, UserRole
-)
-from src.core.auth_config import (
-    ACCESS_TOKEN_EXPIRE_MINUTES
-)
+from fastapi import HTTPException, status
+from passlib.context import CryptContext
+
+from src.core.auth_config import ACCESS_TOKEN_EXPIRE_MINUTES
 from src.core.exceptions import (
-    UserNotFoundException, InvalidCredentialsException, 
-    PermissionDeniedException
+    InvalidCredentialsException,
+    PermissionDeniedException,
+    UserNotFoundException,
 )
+from src.models.database import Session as DBSession
+from src.models.database import User
+from src.models.schemas.auth import (
+    AdminPasswordReset,
+    TokenResponse,
+    UserChangePassword,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+    UserRole,
+    UserUpdate,
+)
+from src.repositories import DataRepository
 
 pwd_context = CryptContext(
     schemes=["bcrypt"], 
@@ -29,35 +36,16 @@ pwd_context = CryptContext(
 )
 
 class AuthService:
-    def __init__(self, db: Session):
-        self.db = db
-    
-    def _constant_time_username_verify(self, provided_username: str, stored_username: str) -> bool:
-        """Constant-time username comparison to prevent timing attacks"""
-        return secrets.compare_digest(provided_username, stored_username)
-    
-    def _dummy_verify(self) -> None:
-        """Perform dummy password verification to maintain consistent timing"""
-        # Use a simple hash operation that takes similar time to bcrypt verification
-        # This provides timing protection without relying on bcrypt hash validation
-        import hashlib
-        dummy_password = "dummy_password_for_timing_protection"
-        dummy_salt = "dummy_salt_for_timing_protection"
-        
-        # Perform a hash operation that takes similar time to bcrypt verification
-        for _ in range(12):  # bcrypt uses 12 rounds by default
-            dummy_password = hashlib.sha256((dummy_password + dummy_salt).encode()).hexdigest()
+    def __init__(self, data_repo: DataRepository):
+        self._data_repo = data_repo
     
     # User Management
     def create_user(self, user_data: UserCreate) -> UserResponse:
         """Create a new user with default role"""
         # Check if username or email already exists
-        existing_user = self.db.exec(
-            select(User).where(
-                (User.username == user_data.username) | 
-                (User.email == user_data.email)
-            )
-        ).first()
+        existing_user = self._data_repo.check_username_or_email_exists(
+            user_data.username, user_data.email
+        )
         
         if existing_user:
             if existing_user.username == user_data.username:
@@ -75,26 +63,20 @@ class AuthService:
         hashed_password = pwd_context.hash(user_data.password)
         
         # Create user with specified role
-        db_user = User(
+        db_user = self._data_repo.create_user(
             username=user_data.username,
             email=user_data.email,
             full_name=user_data.full_name,
             password_hash=hashed_password,
-            user_role=user_data.user_role
+            user_role=user_data.user_role,
         )
-        
-        self.db.add(db_user)
-        self.db.commit()
-        self.db.refresh(db_user)
         
         return self._to_user_response(db_user)
     
     def authenticate_user(self, username: str, password: str) -> Optional[User]:
         """Authenticate user with username/password (timing-attack resistant)"""
         # Get user by username
-        user = self.db.exec(
-            select(User).where(User.username == username, User.is_active == True)
-        ).first()
+        user = self._data_repo.get_active_user_by_username(username)
         
         # Always perform password verification to maintain consistent timing
         if user:
@@ -109,7 +91,7 @@ class AuthService:
     
     def get_user(self, user_id: int) -> UserResponse:
         """Get user by ID"""
-        user = self.db.get(User, user_id)
+        user = self._data_repo.get_user_by_id(user_id)
         if not user:
             raise UserNotFoundException(f"User {user_id} not found")
         
@@ -117,44 +99,29 @@ class AuthService:
     
     def get_all_users(self, skip: int = 0, limit: int = 100) -> List[UserResponse]:
         """Get all users with pagination"""
-        from sqlmodel import select
-        
-        users = self.db.exec(
-            select(User)
-            .offset(skip)
-            .limit(limit)
-            .order_by(User.created_at.desc())
-        ).all()
-        
+        users = self._data_repo.get_all_users(skip=skip, limit=limit)
         return [self._to_user_response(user) for user in users]
     
     def get_user_by_username(self, username: str) -> Optional[User]:
         """Get user by username"""
-        return self.db.exec(
-            select(User).where(User.username == username)
-        ).first()
+        return self._data_repo.get_user_by_username(username)
     
     def update_user(self, user_id: int, update_data: UserUpdate) -> UserResponse:
         """Update user"""
-        user = self.db.get(User, user_id)
+        user = self._data_repo.get_user_by_id(user_id)
         if not user:
             raise UserNotFoundException(f"User {user_id} not found")
         
         update_dict = update_data.dict(exclude_unset=True)
-        update_dict['updated_at'] = datetime.now(timezone.utc)
-        
         for field, value in update_dict.items():
             setattr(user, field, value)
         
-        self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
-        
+        user = self._data_repo.update_user(user)
         return self._to_user_response(user)
     
     def change_password(self, user_id: int, password_data: UserChangePassword) -> dict:
         """Change user password"""
-        user = self.db.get(User, user_id)
+        user = self._data_repo.get_user_by_id(user_id)
         if not user:
             raise UserNotFoundException(f"User {user_id} not found")
         
@@ -164,48 +131,27 @@ class AuthService:
         
         # Update password
         user.password_hash = pwd_context.hash(password_data.new_password)
-        user.updated_at = datetime.now(timezone.utc)
         
-        # Invalidate all existing sessions for this user (except current session)
-        sessions = self.db.exec(
-            select(DBSession).where(DBSession.user_id == user_id)
-        ).all()
+        # Invalidate all existing sessions for this user
+        self._data_repo.revoke_all_sessions_for_user(user_id)
         
-        for session in sessions:
-            session.is_revoked = True
-            self.db.add(session)
-        
-        self.db.add(user)
-        self.db.commit()
+        user = self._data_repo.update_user(user)
         
         return {"message": "Password changed successfully. Please log in again."}
     
     def admin_reset_password(self, user_id: int, password_data: AdminPasswordReset) -> dict:
         """Admin reset user password (no current password required)"""
-        user = self.db.get(User, user_id)
+        user = self._data_repo.get_user_by_id(user_id)
         if not user:
             raise UserNotFoundException(f"User {user_id} not found")
         
         # Update password
         user.password_hash = pwd_context.hash(password_data.new_password)
-        user.updated_at = datetime.now(timezone.utc)
         
         # Invalidate all existing sessions for this user
-        self.db.exec(
-            select(DBSession).where(DBSession.user_id == user_id)
-        ).all()
+        self._data_repo.revoke_all_sessions_for_user(user_id)
         
-        # Revoke all sessions
-        sessions = self.db.exec(
-            select(DBSession).where(DBSession.user_id == user_id)
-        ).all()
-        
-        for session in sessions:
-            session.is_revoked = True
-            self.db.add(session)
-        
-        self.db.add(user)
-        self.db.commit()
+        user = self._data_repo.update_user(user)
         
         return {"message": f"Password reset successfully for user {user.username}. All sessions have been invalidated."}
     
@@ -219,7 +165,7 @@ class AuthService:
             )
         
         # Get user to update
-        user = self.db.get(User, user_id)
+        user = self._data_repo.get_user_by_id(user_id)
         if not user:
             raise HTTPException(
                 status_code=404,
@@ -228,11 +174,7 @@ class AuthService:
         
         # Update user role
         user.user_role = new_role
-        user.updated_at = datetime.now(timezone.utc)
-        
-        self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
+        user = self._data_repo.update_user(user)
         
         return self._to_user_response(user)
     
@@ -247,14 +189,11 @@ class AuthService:
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         
         # Create database record
-        db_session = DBSession(
+        db_session = self._data_repo.create_session(
             user_id=user.id,
-            session_token=token_hash,
-            expires_at=expires_at
+            token_hash=token_hash,
+            expires_at=expires_at,
         )
-        
-        self.db.add(db_session)
-        self.db.commit()
         
         return TokenResponse(
             session_token=raw_token,
@@ -267,12 +206,7 @@ class AuthService:
         """Verify session token and return user (timing-attack resistant)"""
         token_hash = hashlib.sha256(token.encode()).hexdigest()
         
-        db_session = self.db.exec(
-            select(DBSession).where(
-                DBSession.session_token == token_hash,
-                DBSession.is_revoked == False
-            )
-        ).first()
+        db_session = self._data_repo.get_session_by_token_hash(token_hash)
         
         # Always perform some work to maintain consistent timing
         if not db_session:
@@ -292,16 +226,47 @@ class AuthService:
             return None
         
         # Get user
-        user = self.db.get(User, db_session.user_id)
+        user = self._data_repo.get_user_by_id(db_session.user_id)
         if not user or not user.is_active:
             return None
         
         # Update last activity
-        db_session.last_activity = datetime.now(timezone.utc)
-        self.db.add(db_session)
-        self.db.commit()
+        self._data_repo.update_session_last_activity(
+            db_session, datetime.now(timezone.utc)
+        )
         
         return user
+
+    def delete_user(self, user_id: int) -> dict:
+        """Delete a user by ID"""
+        user = self._data_repo.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        username = user.username
+        self._data_repo.delete_user(user)
+        
+        return {"message": f"User {username} deleted successfully"}
+    
+
+    def _constant_time_username_verify(self, provided_username: str, stored_username: str) -> bool:
+        """Constant-time username comparison to prevent timing attacks"""
+        return secrets.compare_digest(provided_username, stored_username)
+    
+    def _dummy_verify(self) -> None:
+        """Perform dummy password verification to maintain consistent timing"""
+        # Use a simple hash operation that takes similar time to bcrypt verification
+        # This provides timing protection without relying on bcrypt hash validation
+        import hashlib
+        dummy_password = "dummy_password_for_timing_protection"
+        dummy_salt = "dummy_salt_for_timing_protection"
+        
+        # Perform a hash operation that takes similar time to bcrypt verification
+        for _ in range(12):  # bcrypt uses 12 rounds by default
+            dummy_password = hashlib.sha256((dummy_password + dummy_salt).encode()).hexdigest()
     
     
     def _generate_session_token(self) -> str:
@@ -322,18 +287,3 @@ class AuthService:
             created_at=user.created_at,
             updated_at=user.updated_at
         )
-
-    def delete_user(self, user_id: int) -> dict:
-        """Delete a user by ID"""
-        user = self.db.get(User, user_id)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-        
-        self.db.delete(user)
-        self.db.commit()
-        
-        return {"message": f"User {user.username} deleted successfully"}
-    

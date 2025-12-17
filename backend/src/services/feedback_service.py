@@ -3,6 +3,7 @@
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional
+
 from sqlmodel import select
 
 from src.core.exceptions import DocumentNotFoundError
@@ -12,9 +13,7 @@ from src.models.schemas.feedback import (
     ReclassificationRequest,
     ReclassificationResponse,
 )
-from src.repositories.document_repository import DocumentRepository
-from src.repositories.document_classification_repository import DocumentClassificationRepository
-from src.repositories.document_feedback_repository import DocumentFeedbackRepository
+from src.repositories import DataRepository
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +24,10 @@ class FeedbackService:
     def __init__(
         self,
         document_classifier: DocumentClassifier,
-        document_repo: DocumentRepository,
-        classification_repo: DocumentClassificationRepository,
-        feedback_repo: DocumentFeedbackRepository,
+        data_repo: DataRepository,
     ):
         self.document_classifier = document_classifier
-        self.document_repo = document_repo
-        self.classification_repo = classification_repo
-        self.feedback_repo = feedback_repo
+        self._data_repo = data_repo
 
 
     def process_reclassification(
@@ -65,7 +60,7 @@ class FeedbackService:
         # This will throw an exception if it fails
         self._update_document_category(request)
 
-        self.feedback_repo.create(
+        self._data_repo.create_document_feedback(
             document_id=request.id,
             user_id=user_id,
             feedback_type="incorrect",  # Reclassification implies incorrect classification
@@ -85,7 +80,7 @@ class FeedbackService:
     def _update_document_category(self, request: ReclassificationRequest):
         """Update the document's category in the database."""
         # Find the document by ID
-        document = self.document_repo.get_by_id(request.id)
+        document = self._data_repo.get_document(request.id)
         
         if not document:
             raise DocumentNotFoundError(
@@ -93,7 +88,7 @@ class FeedbackService:
             )
         
         # Find the classification for this document
-        classifications = self.classification_repo.get_by_document_id(request.id)
+        classifications = self._data_repo.get_classification_by_document_id(request.id)
         classification = classifications[0] if classifications else None
         
         if not classification:
@@ -108,7 +103,7 @@ class FeedbackService:
             )
         
         # Update the classification
-        self.classification_repo.update(
+        self._data_repo.update_classification(
             classification,
             category=request.new_category,
             confidence=request.confidence,
@@ -120,15 +115,15 @@ class FeedbackService:
 
     def _get_available_categories(self) -> List[str]:
         """Queries DB for available categories."""
-        return self.classification_repo.get_all_categories()
+        return self._data_repo.get_all_categories()
 
     def get_feedback_summary(self, skip: int = 0, limit: int = 100) -> FeedbackSummary:
         """Get a summary of feedback corrections from database."""
         # Get feedback records with pagination
-        feedback_records = self.feedback_repo.get_all(skip, limit)
+        feedback_records = self._data_repo.get_all_document_feedback(skip, limit)
         
         # Get total count for pagination info
-        total_corrections = self.feedback_repo.get_total_count()
+        total_corrections = self._data_repo.get_document_feedback_total_count()
         
         # Count corrections by category
         corrections_by_category = {}

@@ -4,15 +4,19 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import UploadFile
-
-from src.ml.classification.base_classifier import DocumentClassifier
-from src.models.schemas.category import CategoriesResponse, CategoryResponse, DocumentEntry, CategoryDocument, UserInfo
-from src.repositories.document_classification_repository import DocumentClassificationRepository
-from src.repositories.category_repository import CategoryRepository
-from src.repositories.document_repository import DocumentRepository
-from src.models.database import DocumentStatus
-from src.core.exceptions import CategoryAlreadyExistsError
 from lib.utils.file_hasher import calculate_file_hash_from_content
+
+from src.core.exceptions import CategoryAlreadyExistsError
+from src.ml.classification.base_classifier import DocumentClassifier
+from src.models.database import DocumentStatus
+from src.models.schemas.category import (
+    CategoriesResponse,
+    CategoryDocument,
+    CategoryResponse,
+    DocumentEntry,
+    UserInfo,
+)
+from src.repositories import DataRepository
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +27,10 @@ class CategoryService:
     def __init__(
         self,
         document_classifier: DocumentClassifier,
-        classification_repo: Optional[DocumentClassificationRepository],
-        category_repo: CategoryRepository,
-        document_repo: DocumentRepository,
+        data_repo: DataRepository,
     ):
-        self.document_classifier = document_classifier
-        self.classification_repo = classification_repo
-        self.category_repo = category_repo
-        self.document_repo = document_repo
+        self._document_classifier = document_classifier
+        self._data_repo = data_repo
 
     def get_documents_by_category(self, category: str, skip: int = 0, limit: int = 100) -> CategoryResponse:
         """
@@ -47,7 +47,7 @@ class CategoryService:
         logger.info(f"Retrieving documents for category: {category} (skip={skip}, limit={limit})")
 
         # Check if category exists in the database
-        available_categories = self.classification_repo.get_all_categories()
+        available_categories = self._data_repo.get_all_categories()
         if category not in available_categories:
             logger.warning(f"Category '{category}' not found in database")
             return CategoryResponse(
@@ -57,8 +57,8 @@ class CategoryService:
             )
 
         # Get documents from repository
-        results = self.classification_repo.get_documents_by_category(category, skip, limit)
-        total_count = self.classification_repo.get_document_count_by_category(category)
+        results = self._data_repo.get_documents_by_category(category, skip, limit)
+        total_count = self._data_repo.get_document_count_by_category(category)
         
         # Convert to DocumentEntry objects
         document_entries = []
@@ -98,8 +98,8 @@ class CategoryService:
         logger.info(f"Retrieving all categories (skip={skip}, limit={limit})")
 
         # Get documents from repository
-        results = self.classification_repo.get_all_documents_with_classifications(skip, limit)
-        total_documents = self.classification_repo.get_total_document_count()
+        results = self._data_repo.get_all_documents_with_classifications(skip, limit)
+        total_documents = self._data_repo.get_total_document_count_with_classifications()
         
         # Group documents by category
         categories_data = {}
@@ -148,7 +148,7 @@ class CategoryService:
         """
         logger.info("Retrieving categories summary")
 
-        summary = self.classification_repo.get_category_counts()
+        summary = self._data_repo.get_category_counts()
 
         logger.info(f"Categories summary: {summary}")
         return summary
@@ -161,7 +161,7 @@ class CategoryService:
             Dictionary with classifier information and training metadata.
         """
         logger.info("Retrieving training metrics from classifier")
-        return self.document_classifier.get_classifier_info()
+        return self._document_classifier.get_classifier_info()
 
     async def create_category_with_training_documents(
         self,
@@ -187,12 +187,12 @@ class CategoryService:
         logger.info(f"Creating category '{normalized_name}' (original: '{name}') with {len(files)} training document(s)")
 
         # Check if category already exists
-        existing_category = self.category_repo.get_by_name(normalized_name)
+        existing_category = self._data_repo.get_classification(normalized_name)
         if existing_category:
             raise CategoryAlreadyExistsError(f"Category '{normalized_name}' already exists")
 
         # Create the category
-        category = self.category_repo.create(
+        category = self._data_repo.create_category(
             name=normalized_name,
             description=description,
             created_by=user_id,
@@ -207,13 +207,13 @@ class CategoryService:
                 file_hash = calculate_file_hash_from_content(file_content)
                 
                 # Check if document already exists
-                existing_document = self.document_repo.get_by_id(file_hash)
+                existing_document = self._data_repo.get_document(file_hash)
                 if not existing_document:
                     # Create new document
                     file_size = len(file_content)
                     mime_type = file.content_type or "application/pdf"
                     
-                    self.document_repo.create(
+                    self._data_repo.create_document(
                         document_id=file_hash,
                         filename=file.filename or "unknown.pdf",
                         file_content=file_content,
@@ -225,7 +225,7 @@ class CategoryService:
                     logger.debug(f"Created document record for {file.filename}")
 
                 # Link document to category as training data
-                self.category_repo.add_training_document(
+                self._data_repo.add_training_document_for_category(
                     category_id=category.id,
                     document_id=file_hash,
                     uploaded_by=user_id,

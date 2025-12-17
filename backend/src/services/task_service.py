@@ -4,8 +4,9 @@ import logging
 from typing import List
 
 from src.core.exceptions import TaskNotFoundException
-from src.models.schemas.task import TaskSummaryResponse, TasksResponse, TaskEntry
-from src.repositories.task_repository import TaskRepository
+from src.models.schemas.task import TaskEntry, TasksResponse, TaskSummaryResponse
+from src.repositories import DataRepository
+from src.routers.task import delete_task
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +16,9 @@ class TaskService:
 
     def __init__(
         self,
-        processing_task_repo: TaskRepository,
+        data_repo: DataRepository,
     ):
-        self.processing_task_repo = processing_task_repo
+        self._data_repo = data_repo
 
     def get_task_summary(self, user_id: int) -> TaskSummaryResponse:
         """
@@ -31,7 +32,7 @@ class TaskService:
         """
         logger.info(f"Retrieving task summary for user {user_id}")
         
-        counts = self.processing_task_repo.get_task_counts_by_user_id(user_id)
+        counts = self._data_repo.get_task_counts_by_user_id(user_id)
         
         return TaskSummaryResponse(
             total_tasks=counts['total'],
@@ -61,7 +62,7 @@ class TaskService:
         logger.info(f"Retrieving tasks for user {user_id} (page {page}, size {page_size})")
         
         # FastAPI Query validation ensures: page >= 1, page_size >= 1, page_size <= 100
-        tasks, total_count = self.processing_task_repo.get_all_by_user_id(
+        tasks, total_count = self._data_repo.get_all_tasks_by_user_id(
             user_id, 
             page=page, 
             page_size=page_size
@@ -105,7 +106,7 @@ class TaskService:
         """
         logger.info(f"Attempting to delete task {task_id} for user {user_id}")
         
-        task = self.processing_task_repo.get_by_id(task_id)
+        task = self._data_repo.get_task(task_id)
         
         if not task:
             logger.warning(f"Task {task_id} not found")
@@ -117,7 +118,7 @@ class TaskService:
             raise TaskNotFoundException(f"Task {task_id} does not belong to user")
         
         # Delete the task
-        self.processing_task_repo.delete(task)
+        self._processing_task_repo.delete(task)
         logger.info(f"Successfully deleted task {task_id} for user {user_id}")
 
     def delete_tasks(self, task_ids: List[int], user_id: int) -> dict:
@@ -153,7 +154,7 @@ class TaskService:
         tasks = []
         not_found = []
         for task_id in task_ids:
-            task = self.processing_task_repo.get_by_id(task_id)
+            task = self._data_repo.get_task(task_id)
             if task:
                 tasks.append(task)
             else:
@@ -173,7 +174,7 @@ class TaskService:
         # Delete authorized tasks
         if authorized_tasks:
             task_ids_to_delete = [task.id for task in authorized_tasks]
-            deleted_count = self.processing_task_repo.delete_by_ids(task_ids_to_delete)
+            deleted_count = self._data_repo.delete_task(task_ids_to_delete)
             logger.info(f"Successfully deleted {deleted_count} task(s) for user {user_id}")
         else:
             deleted_count = 0

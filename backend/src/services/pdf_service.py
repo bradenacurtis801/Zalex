@@ -4,12 +4,11 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from src.models.database import Document
+from fastapi.responses import JSONResponse, Response
 from lib.utils.pdf_helper import PDFHelper, PDFPage
-from fastapi.responses import Response, JSONResponse
-from src.repositories.document_repository import DocumentRepository
-from src.repositories.document_classification_repository import DocumentClassificationRepository
-from src.repositories.pdf_cache_repository import PDFCacheRepository
+
+from src.models.database import Document
+from src.repositories import DataRepository
 
 logger = logging.getLogger(__name__)
 
@@ -19,21 +18,17 @@ class PDFService:
 
     def __init__(
         self,
-        document_repo: DocumentRepository,
-        classification_repo: DocumentClassificationRepository,
-        pdf_cache_repo: PDFCacheRepository,
+        data_repo: DataRepository
     ):
         """
         Initialize the PDF service.
         
         Args:
-            document_repo: Document repository
+            data_repo: Document repository
             classification_repo: Document classification repository
             pdf_cache_repo: PDF cache repository
-        """
-        self.document_repo = document_repo
-        self.classification_repo = classification_repo
-        self.pdf_cache_repo = pdf_cache_repo
+        """ 
+        self._data_repo = data_repo
 
     def get_pdf_pages(
         self, document_id: str, pages: Optional[str] = None
@@ -64,14 +59,14 @@ class PDFService:
         logger.info(f"Getting PDF pages for document ID: {document_id}, requested pages: {page_numbers}")
 
         # First, try to get from cache
-        cached_data = self.pdf_cache_repo.get_by_document_id(document_id)
+        cached_data = self._pdf_cache_repo.get_by_document_id(document_id)
         if cached_data:
             logger.info(f"Using cached PDF pages for document {document_id}")
 
             
             # Get document category (may have changed since cache was created)
             category = None
-            classification = self.classification_repo.get_by_document_id(document_id)
+            classification = self._data_repo.get_classification(document_id)
             if classification:
                 category = classification.category
             cached_data["category"] = category
@@ -98,7 +93,7 @@ class PDFService:
             return self._to_json_response(cached_data, document_id)
 
         # Cache miss - get document and convert
-        document = self.document_repo.get_by_id(document_id)
+        document = self._data_repo.get_document(document_id)
         if not document:
             raise FileNotFoundError(f"Document with ID '{document_id}' not found")
 
@@ -111,14 +106,14 @@ class PDFService:
             actual_total_pages = PDFHelper.get_page_count(document.file_content)
             
             # Convert PDF to images in memory (all pages) - always convert all for caching
-            pages = self._convert_pdf_to_images_in_memory(document.file_content)
+            pages = self._pdf_to_images(document.file_content)
 
             if not pages:
                 raise Exception("Failed to convert PDF to images")
 
             # Get document category (latest classification)
             category = None
-            classification = self.classification_repo.get_by_document_id(document_id)
+            classification = self._data_repo.get_classification(document_id)
             if classification:
                 category = classification.category
 
@@ -133,7 +128,7 @@ class PDFService:
             }
 
             # Cache all pages in database (for future requests)
-            self.pdf_cache_repo.upsert(document_id, full_result)
+            self._data_repo.upsert_pdf_cache(document_id, full_result)
             logger.info(f"Cached all {len(pages)} pages for document {document_id}")
 
             # Filter to requested pages if specified, otherwise return all
@@ -200,64 +195,7 @@ class PDFService:
             headers={"Content-Disposition": f"{disposition}; filename={filename}"},
         )
 
-    def convert_pdf_to_pages(
-        self, document_id: str
-    ) -> Dict[str, Any]:
-        """
-        Convert a PDF document to images and return page information.
-        This method bypasses cache and always converts fresh.
-        Always converts all pages in the PDF.
-
-        Args:
-            document_id: Document ID (file hash)
-
-        Returns:
-            Dictionary with page information and image data
-
-        Raises:
-            FileNotFoundError: If the document doesn't exist
-            ValueError: If the file is not a PDF
-            Exception: If conversion fails
-        """
-        logger.info(f"Converting PDF to pages for document ID: {document_id}")
-
-        # Get document from database
-        document = self.document_repo.get_by_id(document_id)
-        if not document:
-            raise FileNotFoundError(f"Document with ID '{document_id}' not found")
-
-        # Check if it's a PDF
-        if not document.mime_type.startswith("application/pdf"):
-            raise ValueError(f"Document is not a PDF: {document.filename}")
-
-        try:
-            # Get actual total page count first
-            actual_total_pages = PDFHelper.get_page_count(document.file_content)
-            
-            # Convert PDF to images in memory (all pages)
-            pages = self._convert_pdf_to_images_in_memory(document.file_content)
-
-            if not pages:
-                raise Exception("Failed to convert PDF to images")
-
-            result = {
-                "filename": document.filename, 
-                "total_pages": actual_total_pages,  # Actual total pages in PDF
-                "returned_pages": len(pages),  # Number of pages returned in this response
-                "has_more_pages": False,  # All pages are always returned
-                "pages": pages
-            }
-
-            # Cache the result in database
-            self.pdf_cache_repo.upsert(document_id, result)
-
-            return result
-
-        except Exception as e:
-            logger.error(f"Error converting PDF to pages: {e}")
-            raise Exception(f"Failed to convert PDF: {str(e)}")
-
-    def _convert_pdf_to_images_in_memory(
+    def _pdf_to_images(
         self, pdf_content: bytes
     ) -> List[Dict[str, Any]]:
         """
@@ -292,24 +230,6 @@ class PDFService:
             return []
 
 
-    def cleanup_expired_cache(self) -> int:
-        """
-        Clean up expired cache records from database.
-
-        Returns:
-            Number of records cleaned up
-        """
-        return self.pdf_cache_repo.delete_expired()
-
-    def get_cache_stats(self) -> Dict[str, Any]:
-        """
-        Get cache statistics from database.
-
-        Returns:
-            Dictionary with cache statistics
-        """
-        return self.pdf_cache_repo.get_stats()
-
     def get_document_content_response(self, document_id: str) -> Response:
         """
         Get document content as a Response object for viewing.
@@ -325,7 +245,7 @@ class PDFService:
         """
         logger.info(f"Getting document content: {document_id}")
 
-        document = self.document_repo.get_by_id(document_id)
+        document = self._data_repo.get_document(document_id)
         if not document:
             raise FileNotFoundError(f"Document with ID '{document_id}' not found")
 
@@ -370,14 +290,14 @@ class PDFService:
             document_id: Document ID (SHA256 hash)
 
         Returns:
-            Response object with document content for download
+            Response object with document content for download 
 
         Raises:
             FileNotFoundError: If document not found
         """
         logger.info(f"Getting document for download: {document_id}")
 
-        document = self.document_repo.get_by_id(document_id)
+        document = self._data_repo.get_document(document_id)
         if not document:
             raise FileNotFoundError(f"Document with ID '{document_id}' not found")
 
