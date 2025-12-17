@@ -113,13 +113,17 @@ class AppState:
         logger.info("Initializing NER model...")
         
         from src.ml.ner.spacy_ner import SpacyNERModel
-        
-        # Initialize spaCy NER model (defaults to Spanish small model)
-        # Can be configured via environment variable or config
-        ner_model_name = getattr(config.settings, 'ner_model_name', 'es_core_news_sm')
+
+        hf_token = (
+            config.settings.hf_token
+            if config.settings.hf_token
+            else None
+        )
         
         self.ner_model = SpacyNERModel(
-            model_name_or_path=ner_model_name,
+            model_name_or_path=config.NER_MODEL_ID,
+            cache_folder=config.ML_MODELS_DIR,
+            token=hf_token,
         )
 
         self.ner_model.initialize()

@@ -165,6 +165,7 @@ DB_DIR = APP_DIR / "db" / "postgres_data"
 ML_MODELS_DIR = APP_DIR / "ml_models"
 # CLASSIFIER_MODEL_PATH = ML_MODELS_DIR / "classifier_model"
 TFIDF_CLASSIFIER_MODEL_ID = "bradenacurtis/tfid-classifier"
+NER_MODEL_ID = "bradenacurtis/es_core_news_sm_finetuned"
 FAISS_INDEX_PATH = APP_DIR / "document_index.faiss"
 CLASSIFIER_CONFIDENCE_THRESHOLD = 0.8  # Minimum confidence threshold for classification acceptance
 CLASSIFIER_UNCERTAINTY_MARGIN = 0.2
